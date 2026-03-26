@@ -17,6 +17,8 @@ public sealed class ColorPickerForm : Form
     private readonly System.Windows.Forms.Timer _trackTimer;
 
     private Point _cursorPos;
+    private Point _prevCursorPos;
+    private Rectangle _prevPanelRect;
     private Color _pickedColor = Color.Black;
 
     private const int GridSize = 7;
@@ -71,8 +73,34 @@ public sealed class ColorPickerForm : Form
         {
             User32.GetCursorPos(out var pt);
             var np = new Point(pt.X - _virtualBounds.X, pt.Y - _virtualBounds.Y);
-            if (np != _cursorPos) { _cursorPos = np; Invalidate(); }
+            if (np != _cursorPos)
+            {
+                _prevCursorPos = _cursorPos;
+                _cursorPos = np;
+
+                // Only invalidate the old and new regions (panel + crosshair)
+                var oldCross = new Rectangle(_prevCursorPos.X - 12, _prevCursorPos.Y - 12, 24, 24);
+                var newCross = new Rectangle(_cursorPos.X - 12, _cursorPos.Y - 12, 24, 24);
+                var newPanel = CalcPanelRect(_cursorPos);
+
+                Invalidate(Rectangle.Union(oldCross, newCross));
+                if (!_prevPanelRect.IsEmpty) Invalidate(_prevPanelRect);
+                Invalidate(newPanel);
+                _prevPanelRect = newPanel;
+            }
         };
+    }
+
+    private Rectangle CalcPanelRect(Point cursor)
+    {
+        int px = cursor.X + CursorOffset;
+        int py = cursor.Y + CursorOffset;
+        if (px + PanelW > ClientSize.Width) px = cursor.X - CursorOffset - PanelW;
+        if (py + PanelH > ClientSize.Height) py = cursor.Y - CursorOffset - PanelH;
+        px = Math.Max(2, px);
+        py = Math.Max(2, py);
+        // Add margin for shadow/border
+        return new Rectangle(px - 2, py - 2, PanelW + 4, PanelH + 4);
     }
 
     private Color GetFastPixel(int x, int y)
@@ -93,9 +121,10 @@ public sealed class ColorPickerForm : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
+        var clip = e.ClipRectangle;
         g.InterpolationMode = InterpolationMode.NearestNeighbor;
         g.CompositingMode = CompositingMode.SourceCopy;
-        g.DrawImage(_dimmed, 0, 0);
+        g.DrawImage(_dimmed, clip, clip, GraphicsUnit.Pixel);
         g.CompositingMode = CompositingMode.SourceOver;
 
         int cx = Math.Clamp(_cursorPos.X, 0, _bmpW - 1);

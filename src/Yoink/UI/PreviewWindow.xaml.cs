@@ -54,6 +54,7 @@ public partial class PreviewWindow : Window
         Theme.Refresh();
         RootBorder.Background = Theme.Brush(Theme.BgElevated);
         RootBorder.BorderBrush = Theme.Brush(Theme.BorderSubtle);
+        ImageBorder.Background = Theme.Brush(Theme.BgElevated);
     }
 
     private void SetThumbnail()

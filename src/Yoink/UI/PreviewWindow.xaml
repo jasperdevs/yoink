@@ -23,9 +23,9 @@
         </Border.RenderTransform>
 
         <Grid>
-            <Border CornerRadius="7" ClipToBounds="True">
+            <Border x:Name="ImageBorder" CornerRadius="7" ClipToBounds="True"
+                    MaxWidth="280" MaxHeight="180" MinWidth="100">
                 <Image x:Name="ThumbnailImage" Stretch="Uniform"
-                       MaxWidth="280" MaxHeight="180" MinWidth="100"
                        RenderOptions.BitmapScalingMode="HighQuality"/>
             </Border>
 
