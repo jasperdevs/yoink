@@ -6,60 +6,78 @@
         ThemeMode="System"
         MinWidth="500" MinHeight="400">
 
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40" GlassFrameThickness="-1" CornerRadius="8"
+                      UseAeroCaptionButtons="True"/>
+    </WindowChrome.WindowChrome>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Toolbar -->
-        <Border Grid.Row="0" Padding="8,6" BorderBrush="#20FFFFFF" BorderThickness="0,0,0,1">
+        <!-- Toolbar in title bar -->
+        <Border Grid.Row="0" Padding="12,6,12,6">
             <StackPanel Orientation="Horizontal">
+                <!-- Tools -->
                 <RadioButton x:Name="ArrowBtn" Content="Arrow" GroupName="Tool"
                              IsChecked="True" Click="ToolChanged"
-                             Padding="10,5" Margin="0,0,4,0" Tag="Arrow"/>
+                             Padding="8,4" Margin="0,0,2,0" Tag="Arrow"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
                 <RadioButton x:Name="TextBtn" Content="Text" GroupName="Tool"
                              Click="ToolChanged"
-                             Padding="10,5" Margin="0,0,4,0" Tag="Text"/>
+                             Padding="8,4" Margin="0,0,2,0" Tag="Text"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
                 <RadioButton x:Name="HighlighterBtn" Content="Highlight" GroupName="Tool"
                              Click="ToolChanged"
-                             Padding="10,5" Margin="0,0,4,0" Tag="Highlighter"/>
-                <RadioButton x:Name="RectBtn" Content="Rectangle" GroupName="Tool"
+                             Padding="8,4" Margin="0,0,2,0" Tag="Highlighter"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <RadioButton x:Name="RectBtn" Content="Rect" GroupName="Tool"
                              Click="ToolChanged"
-                             Padding="10,5" Margin="0,0,4,0" Tag="Rectangle"/>
+                             Padding="8,4" Margin="0,0,2,0" Tag="Rectangle"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
                 <RadioButton x:Name="BlurBtn" Content="Blur" GroupName="Tool"
                              Click="ToolChanged"
-                             Padding="10,5" Margin="0,0,16,0" Tag="Blur"/>
+                             Padding="8,4" Margin="0,0,12,0" Tag="Blur"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
 
-                <!-- Color presets -->
-                <Border Width="24" Height="24" CornerRadius="4" Background="Red"
-                        Margin="0,0,4,0" MouseLeftButtonDown="ColorPicked" Tag="Red" Cursor="Hand"/>
-                <Border Width="24" Height="24" CornerRadius="4" Background="#FF8800"
-                        Margin="0,0,4,0" MouseLeftButtonDown="ColorPicked" Tag="Orange" Cursor="Hand"/>
-                <Border Width="24" Height="24" CornerRadius="4" Background="Yellow"
-                        Margin="0,0,4,0" MouseLeftButtonDown="ColorPicked" Tag="Yellow" Cursor="Hand"/>
-                <Border Width="24" Height="24" CornerRadius="4" Background="#00CC00"
-                        Margin="0,0,4,0" MouseLeftButtonDown="ColorPicked" Tag="Green" Cursor="Hand"/>
-                <Border Width="24" Height="24" CornerRadius="4" Background="#0088FF"
-                        Margin="0,0,4,0" MouseLeftButtonDown="ColorPicked" Tag="Blue" Cursor="Hand"/>
-                <Border Width="24" Height="24" CornerRadius="4" Background="White"
-                        Margin="0,0,16,0" MouseLeftButtonDown="ColorPicked" Tag="White" Cursor="Hand"
-                        BorderBrush="Gray" BorderThickness="1"/>
+                <!-- Colors -->
+                <Border Width="20" Height="20" CornerRadius="10" Background="#FF4444"
+                        Margin="0,0,3,0" MouseLeftButtonDown="ColorPicked" Tag="Red" Cursor="Hand"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Border Width="20" Height="20" CornerRadius="10" Background="#FF8800"
+                        Margin="0,0,3,0" MouseLeftButtonDown="ColorPicked" Tag="Orange" Cursor="Hand"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Border Width="20" Height="20" CornerRadius="10" Background="#FFCC00"
+                        Margin="0,0,3,0" MouseLeftButtonDown="ColorPicked" Tag="Yellow" Cursor="Hand"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Border Width="20" Height="20" CornerRadius="10" Background="#44BB44"
+                        Margin="0,0,3,0" MouseLeftButtonDown="ColorPicked" Tag="Green" Cursor="Hand"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Border Width="20" Height="20" CornerRadius="10" Background="#4488FF"
+                        Margin="0,0,3,0" MouseLeftButtonDown="ColorPicked" Tag="Blue" Cursor="Hand"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Border Width="20" Height="20" CornerRadius="10" Background="White"
+                        Margin="0,0,12,0" MouseLeftButtonDown="ColorPicked" Tag="White" Cursor="Hand"
+                        BorderBrush="#40FFFFFF" BorderThickness="1"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
 
-                <Separator Margin="0,0,16,0"/>
+                <!-- Actions -->
+                <Button Content="Undo" Click="UndoClick" Padding="8,4" Margin="0,0,2,0"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Button Content="Redo" Click="RedoClick" Padding="8,4" Margin="0,0,12,0"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
 
-                <Button Content="Undo" Click="UndoClick" Padding="10,5" Margin="0,0,4,0"/>
-                <Button Content="Redo" Click="RedoClick" Padding="10,5" Margin="0,0,16,0"/>
-
-                <Separator Margin="0,0,16,0"/>
-
-                <Button Content="Copy" Click="CopyClick" Padding="10,5" Margin="0,0,4,0" FontWeight="SemiBold"/>
-                <Button Content="Save" Click="SaveClick" Padding="10,5"/>
+                <Button Content="Copy" Click="CopyClick" Padding="8,4" Margin="0,0,2,0" FontWeight="SemiBold"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Button Content="Save" Click="SaveClick" Padding="8,4"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
             </StackPanel>
         </Border>
 
-        <!-- Canvas area -->
-        <Border Grid.Row="1" Background="#1A1A1A" ClipToBounds="True">
+        <!-- Canvas -->
+        <Border Grid.Row="1" ClipToBounds="True">
             <Canvas x:Name="DrawCanvas"
                     MouseLeftButtonDown="Canvas_MouseDown"
                     MouseMove="Canvas_MouseMove"

@@ -230,13 +230,19 @@ public partial class SettingsWindow : Window
         _selectMode = false;
         SelectBtn.Content = "Select";
         DeleteSelectedBtn.Visibility = Visibility.Collapsed;
+        RefreshHistoryItems();
+    }
 
+    private void RefreshHistoryItems()
+    {
+        var vis = _selectMode ? Visibility.Visible : Visibility.Collapsed;
         var items = _historyService.Entries.Select(e => new HistoryItemVM
         {
             Entry = e,
             ThumbPath = e.FilePath,
             Dimensions = $"{e.Width} x {e.Height}",
-            TimeAgo = FormatTimeAgo(e.CapturedAt)
+            TimeAgo = FormatTimeAgo(e.CapturedAt),
+            SelectVisible = vis
         }).ToList();
 
         HistoryItems.ItemsSource = items;
@@ -247,11 +253,9 @@ public partial class SettingsWindow : Window
     private void ToggleSelectMode(object sender, RoutedEventArgs e)
     {
         _selectMode = !_selectMode;
-        SelectBtn.Content = _selectMode ? "Cancel" : "Select";
+        SelectBtn.Content = _selectMode ? "Done" : "Select";
         DeleteSelectedBtn.Visibility = _selectMode ? Visibility.Visible : Visibility.Collapsed;
-
-        // Show/hide checkboxes by refreshing
-        if (!_selectMode) LoadHistory();
+        RefreshHistoryItems();
     }
 
     private void DeleteSelectedClick(object sender, RoutedEventArgs e)
@@ -313,6 +317,7 @@ internal sealed class HistoryItemVM : System.ComponentModel.INotifyPropertyChang
     public string ThumbPath { get; set; } = "";
     public string Dimensions { get; set; } = "";
     public string TimeAgo { get; set; } = "";
+    public Visibility SelectVisible { get; set; } = Visibility.Collapsed;
 
     private bool _isSelected;
     public bool IsSelected

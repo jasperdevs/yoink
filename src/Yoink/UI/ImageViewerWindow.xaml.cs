@@ -45,11 +45,18 @@ public partial class ImageViewerWindow : Window
         Close();
     }
 
+    private void EditClick(object sender, RoutedEventArgs e)
+    {
+        if (!File.Exists(_filePath)) return;
+        using var bmp = new Bitmap(_filePath);
+        var editor = new AnnotationWindow(bmp);
+        editor.Owner = this;
+        editor.ShowDialog();
+    }
+
     private void DeleteClick(object sender, RoutedEventArgs e)
     {
         _historyService.DeleteEntry(_entry);
         Close();
     }
-
-    private void CloseClick(object sender, RoutedEventArgs e) => Close();
 }
