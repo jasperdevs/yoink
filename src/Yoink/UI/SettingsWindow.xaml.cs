@@ -49,10 +49,29 @@ public partial class SettingsWindow : Window
     {
         SettingsPanel.Visibility = SettingsTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         HistoryPanel.Visibility = HistoryTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-        OcrPanel.Visibility = OcrTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
-        if (HistoryTab.IsChecked == true) LoadHistory();
-        if (OcrTab.IsChecked == true) LoadOcrHistory();
+        if (HistoryTab.IsChecked == true) LoadCurrentHistoryTab();
+    }
+
+    private void HistorySubTabChanged(object sender, RoutedEventArgs e)
+    {
+        LoadCurrentHistoryTab();
+    }
+
+    private void LoadCurrentHistoryTab()
+    {
+        if (ImagesSubTab.IsChecked == true)
+        {
+            ImagesPanel.Visibility = Visibility.Visible;
+            TextPanel.Visibility = Visibility.Collapsed;
+            LoadHistory();
+        }
+        else
+        {
+            ImagesPanel.Visibility = Visibility.Collapsed;
+            TextPanel.Visibility = Visibility.Visible;
+            LoadOcrHistory();
+        }
     }
 
     // ─── Hotkey ────────────────────────────────────────────────────
@@ -249,7 +268,7 @@ public partial class SettingsWindow : Window
             var bmp = new BitmapImage();
             bmp.BeginInit();
             bmp.UriSource = new Uri(vm.ThumbPath);
-            bmp.DecodePixelWidth = 160;
+            bmp.DecodePixelWidth = 320;
             bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.EndInit();
             bmp.Freeze();
@@ -333,7 +352,9 @@ public partial class SettingsWindow : Window
     {
         OcrStack.Children.Clear();
         var entries = _historyService.OcrEntries;
-        OcrEmptyText.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        HistoryEmptyText.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        HistoryEmptyText.Text = "No text captures yet";
+        HistoryCountText.Text = $"{entries.Count} text capture{(entries.Count == 1 ? "" : "s")}";
 
         foreach (var entry in entries)
         {

@@ -24,12 +24,12 @@
 
         <Grid>
             <Border CornerRadius="7" ClipToBounds="True">
-                <!-- Constrain image: max 280 wide, max 180 tall, min 100 wide -->
                 <Image x:Name="ThumbnailImage" Stretch="Uniform"
                        MaxWidth="280" MaxHeight="180" MinWidth="100"
                        RenderOptions.BitmapScalingMode="HighQuality"/>
             </Border>
 
+            <!-- X close -->
             <Border x:Name="CloseBtn" Width="20" Height="20" CornerRadius="10"
                     Background="#90000000" Cursor="Hand"
                     MouseLeftButtonDown="CloseClick"
@@ -41,13 +41,17 @@
                 </Canvas>
             </Border>
 
-            <Border x:Name="SaveBtn" Width="24" Height="24" CornerRadius="6"
-                    Background="#70000000" Cursor="Hand"
+            <!-- Save button - LARGER hit area (36x36 transparent, icon inside) -->
+            <Border x:Name="SaveBtn" Width="36" Height="36" CornerRadius="8"
+                    Background="Transparent" Cursor="Hand"
                     MouseLeftButtonDown="SaveClick"
                     HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                    Margin="0,0,3,3" Opacity="0">
-                <Path Data="M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"
-                      Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"/>
+                    Margin="0,0,0,0" Opacity="0">
+                <Border Background="#70000000" CornerRadius="6" Width="26" Height="26"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Path Data="M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"
+                          Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"/>
+                </Border>
             </Border>
         </Grid>
     </Border>

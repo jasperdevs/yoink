@@ -159,14 +159,23 @@ public partial class App : Application
         var result = new Bitmap(captured);
         Dispatcher.BeginInvoke(() =>
         {
+            string? filePath = null;
+
             if (_settingsService!.Settings.SaveHistory)
-                _historyService!.SaveCapture(result);
+            {
+                var entry = _historyService!.SaveCapture(result);
+                filePath = entry.FilePath;
+            }
+
             if (_settingsService.Settings.SaveToFile)
-                SaveToFile(result);
+                filePath = SaveToFile(result) ?? filePath;
 
             var action = _settingsService.Settings.AfterCapture;
             if (action == AfterCaptureAction.ShowPreview)
-                new PreviewWindow(result).Show(); // PreviewWindow auto-copies to clipboard
+            {
+                var preview = new PreviewWindow(result, filePath);
+                preview.Show();
+            }
             else
             {
                 ClipboardService.CopyToClipboard(result);
@@ -210,11 +219,13 @@ public partial class App : Application
         });
     }
 
-    private void SaveToFile(Bitmap bmp)
+    private string? SaveToFile(Bitmap bmp)
     {
         var dir = _settingsService!.Settings.SaveDirectory;
         Directory.CreateDirectory(dir);
-        bmp.Save(Path.Combine(dir, $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png"), ImageFormat.Png);
+        var path = Path.Combine(dir, $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+        bmp.Save(path, ImageFormat.Png);
+        return path;
     }
 
     private void ShowSettings()

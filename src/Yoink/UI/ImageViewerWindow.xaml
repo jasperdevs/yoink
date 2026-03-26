@@ -7,28 +7,20 @@
         ThemeMode="System"
         KeyDown="OnKeyDown">
 
-    <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="40" GlassFrameThickness="-1" CornerRadius="8"
-                      UseAeroCaptionButtons="True"/>
-    </WindowChrome.WindowChrome>
-
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Title bar area -->
+        <!-- Toolbar -->
         <Border Grid.Row="0" Padding="16,8,16,6">
             <Grid>
                 <TextBlock x:Name="InfoText" FontSize="12" Opacity="0.4" VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="Copy" FontSize="11" Padding="10,4" Margin="0,0,4,0"
-                            WindowChrome.IsHitTestVisibleInChrome="True" Click="CopyClick"/>
-                    <Button Content="Edit" FontSize="11" Padding="10,4" Margin="0,0,4,0"
-                            WindowChrome.IsHitTestVisibleInChrome="True" Click="EditClick"/>
-                    <Button Content="Delete" FontSize="11" Padding="10,4"
-                            WindowChrome.IsHitTestVisibleInChrome="True" Click="DeleteClick"/>
+                    <Button Content="Copy" FontSize="11" Padding="10,4" Margin="0,0,4,0" Click="CopyClick"/>
+                    <Button Content="Edit" FontSize="11" Padding="10,4" Margin="0,0,4,0" Click="EditClick"/>
+                    <Button Content="Delete" FontSize="11" Padding="10,4" Click="DeleteClick"/>
                 </StackPanel>
             </Grid>
         </Border>

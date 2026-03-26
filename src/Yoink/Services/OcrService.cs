@@ -11,41 +11,38 @@ public static class OcrService
 {
     public static async Task<string> RecognizeAsync(Bitmap bitmap)
     {
-        // Convert System.Drawing.Bitmap to PNG bytes
-        byte[] pngBytes;
-        using (var ms = new MemoryStream())
+        try
         {
-            bitmap.Save(ms, ImageFormat.Png);
-            pngBytes = ms.ToArray();
-        }
+            // Use file-based approach for most reliable WinRT interop
+            var tmpPath = Path.Combine(Path.GetTempPath(), $"yoink_ocr_{Guid.NewGuid():N}.png");
+            bitmap.Save(tmpPath, ImageFormat.Png);
 
-        // Write to WinRT InMemoryRandomAccessStream
-        var ras = new InMemoryRandomAccessStream();
-        using (var writer = new DataWriter(ras.GetOutputStreamAt(0)))
+            try
+            {
+                var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(tmpPath);
+                using var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.Read);
+
+                var decoder = await BitmapDecoder.CreateAsync(stream);
+                var softwareBmp = await decoder.GetSoftwareBitmapAsync(
+                    Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
+                    BitmapAlphaMode.Premultiplied);
+
+                var engine = OcrEngine.TryCreateFromUserProfileLanguages()
+                    ?? OcrEngine.TryCreateFromLanguage(new Windows.Globalization.Language("en-US"));
+
+                if (engine is null) return "";
+
+                var result = await engine.RecognizeAsync(softwareBmp);
+                return result.Text ?? "";
+            }
+            finally
+            {
+                try { File.Delete(tmpPath); } catch { }
+            }
+        }
+        catch
         {
-            writer.WriteBytes(pngBytes);
-            await writer.StoreAsync();
-        }
-        ras.Seek(0);
-
-        // Decode to SoftwareBitmap
-        var decoder = await BitmapDecoder.CreateAsync(ras);
-        var softwareBmp = await decoder.GetSoftwareBitmapAsync(
-            Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
-            BitmapAlphaMode.Premultiplied);
-
-        // Run OCR
-        var engine = OcrEngine.TryCreateFromUserProfileLanguages();
-        if (engine is null)
-        {
-            // Fallback to English
-            engine = OcrEngine.TryCreateFromLanguage(new Windows.Globalization.Language("en-US"));
-        }
-
-        if (engine is null)
             return "";
-
-        var result = await engine.RecognizeAsync(softwareBmp);
-        return result.Text ?? "";
+        }
     }
 }
