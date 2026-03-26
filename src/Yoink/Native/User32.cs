@@ -12,8 +12,8 @@ internal static partial class User32
     public const uint MOD_WIN = 0x0008;
     public const uint MOD_NOREPEAT = 0x4000;
 
-    public const int VK_F1 = 0x70;
-    public const int VK_SNAPSHOT = 0x2C;
+    public const int VK_SNAPSHOT = 0x2C;  // PrintScreen
+    public const int VK_S = 0x53;
 
     public const int SRCCOPY = 0x00CC0020;
 
@@ -40,6 +40,5 @@ internal static partial class User32
     public static partial int GetSystemMetrics(int nIndex);
 
     [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool SetProcessDPIAware();
+    public static partial int GetLastError();
 }

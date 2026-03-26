@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Interop;
@@ -30,29 +31,38 @@ public partial class App : Application
         _hotkeyService = new HotkeyService();
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
-        // Create a hidden window to receive hotkey messages.
-        // Must be shown once to get a valid HWND, then hidden.
+        // Create a hidden window to own the hotkey message pump.
+        // It needs a real size (1x1) and to be shown/hidden to force HWND creation.
         _hotkeyWindow = new HiddenHotkeyWindow();
         _hotkeyWindow.Show();
+
+        var hwnd = new WindowInteropHelper(_hotkeyWindow).EnsureHandle();
+        Debug.WriteLine($"[Yoink] Hidden window HWND: {hwnd}");
+
         _hotkeyWindow.Hide();
 
-        var hwnd = new WindowInteropHelper(_hotkeyWindow).Handle;
         var settings = _settingsService.Settings;
+        bool registered = _hotkeyService.Register(hwnd, settings.HotkeyModifiers, settings.HotkeyKey);
+        Debug.WriteLine($"[Yoink] RegisterHotKey result: {registered}");
 
-        if (!_hotkeyService.Register(hwnd, settings.HotkeyModifiers, settings.HotkeyKey))
+        if (!registered)
         {
-            _trayIcon.ShowBalloon("Yoink", "Failed to register hotkey. Another app may be using it.",
+            int err = Native.User32.GetLastError();
+            Debug.WriteLine($"[Yoink] GetLastError: {err}");
+            _trayIcon.ShowBalloon("Yoink", "Failed to register hotkey (Alt+`). Another app may be using it.",
                 System.Windows.Forms.ToolTipIcon.Warning);
         }
         else
         {
-            _trayIcon.ShowBalloon("Yoink", "Ready! Press Ctrl+Shift+F1 to capture.",
+            _trayIcon.ShowBalloon("Yoink", "Ready! Press Alt+` to yoink.",
                 System.Windows.Forms.ToolTipIcon.Info);
         }
     }
 
     private void OnHotkeyPressed()
     {
+        Debug.WriteLine("[Yoink] Hotkey pressed!");
+
         if (_isCapturing)
             return;
 
@@ -64,6 +74,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"[Yoink] Capture error: {ex}");
             _trayIcon?.ShowBalloon("Yoink Error", ex.Message, System.Windows.Forms.ToolTipIcon.Error);
             _isCapturing = false;
         }
@@ -71,8 +82,8 @@ public partial class App : Application
 
     private void StartCapture()
     {
-        // Small delay to let the hotkey release visually settle
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        // Small delay to let the hotkey keys release visually
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         timer.Tick += (_, _) =>
         {
             timer.Stop();
@@ -87,12 +98,10 @@ public partial class App : Application
 
         try
         {
-            // Capture all screens
             var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
             screenshot = bmp;
+            Debug.WriteLine($"[Yoink] Captured {bounds.Width}x{bounds.Height} at ({bounds.X},{bounds.Y})");
 
-            // Create and show the overlay form on a separate WinForms-compatible thread
-            // since we need its own message pump
             var overlayThread = new Thread(() =>
             {
                 System.Windows.Forms.Application.EnableVisualStyles();
@@ -101,10 +110,12 @@ public partial class App : Application
 
                 overlay.RegionSelected += selection =>
                 {
+                    Debug.WriteLine($"[Yoink] Region selected: {selection}");
                     overlay.Hide();
 
                     using var cropped = ScreenCapture.CropRegion(screenshot, selection);
                     ClipboardService.CopyToClipboard(cropped);
+                    Debug.WriteLine("[Yoink] Copied to clipboard");
 
                     overlay.Close();
                     System.Windows.Forms.Application.ExitThread();
@@ -112,6 +123,7 @@ public partial class App : Application
 
                 overlay.SelectionCancelled += () =>
                 {
+                    Debug.WriteLine("[Yoink] Selection cancelled");
                     overlay.Close();
                     System.Windows.Forms.Application.ExitThread();
                 };
@@ -153,16 +165,19 @@ public partial class App : Application
 
 /// <summary>
 /// Invisible window that exists solely to provide an HWND for receiving WM_HOTKEY messages.
+/// Needs a real (small) size so Windows creates a proper native window.
 /// </summary>
 internal sealed class HiddenHotkeyWindow : Window
 {
     public HiddenHotkeyWindow()
     {
-        Width = 0;
-        Height = 0;
+        Width = 1;
+        Height = 1;
+        Left = -9999;
+        Top = -9999;
         WindowStyle = WindowStyle.None;
         ShowInTaskbar = false;
         ShowActivated = false;
-        Opacity = 0;
+        ResizeMode = ResizeMode.NoResize;
     }
 }
