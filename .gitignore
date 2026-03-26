@@ -28,6 +28,7 @@ bld/
 ## OS
 Thumbs.db
 .DS_Store
+nul
 
 ## Publish
 publish/
