@@ -7,6 +7,31 @@
         WindowStartupLocation="CenterScreen"
         ThemeMode="System">
 
+    <Window.Resources>
+        <Style x:Key="TabButtonStyle" TargetType="RadioButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Padding="12,6" CornerRadius="6" Cursor="Hand"
+                                Background="Transparent" BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"/>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -22,14 +47,12 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- App title -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="Yoink" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
                     <TextBlock Text="v0.1.0" FontSize="12" Foreground="Gray" 
                                VerticalAlignment="Center" Margin="8,3,0,0"/>
                 </StackPanel>
 
-                <!-- Tab buttons -->
                 <StackPanel Grid.Row="2" Orientation="Horizontal">
                     <RadioButton x:Name="SettingsTab" Content="Settings" GroupName="Tabs"
                                  IsChecked="True" Click="TabChanged"
@@ -46,7 +69,6 @@
             <!-- Settings panel -->
             <ScrollViewer x:Name="SettingsPanel" VerticalScrollBarVisibility="Auto" Padding="20,16,20,20">
                 <StackPanel>
-                    <!-- Hotkey -->
                     <TextBlock Text="Hotkey" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
                     <TextBox x:Name="HotkeyBox" IsReadOnly="True" FontSize="13" Padding="10,8"
                              PreviewKeyDown="HotkeyBox_PreviewKeyDown"
@@ -55,7 +77,6 @@
                     <TextBlock x:Name="HotkeyHint" Text="Click and press a new key combination"
                                FontSize="11" Foreground="Gray" Margin="0,4,0,0" Visibility="Collapsed"/>
 
-                    <!-- After capture -->
                     <TextBlock Text="After capture" FontSize="13" FontWeight="SemiBold" Margin="0,20,0,6"/>
                     <ComboBox x:Name="AfterCaptureCombo" FontSize="13" Padding="10,8"
                               SelectionChanged="AfterCaptureCombo_SelectionChanged">
@@ -63,7 +84,6 @@
                         <ComboBoxItem Content="Show preview"/>
                     </ComboBox>
 
-                    <!-- Save to file -->
                     <CheckBox x:Name="SaveToFileCheck" Content="Also save screenshots to file" 
                               FontSize="13" Margin="0,20,0,0"
                               Checked="SaveToFileCheck_Changed" Unchecked="SaveToFileCheck_Changed"/>
@@ -73,12 +93,10 @@
                                 Click="BrowseButton_Click"/>
                     </StackPanel>
 
-                    <!-- Start with Windows -->
                     <CheckBox x:Name="StartWithWindowsCheck" Content="Start with Windows"
                               FontSize="13" Margin="0,20,0,0"
                               Checked="StartWithWindowsCheck_Changed" Unchecked="StartWithWindowsCheck_Changed"/>
 
-                    <!-- Save history -->
                     <CheckBox x:Name="SaveHistoryCheck" Content="Save capture history"
                               FontSize="13" Margin="0,20,0,0"
                               Checked="SaveHistoryCheck_Changed" Unchecked="SaveHistoryCheck_Changed"/>
@@ -135,29 +153,4 @@
             </Grid>
         </Grid>
     </Grid>
-
-    <Window.Resources>
-        <Style x:Key="TabButtonStyle" TargetType="RadioButton">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Bd" Padding="12,6" CornerRadius="6" Cursor="Hand"
-                                Background="Transparent" BorderThickness="0">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"/>
-        </Style>
-    </Window.Resources>
 </Window>

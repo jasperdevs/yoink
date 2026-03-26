@@ -106,16 +106,22 @@ public partial class PreviewWindow : Window
 
     private void PositionBottomRight()
     {
+        // Initial position off-screen; will be corrected in OnLoaded after layout
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Right - 320;
-        Top = workArea.Bottom - 240;
+        Top = workArea.Bottom;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Now ActualWidth/ActualHeight are known - anchor to bottom-right
+        var workArea = SystemParameters.WorkArea;
+        Left = workArea.Right - ActualWidth - 16;
+        double targetTop = workArea.Bottom - ActualHeight - 16;
+
         var slideIn = new DoubleAnimation
         {
-            From = Top + 50, To = Top,
+            From = targetTop + 50, To = targetTop,
             Duration = TimeSpan.FromMilliseconds(220),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
