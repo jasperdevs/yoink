@@ -44,18 +44,81 @@ public partial class App : Application
         _hotkeyService = new HotkeyService();
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
         _hotkeyService.OcrHotkeyPressed += OnOcrHotkeyPressed;
+        _hotkeyService.PickerHotkeyPressed += OnPickerHotkeyPressed;
 
         var s = _settingsService!.Settings;
         bool ok = _hotkeyService.Register(s.HotkeyModifiers, s.HotkeyKey);
         _hotkeyService.RegisterOcr(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
+        _hotkeyService.RegisterPicker(s.PickerHotkeyModifiers, s.PickerHotkeyKey);
 
         var name = FormatHotkeyName(s.HotkeyModifiers, s.HotkeyKey);
         if (!ok)
             _trayIcon!.ShowBalloon("Yoink", $"Failed to register {name}. Try a different hotkey.",
                 System.Windows.Forms.ToolTipIcon.Warning);
         else
-            _trayIcon!.ShowBalloon("Yoink", $"Ready! {name} to capture, Alt+Shift+` for OCR.",
+            _trayIcon!.ShowBalloon("Yoink", $"Ready! {name} to capture, Alt+C for color picker.",
                 System.Windows.Forms.ToolTipIcon.Info);
+    }
+
+    private void OnPickerHotkeyPressed()
+    {
+        if (_isCapturing) return;
+        _isCapturing = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            try { StartColorPicker(); }
+            catch (Exception ex)
+            {
+                _trayIcon?.ShowBalloon("Yoink Error", ex.Message, System.Windows.Forms.ToolTipIcon.Error);
+                _isCapturing = false;
+            }
+        });
+    }
+
+    private void StartColorPicker()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
+
+            var thread = new Thread(() =>
+            {
+                System.Windows.Forms.Application.EnableVisualStyles();
+                var picker = new Capture.ColorPickerForm(bmp, bounds);
+
+                picker.ColorPicked += hex =>
+                {
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        System.Windows.Clipboard.SetText(hex);
+                        _trayIcon?.ShowBalloon("Yoink", $"Copied {hex}",
+                            System.Windows.Forms.ToolTipIcon.Info);
+                    });
+                    picker.Close();
+                    System.Windows.Forms.Application.ExitThread();
+                };
+
+                picker.Cancelled += () =>
+                {
+                    picker.Close();
+                    System.Windows.Forms.Application.ExitThread();
+                };
+
+                picker.FormClosed += (_, _) =>
+                {
+                    bmp.Dispose();
+                    Dispatcher.BeginInvoke(() => _isCapturing = false);
+                };
+
+                System.Windows.Forms.Application.Run(picker);
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.IsBackground = true;
+            thread.Start();
+        };
+        timer.Start();
     }
 
     private void OnHotkeyPressed()

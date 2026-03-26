@@ -35,6 +35,7 @@ public partial class SettingsWindow : Window
         var s = _settingsService.Settings;
         HotkeyBox.Text = FormatHotkey(s.HotkeyModifiers, s.HotkeyKey);
         OcrHotkeyBox.Text = FormatHotkey(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
+        PickerHotkeyBox.Text = FormatHotkey(s.PickerHotkeyModifiers, s.PickerHotkeyKey);
         AfterCaptureCombo.SelectedIndex = (int)s.AfterCapture;
         SaveToFileCheck.IsChecked = s.SaveToFile;
         SaveDirBox.Text = s.SaveDirectory;
@@ -140,6 +141,42 @@ public partial class SettingsWindow : Window
         _settingsService.Save();
         OcrHotkeyBox.Text = FormatHotkey(mod, vk);
         _isRecordingOcr = false;
+        Keyboard.ClearFocus();
+        HotkeyChanged?.Invoke();
+    }
+
+    // ─── Picker Hotkey ───────────────────────────────────────────
+
+    private bool _isRecordingPicker;
+
+    private void PickerHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        _isRecordingPicker = true;
+        PickerHotkeyBox.Text = "Press keys...";
+    }
+
+    private void PickerHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        _isRecordingPicker = false;
+        PickerHotkeyBox.Text = FormatHotkey(_settingsService.Settings.PickerHotkeyModifiers, _settingsService.Settings.PickerHotkeyKey);
+    }
+
+    private void PickerHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (!_isRecordingPicker) return;
+        e.Handled = true;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (IsModifierOnly(key)) return;
+
+        uint mod = GetModifiers();
+        if (mod == 0) return;
+
+        uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
+        _settingsService.Settings.PickerHotkeyModifiers = mod;
+        _settingsService.Settings.PickerHotkeyKey = vk;
+        _settingsService.Save();
+        PickerHotkeyBox.Text = FormatHotkey(mod, vk);
+        _isRecordingPicker = false;
         Keyboard.ClearFocus();
         HotkeyChanged?.Invoke();
     }

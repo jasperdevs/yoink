@@ -15,6 +15,10 @@ public sealed class AppSettings
     public uint OcrHotkeyModifiers { get; set; } = Native.User32.MOD_ALT | Native.User32.MOD_SHIFT;
     public uint OcrHotkeyKey { get; set; } = 0xC0;
 
+    // Color picker hotkey: Alt+C
+    public uint PickerHotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
+    public uint PickerHotkeyKey { get; set; } = 0x43; // VK_C
+
     public AfterCaptureAction AfterCapture { get; set; } = AfterCaptureAction.ShowPreview;
     public bool SaveToFile { get; set; } = true;
     public string SaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);

@@ -128,6 +128,23 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Color picker" FontSize="13"/>
+                                <TextBlock Text="Pick color, copies hex" FontSize="11" Opacity="0.3"/>
+                            </StackPanel>
+                            <TextBox x:Name="PickerHotkeyBox" Grid.Column="1" IsReadOnly="True"
+                                     FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
+                                     PreviewKeyDown="PickerHotkeyBox_PreviewKeyDown"
+                                     GotFocus="PickerHotkeyBox_GotFocus" LostFocus="PickerHotkeyBox_LostFocus"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
                             <TextBlock Text="After capture" FontSize="13" VerticalAlignment="Center"/>
                             <ComboBox x:Name="AfterCaptureCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="145"
                                       SelectionChanged="AfterCaptureCombo_SelectionChanged">
