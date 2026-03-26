@@ -113,6 +113,25 @@
                         </Grid>
                     </Border>
 
+                    <!-- OCR hotkey card -->
+                    <Border Style="{StaticResource SettingCard}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="OCR hotkey" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Select region, text copied to clipboard" FontSize="11" Opacity="0.35"/>
+                            </StackPanel>
+                            <TextBox x:Name="OcrHotkeyBox" Grid.Column="1" IsReadOnly="True"
+                                     FontSize="13" Padding="12,7" MinWidth="130" TextAlignment="Center"
+                                     PreviewKeyDown="OcrHotkeyBox_PreviewKeyDown"
+                                     GotFocus="OcrHotkeyBox_GotFocus"
+                                     LostFocus="OcrHotkeyBox_LostFocus"/>
+                        </Grid>
+                    </Border>
+
                     <!-- After capture card -->
                     <Border Style="{StaticResource SettingCard}">
                         <Grid>

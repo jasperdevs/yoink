@@ -78,6 +78,16 @@ public sealed class RegionOverlayForm : Form
         KeyPreview = true;
     }
 
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        // Force above ALL other topmost windows (PiP, etc.)
+        Native.User32.SetWindowPos(Handle, Native.User32.HWND_TOPMOST,
+            0, 0, 0, 0,
+            Native.User32.SWP_NOMOVE | Native.User32.SWP_NOSIZE | Native.User32.SWP_SHOWWINDOW);
+        Native.User32.SetForegroundWindow(Handle);
+    }
+
     private void CalcToolbar()
     {
         int w = ButtonSize * 5 + ButtonSpacing * 4 + 16;

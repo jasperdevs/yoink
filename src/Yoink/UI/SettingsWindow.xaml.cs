@@ -30,6 +30,7 @@ public partial class SettingsWindow : Window
     {
         var s = _settingsService.Settings;
         HotkeyBox.Text = FormatHotkey(s.HotkeyModifiers, s.HotkeyKey);
+        OcrHotkeyBox.Text = FormatHotkey(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
         AfterCaptureCombo.SelectedIndex = (int)s.AfterCapture;
         SaveToFileCheck.IsChecked = s.SaveToFile;
         SaveDirBox.Text = s.SaveDirectory;
@@ -110,6 +111,49 @@ public partial class SettingsWindow : Window
         _isRecordingHotkey = false;
         HotkeyHint.Visibility = Visibility.Collapsed;
         FocusManager.SetFocusedElement(this, this);
+        Keyboard.ClearFocus();
+        HotkeyChanged?.Invoke();
+    }
+
+    // ─── OCR Hotkey ───────────────────────────────────────────────
+
+    private bool _isRecordingOcr;
+
+    private void OcrHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        _isRecordingOcr = true;
+        OcrHotkeyBox.Text = "Press keys...";
+    }
+
+    private void OcrHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        _isRecordingOcr = false;
+        OcrHotkeyBox.Text = FormatHotkey(
+            _settingsService.Settings.OcrHotkeyModifiers,
+            _settingsService.Settings.OcrHotkeyKey);
+    }
+
+    private void OcrHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (!_isRecordingOcr) return;
+        e.Handled = true;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
+            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.Escape) return;
+
+        uint modifiers = 0;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) modifiers |= Native.User32.MOD_ALT;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) modifiers |= Native.User32.MOD_CONTROL;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) modifiers |= Native.User32.MOD_SHIFT;
+        if (modifiers == 0) return;
+
+        uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
+        _settingsService.Settings.OcrHotkeyModifiers = modifiers;
+        _settingsService.Settings.OcrHotkeyKey = vk;
+        _settingsService.Save();
+
+        OcrHotkeyBox.Text = FormatHotkey(modifiers, vk);
+        _isRecordingOcr = false;
         Keyboard.ClearFocus();
         HotkeyChanged?.Invoke();
     }
