@@ -84,11 +84,8 @@ public partial class ToastWindow : Window
 
     public static void Show(string title, string body = "")
     {
-        // Dismiss old one with slide first, then show new
-        if (_current is { _isDismissing: false })
-            _current.SlideAway();
-        else
-            _current?.ForceClose();
+        // Kill old toast immediately - only one at a time
+        _current?.ForceClose();
 
         var toast = new ToastWindow(title, body);
         _current = toast;

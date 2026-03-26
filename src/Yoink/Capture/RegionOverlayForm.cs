@@ -21,8 +21,6 @@ public sealed class RegionOverlayForm : Form
     private bool _hasDragged;
 
     private readonly List<Point> _freeformPoints = new();
-    private Rectangle _hoveredWindowRect;
-
     private readonly Rectangle[] _toolbarButtons = new Rectangle[4];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
@@ -140,18 +138,7 @@ public sealed class RegionOverlayForm : Form
                 }
                 break;
 
-            case CaptureMode.Window when _hoveredWindowRect.Width > 0:
-                var cr = Rectangle.Intersect(_hoveredWindowRect,
-                    new Rectangle(0, 0, _screenshot.Width, _screenshot.Height));
-                if (cr.Width > 0)
-                {
-                    g.CompositingMode = CompositingMode.SourceCopy;
-                    g.DrawImage(_screenshot, cr, cr, GraphicsUnit.Pixel);
-                    g.CompositingMode = CompositingMode.SourceOver;
-                }
-                using (var pen = new Pen(Color.FromArgb(200, 0, 120, 215), 3f))
-                    g.DrawRectangle(pen, _hoveredWindowRect);
-                break;
+
         }
 
         PaintToolbar(g);
@@ -274,9 +261,6 @@ public sealed class RegionOverlayForm : Form
                 _freeformPoints.Clear();
                 _freeformPoints.Add(e.Location);
                 break;
-            case CaptureMode.Window:
-                if (_hoveredWindowRect.Width > 0) RegionSelected?.Invoke(_hoveredWindowRect);
-                break;
             case CaptureMode.Fullscreen:
                 RegionSelected?.Invoke(new Rectangle(0, 0, _screenshot.Width, _screenshot.Height));
                 break;
@@ -303,10 +287,7 @@ public sealed class RegionOverlayForm : Form
                 _hasDragged = true;
                 Invalidate();
                 break;
-            case CaptureMode.Window:
-                var wr = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
-                if (wr != _hoveredWindowRect) { _hoveredWindowRect = wr; Invalidate(); }
-                break;
+
         }
     }
 
@@ -350,7 +331,7 @@ public sealed class RegionOverlayForm : Form
     private void SetMode(CaptureMode m)
     {
         _mode = m; _hasSelection = false; _hasDragged = false;
-        _freeformPoints.Clear(); _hoveredWindowRect = Rectangle.Empty;
+        _freeformPoints.Clear();
         _isSelecting = false; Invalidate();
     }
 

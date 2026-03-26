@@ -12,6 +12,7 @@ namespace Yoink;
 
 public partial class App : Application
 {
+    private static Mutex? _mutex;
     private HotkeyService? _hotkeyService;
     private SettingsService? _settingsService;
     private HistoryService? _historyService;
@@ -21,6 +22,14 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Single instance check
+        _mutex = new Mutex(true, "YoinkScreenshotTool_SingleInstance", out bool isNew);
+        if (!isNew)
+        {
+            Shutdown();
+            return;
+        }
+
         base.OnStartup(e);
 
         _settingsService = new SettingsService();
@@ -217,6 +226,10 @@ public partial class App : Application
     private void HandleCaptureResult(Bitmap captured)
     {
         var result = new Bitmap(captured);
+
+        // Play capture sound
+        SoundService.PlayCaptureSound();
+
         Dispatcher.BeginInvoke(() =>
         {
             string? filePath = null;
