@@ -53,11 +53,9 @@ public partial class App : Application
 
         var name = FormatHotkeyName(s.HotkeyModifiers, s.HotkeyKey);
         if (!ok)
-            _trayIcon!.ShowBalloon("Yoink", $"Failed to register {name}. Try a different hotkey.",
-                System.Windows.Forms.ToolTipIcon.Warning);
+            ToastWindow.Show("Hotkey failed", $"Could not register {name}. Try a different combo.");
         else
-            _trayIcon!.ShowBalloon("Yoink", $"Ready! {name} to capture, Alt+C for color picker.",
-                System.Windows.Forms.ToolTipIcon.Info);
+            ToastWindow.Show("Yoink ready", $"{name} to capture, Alt+C for colors");
     }
 
     private void OnPickerHotkeyPressed()
@@ -69,7 +67,7 @@ public partial class App : Application
             try { StartColorPicker(); }
             catch (Exception ex)
             {
-                _trayIcon?.ShowBalloon("Yoink Error", ex.Message, System.Windows.Forms.ToolTipIcon.Error);
+                ToastWindow.Show("Error", ex.Message);
                 _isCapturing = false;
             }
         });
@@ -93,8 +91,7 @@ public partial class App : Application
                     Dispatcher.BeginInvoke(() =>
                     {
                         System.Windows.Clipboard.SetText(hex);
-                        _trayIcon?.ShowBalloon("Yoink", $"Copied {hex}",
-                            System.Windows.Forms.ToolTipIcon.Info);
+                        ToastWindow.Show("Color copied", hex);
                     });
                     picker.Close();
                     System.Windows.Forms.Application.ExitThread();
@@ -130,7 +127,7 @@ public partial class App : Application
             try { StartCapture(false); }
             catch (Exception ex)
             {
-                _trayIcon?.ShowBalloon("Yoink Error", ex.Message, System.Windows.Forms.ToolTipIcon.Error);
+                ToastWindow.Show("Error", ex.Message);
                 _isCapturing = false;
             }
         });
@@ -145,7 +142,7 @@ public partial class App : Application
             try { StartCapture(true); }
             catch (Exception ex)
             {
-                _trayIcon?.ShowBalloon("Yoink Error", ex.Message, System.Windows.Forms.ToolTipIcon.Error);
+                ToastWindow.Show("Error", ex.Message);
                 _isCapturing = false;
             }
         });
@@ -259,9 +256,8 @@ public partial class App : Application
                 {
                     System.Windows.Clipboard.SetText(text);
                     // Show the copied text (truncated) in the balloon
-                    var preview = text.Length > 120 ? text[..120] + "..." : text;
-                    _trayIcon?.ShowBalloon("Yoink OCR", preview,
-                        System.Windows.Forms.ToolTipIcon.Info);
+                    var prev = text.Length > 100 ? text[..100] + "..." : text;
+                    ToastWindow.Show("Text copied", prev);
 
                     // Save to OCR history
                     if (_settingsService!.Settings.SaveHistory)
@@ -269,14 +265,12 @@ public partial class App : Application
                 }
                 else
                 {
-                    _trayIcon?.ShowBalloon("Yoink OCR", "No text found in selection.",
-                        System.Windows.Forms.ToolTipIcon.Warning);
+                    ToastWindow.Show("OCR", "No text found");
                 }
             }
             catch (Exception ex)
             {
-                _trayIcon?.ShowBalloon("Yoink OCR Error", ex.Message,
-                    System.Windows.Forms.ToolTipIcon.Error);
+                ToastWindow.Show("OCR error", ex.Message);
             }
             finally { result.Dispose(); }
         });
