@@ -4,7 +4,7 @@
         Title="Yoink"
         Width="900" Height="650"
         WindowStartupLocation="CenterOwner"
-        ThemeMode="System"
+        ThemeMode="Dark"
         KeyDown="OnKeyDown">
 
     <Grid>

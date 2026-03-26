@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
@@ -8,6 +7,7 @@ namespace Yoink.UI;
 public partial class ToastWindow : Window
 {
     private readonly DispatcherTimer _timer;
+    private bool _isDismissing;
     private static ToastWindow? _current;
 
     private ToastWindow(string title, string body)
@@ -25,7 +25,7 @@ public partial class ToastWindow : Window
         if (string.IsNullOrEmpty(body)) BodyText.Visibility = Visibility.Collapsed;
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        _timer.Tick += (_, _) => { _timer.Stop(); Dismiss(); };
+        _timer.Tick += (_, _) => { _timer.Stop(); SlideAway(); };
 
         Loaded += OnLoaded;
     }
@@ -45,25 +45,53 @@ public partial class ToastWindow : Window
         _timer.Start();
     }
 
-    private void Dismiss()
+    /// <summary>Always dismisses by sliding right off screen edge.</summary>
+    private void SlideAway()
     {
-        var dur = TimeSpan.FromMilliseconds(220);
+        if (_isDismissing) return;
+        _isDismissing = true;
+        _timer.Stop();
+
+        var wa = SystemParameters.WorkArea;
+        double target = wa.Right + 20; // past the screen edge
+
+        var dur = TimeSpan.FromMilliseconds(250);
         var ease = new QuarticEase { EasingMode = EasingMode.EaseIn };
 
-        SlideX.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation { To = 200, Duration = dur, EasingFunction = ease });
+        var slide = new DoubleAnimation { To = target, Duration = dur, EasingFunction = ease };
+        slide.Completed += (_, _) => ForceClose();
+        BeginAnimation(LeftProperty, slide);
 
-        var fade = new DoubleAnimation { To = 0, Duration = dur, EasingFunction = ease };
-        fade.Completed += (_, _) => { try { Close(); } catch { } };
-        BeginAnimation(OpacityProperty, fade);
+        BeginAnimation(OpacityProperty, new DoubleAnimation
+        {
+            To = 0.3, Duration = dur, EasingFunction = ease
+        });
     }
 
-    /// <summary>Show a toast notification. Replaces any existing toast.</summary>
+    private void ForceClose()
+    {
+        _timer.Stop();
+        if (_current == this) _current = null;
+        try { Close(); } catch { }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _timer.Stop();
+        if (_current == this) _current = null;
+        base.OnClosed(e);
+    }
+
     public static void Show(string title, string body = "")
     {
-        // Must be called on UI thread
-        _current?.Close();
-        _current = new ToastWindow(title, body);
-        _current.Show();
+        // Dismiss old one with slide first, then show new
+        if (_current is { _isDismissing: false })
+            _current.SlideAway();
+        else
+            _current?.ForceClose();
+
+        var toast = new ToastWindow(title, body);
+        _current = toast;
+        toast.Show();
     }
 }

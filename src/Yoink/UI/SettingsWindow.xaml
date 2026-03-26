@@ -5,7 +5,7 @@
         Height="580" Width="540"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
-        ThemeMode="System">
+        ThemeMode="Dark">
 
     <Window.Resources>
         <Style x:Key="TabPill" TargetType="RadioButton">

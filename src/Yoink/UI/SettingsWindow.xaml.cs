@@ -28,6 +28,11 @@ public partial class SettingsWindow : Window
         _historyService = historyService;
         InitializeComponent();
         LoadSettings();
+        Activated += (_, _) =>
+        {
+            // Refresh history when window regains focus
+            if (HistoryTab.IsChecked == true) LoadCurrentHistoryTab();
+        };
     }
 
     private void LoadSettings()
