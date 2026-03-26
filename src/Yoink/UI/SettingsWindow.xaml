@@ -163,18 +163,17 @@
             <!-- History -->
             <Grid x:Name="HistoryPanel" Visibility="Collapsed">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Empty state -->
-                <TextBlock x:Name="HistoryEmptyText" Grid.Row="1" Text="No captures yet"
-                           FontSize="14" Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <TextBlock x:Name="HistoryEmptyText" Grid.Row="0" Text="No captures yet"
+                           FontSize="14" Opacity="0.3" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Visibility="Collapsed"/>
 
                 <!-- History grid -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,8,16,8">
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="16,8,16,8">
                     <ItemsControl x:Name="HistoryItems">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -184,20 +183,26 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Width="148" Margin="4" CornerRadius="8" ClipToBounds="True"
-                                        Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
-                                        Cursor="Hand" MouseLeftButtonDown="HistoryItemClick" Tag="{Binding}">
+                                        Background="#0AFFFFFF" Cursor="Hand"
+                                        MouseLeftButtonDown="HistoryItemClick"
+                                        MouseRightButtonDown="HistoryItemRightClick"
+                                        Tag="{Binding}">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="100"/>
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
-                                        <Border Grid.Row="0" Background="#15808080">
-                                            <Image Source="{Binding ThumbPath}" Stretch="UniformToFill"
-                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
-                                        </Border>
+                                        <!-- Selection checkbox (visible in select mode) -->
+                                        <CheckBox x:Name="SelectCheck" Grid.Row="0"
+                                                  HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                  Margin="6,6,0,0" Visibility="Collapsed"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  Click="HistorySelectToggle"/>
+                                        <Image Grid.Row="0" Source="{Binding ThumbPath}" Stretch="UniformToFill"
+                                               RenderOptions.BitmapScalingMode="HighQuality"/>
                                         <StackPanel Grid.Row="1" Margin="8,6,8,8">
                                             <TextBlock Text="{Binding Dimensions}" FontSize="11" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding TimeAgo}" FontSize="10" Opacity="0.4"/>
+                                            <TextBlock Text="{Binding TimeAgo}" FontSize="10" Opacity="0.35"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
@@ -207,11 +212,17 @@
                 </ScrollViewer>
 
                 <!-- Bottom bar -->
-                <Border Grid.Row="2" Padding="16,8,16,12">
+                <Border Grid.Row="1" Padding="16,8,16,12">
                     <Grid>
-                        <TextBlock x:Name="HistoryCountText" FontSize="12" Opacity="0.4" VerticalAlignment="Center"/>
-                        <Button Content="Clear all" FontSize="11" Padding="10,5" HorizontalAlignment="Right"
-                                Click="ClearHistoryClick"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="HistoryCountText" FontSize="12" Opacity="0.35" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="SelectBtn" Content="Select" FontSize="11" Padding="10,5"
+                                    Margin="0,0,4,0" Click="ToggleSelectMode"/>
+                            <Button x:Name="DeleteSelectedBtn" Content="Delete selected" FontSize="11"
+                                    Padding="10,5" Click="DeleteSelectedClick" Visibility="Collapsed"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>

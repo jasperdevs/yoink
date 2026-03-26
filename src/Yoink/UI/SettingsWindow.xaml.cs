@@ -179,8 +179,14 @@ public partial class SettingsWindow : Window
 
     // ─── History ───────────────────────────────────────────────────
 
+    private bool _selectMode;
+
     private void LoadHistory()
     {
+        _selectMode = false;
+        SelectBtn.Content = "Select";
+        DeleteSelectedBtn.Visibility = Visibility.Collapsed;
+
         var items = _historyService.Entries.Select(e => new HistoryItemVM
         {
             Entry = e,
@@ -194,24 +200,45 @@ public partial class SettingsWindow : Window
         HistoryEmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void ClearHistoryClick(object sender, RoutedEventArgs e)
+    private void ToggleSelectMode(object sender, RoutedEventArgs e)
     {
-        _historyService.ClearAll();
+        _selectMode = !_selectMode;
+        SelectBtn.Content = _selectMode ? "Cancel" : "Select";
+        DeleteSelectedBtn.Visibility = _selectMode ? Visibility.Visible : Visibility.Collapsed;
+
+        // Show/hide checkboxes by refreshing
+        if (!_selectMode) LoadHistory();
+    }
+
+    private void DeleteSelectedClick(object sender, RoutedEventArgs e)
+    {
+        if (HistoryItems.ItemsSource is not List<HistoryItemVM> items) return;
+        var toDelete = items.Where(i => i.IsSelected).Select(i => i.Entry).ToList();
+        foreach (var entry in toDelete)
+            _historyService.DeleteEntry(entry);
         LoadHistory();
     }
 
+    private void HistorySelectToggle(object sender, RoutedEventArgs e) { }
+
     private void HistoryItemClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is Border border && border.Tag is HistoryItemVM vm)
-        {
-            if (!File.Exists(vm.Entry.FilePath)) return;
+        if (sender is not Border border || border.Tag is not HistoryItemVM vm) return;
+        if (_selectMode) { vm.IsSelected = !vm.IsSelected; return; }
+        if (!File.Exists(vm.Entry.FilePath)) return;
 
-            // Open fullscreen viewer
-            var viewer = new ImageViewerWindow(vm.Entry.FilePath, _historyService, vm.Entry);
-            viewer.Owner = this;
-            viewer.ShowDialog();
-            LoadHistory(); // refresh in case it was deleted
-        }
+        var viewer = new ImageViewerWindow(vm.Entry.FilePath, _historyService, vm.Entry);
+        viewer.Owner = this;
+        viewer.ShowDialog();
+        LoadHistory();
+    }
+
+    private void HistoryItemRightClick(object sender, MouseButtonEventArgs e)
+    {
+        // Right-click to enter select mode and toggle this item
+        if (!_selectMode) ToggleSelectMode(sender, e);
+        if (sender is Border border && border.Tag is HistoryItemVM vm)
+            vm.IsSelected = !vm.IsSelected;
     }
 
     private static string FormatTimeAgo(DateTime dt)
@@ -236,10 +263,19 @@ public partial class SettingsWindow : Window
     }
 }
 
-internal sealed class HistoryItemVM
+internal sealed class HistoryItemVM : System.ComponentModel.INotifyPropertyChanged
 {
     public HistoryEntry Entry { get; set; } = null!;
     public string ThumbPath { get; set; } = "";
     public string Dimensions { get; set; } = "";
     public string TimeAgo { get; set; } = "";
+
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set { _isSelected = value; PropertyChanged?.Invoke(this, new(nameof(IsSelected))); }
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 }

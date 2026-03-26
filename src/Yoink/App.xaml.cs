@@ -35,98 +35,100 @@ public partial class App : Application
         _trayIcon.OnHistory += ShowHistory;
         _trayIcon.OnQuit += () => Shutdown();
 
-        RegisterHotkey();
+        RegisterHotkeys();
     }
 
-    public void RegisterHotkey()
+    public void RegisterHotkeys()
     {
         _hotkeyService?.Dispose();
         _hotkeyService = new HotkeyService();
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
+        _hotkeyService.OcrHotkeyPressed += OnOcrHotkeyPressed;
 
         var s = _settingsService!.Settings;
-        var hotkeyName = FormatHotkeyName(s.HotkeyModifiers, s.HotkeyKey);
         bool ok = _hotkeyService.Register(s.HotkeyModifiers, s.HotkeyKey);
+        _hotkeyService.RegisterOcr(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
 
+        var name = FormatHotkeyName(s.HotkeyModifiers, s.HotkeyKey);
         if (!ok)
-        {
-            _trayIcon!.ShowBalloon("Yoink",
-                $"Failed to register {hotkeyName}. Try a different hotkey.",
+            _trayIcon!.ShowBalloon("Yoink", $"Failed to register {name}. Try a different hotkey.",
                 System.Windows.Forms.ToolTipIcon.Warning);
-        }
         else
-        {
-            _trayIcon!.ShowBalloon("Yoink",
-                $"Ready! Press {hotkeyName} to yoink.",
+            _trayIcon!.ShowBalloon("Yoink", $"Ready! {name} to capture, Alt+Shift+` for OCR.",
                 System.Windows.Forms.ToolTipIcon.Info);
-        }
-    }
-
-    private static string FormatHotkeyName(uint mod, uint key)
-    {
-        var parts = new List<string>();
-        if ((mod & Native.User32.MOD_CONTROL) != 0) parts.Add("Ctrl");
-        if ((mod & Native.User32.MOD_ALT) != 0) parts.Add("Alt");
-        if ((mod & Native.User32.MOD_SHIFT) != 0) parts.Add("Shift");
-        var k = System.Windows.Input.KeyInterop.KeyFromVirtualKey((int)key);
-        parts.Add(k == System.Windows.Input.Key.Oem3 ? "`" : k.ToString());
-        return string.Join("+", parts);
     }
 
     private void OnHotkeyPressed()
     {
         if (_isCapturing) return;
         _isCapturing = true;
-
         Dispatcher.BeginInvoke(() =>
         {
-            try { StartCapture(); }
+            try { StartCapture(false); }
             catch (Exception ex)
             {
-                _trayIcon?.ShowBalloon("Yoink Error", ex.Message,
-                    System.Windows.Forms.ToolTipIcon.Error);
+                _trayIcon?.ShowBalloon("Yoink Error", ex.Message, System.Windows.Forms.ToolTipIcon.Error);
                 _isCapturing = false;
             }
         });
     }
 
-    private void StartCapture()
+    private void OnOcrHotkeyPressed()
+    {
+        if (_isCapturing) return;
+        _isCapturing = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            try { StartCapture(true); }
+            catch (Exception ex)
+            {
+                _trayIcon?.ShowBalloon("Yoink Error", ex.Message, System.Windows.Forms.ToolTipIcon.Error);
+                _isCapturing = false;
+            }
+        });
+    }
+
+    private void StartCapture(bool ocrMode)
     {
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
-        timer.Tick += (_, _) => { timer.Stop(); DoCapture(); };
+        timer.Tick += (_, _) => { timer.Stop(); DoCapture(ocrMode); };
         timer.Start();
     }
 
-    private void DoCapture()
+    private void DoCapture(bool ocrMode)
     {
         Bitmap? screenshot = null;
-
         try
         {
             var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
             screenshot = bmp;
-
             var lastMode = _settingsService!.Settings.LastCaptureMode;
 
-            var overlayThread = new Thread(() =>
+            var thread = new Thread(() =>
             {
                 System.Windows.Forms.Application.EnableVisualStyles();
                 var overlay = new RegionOverlayForm(screenshot, bounds, lastMode);
 
-                overlay.RegionSelected += selection =>
+                overlay.RegionSelected += sel =>
                 {
                     overlay.Hide();
-                    using var cropped = ScreenCapture.CropRegion(screenshot, selection);
-                    HandleCaptureResult(cropped);
+                    using var cropped = ScreenCapture.CropRegion(screenshot, sel);
+                    if (ocrMode)
+                        HandleOcrResult(cropped);
+                    else
+                        HandleCaptureResult(cropped);
                     overlay.Close();
                     System.Windows.Forms.Application.ExitThread();
                 };
 
-                overlay.FreeformSelected += freeformBmp =>
+                overlay.FreeformSelected += fbmp =>
                 {
                     overlay.Hide();
-                    HandleCaptureResult(freeformBmp);
-                    freeformBmp.Dispose();
+                    if (ocrMode)
+                        HandleOcrResult(fbmp);
+                    else
+                        HandleCaptureResult(fbmp);
+                    fbmp.Dispose();
                     overlay.Close();
                     System.Windows.Forms.Application.ExitThread();
                 };
@@ -145,43 +147,26 @@ public partial class App : Application
 
                 System.Windows.Forms.Application.Run(overlay);
             });
-
-            overlayThread.SetApartmentState(ApartmentState.STA);
-            overlayThread.IsBackground = true;
-            overlayThread.Start();
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.IsBackground = true;
+            thread.Start();
         }
-        catch
-        {
-            screenshot?.Dispose();
-            _isCapturing = false;
-            throw;
-        }
+        catch { screenshot?.Dispose(); _isCapturing = false; throw; }
     }
 
     private void HandleCaptureResult(Bitmap captured)
     {
         var result = new Bitmap(captured);
-
         Dispatcher.BeginInvoke(() =>
         {
-            var action = _settingsService!.Settings.AfterCapture;
-
-            // Save to history
-            if (_settingsService.Settings.SaveHistory)
-            {
+            if (_settingsService!.Settings.SaveHistory)
                 _historyService!.SaveCapture(result);
-            }
-
-            // Save to file if enabled
             if (_settingsService.Settings.SaveToFile)
-            {
                 SaveToFile(result);
-            }
 
+            var action = _settingsService.Settings.AfterCapture;
             if (action == AfterCaptureAction.ShowPreview)
-            {
-                ShowPreview(result);
-            }
+                new PreviewWindow(result).Show(); // PreviewWindow auto-copies to clipboard
             else
             {
                 ClipboardService.CopyToClipboard(result);
@@ -190,51 +175,74 @@ public partial class App : Application
         });
     }
 
-    private void ShowPreview(Bitmap screenshot)
+    private void HandleOcrResult(Bitmap captured)
     {
-        var preview = new PreviewWindow(screenshot);
-        preview.Show();
+        var result = new Bitmap(captured);
+        Dispatcher.BeginInvoke(async () =>
+        {
+            try
+            {
+                string text = await OcrService.RecognizeAsync(result);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    System.Windows.Clipboard.SetText(text);
+                    _trayIcon?.ShowBalloon("Yoink OCR", "Text copied to clipboard.",
+                        System.Windows.Forms.ToolTipIcon.Info);
+                }
+                else
+                {
+                    _trayIcon?.ShowBalloon("Yoink OCR", "No text found in selection.",
+                        System.Windows.Forms.ToolTipIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                _trayIcon?.ShowBalloon("Yoink OCR Error", ex.Message,
+                    System.Windows.Forms.ToolTipIcon.Error);
+            }
+            finally { result.Dispose(); }
+        });
     }
 
-    private void SaveToFile(Bitmap screenshot)
+    private void SaveToFile(Bitmap bmp)
     {
         var dir = _settingsService!.Settings.SaveDirectory;
         Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-        screenshot.Save(path, ImageFormat.Png);
+        bmp.Save(Path.Combine(dir, $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png"), ImageFormat.Png);
     }
 
     private void ShowSettings()
     {
-        if (_settingsWindow is { IsVisible: true })
-        {
-            _settingsWindow.Activate();
-            return;
-        }
-
+        if (_settingsWindow is { IsVisible: true }) { _settingsWindow.Activate(); return; }
         _settingsWindow = new SettingsWindow(_settingsService!, _historyService!);
-        _settingsWindow.HotkeyChanged += () => RegisterHotkey();
+        _settingsWindow.HotkeyChanged += () => RegisterHotkeys();
         _settingsWindow.Show();
     }
 
     private void ShowHistory()
     {
         ShowSettings();
-        // Switch to history tab after a short delay to ensure the window is loaded
         Dispatcher.BeginInvoke(() =>
         {
-            if (_settingsWindow is not null)
+            var tab = _settingsWindow?.FindName("HistoryTab") as System.Windows.Controls.RadioButton;
+            if (tab is not null)
             {
-                // Programmatically click the history tab
-                var historyTab = _settingsWindow.FindName("HistoryTab") as System.Windows.Controls.RadioButton;
-                if (historyTab is not null)
-                {
-                    historyTab.IsChecked = true;
-                    // Fire the tab changed event
-                    historyTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-                }
+                tab.IsChecked = true;
+                tab.RaiseEvent(new RoutedEventArgs(
+                    System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             }
         }, DispatcherPriority.Loaded);
+    }
+
+    private static string FormatHotkeyName(uint mod, uint key)
+    {
+        var parts = new List<string>();
+        if ((mod & Native.User32.MOD_CONTROL) != 0) parts.Add("Ctrl");
+        if ((mod & Native.User32.MOD_ALT) != 0) parts.Add("Alt");
+        if ((mod & Native.User32.MOD_SHIFT) != 0) parts.Add("Shift");
+        var k = System.Windows.Input.KeyInterop.KeyFromVirtualKey((int)key);
+        parts.Add(k == System.Windows.Input.Key.Oem3 ? "`" : k.ToString());
+        return string.Join("+", parts);
     }
 
     protected override void OnExit(ExitEventArgs e)

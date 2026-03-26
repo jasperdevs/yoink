@@ -23,70 +23,49 @@ public partial class PreviewWindow : Window
     private System.Windows.Point _mouseDownPos;
     private bool _mouseIsDown;
 
-    // Static reference to close old preview on new capture
     private static PreviewWindow? _current;
 
     public PreviewWindow(Bitmap screenshot)
     {
-        // Close old preview if exists
         _current?.ForceClose();
         _current = this;
 
         _screenshot = screenshot;
+
+        // Auto-copy to clipboard
+        ClipboardService.CopyToClipboard(screenshot);
+
         InitializeComponent();
         ApplyTheme();
         SetThumbnail();
-        PositionBottomRight();
 
-        // 3 second hold, then 2.5 second fade
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        _fadeTimer.Tick += (_, _) =>
-        {
-            _fadeTimer.Stop();
-            if (!_isHovered) StartFadeOut();
-        };
+        _fadeTimer.Tick += (_, _) => { _fadeTimer.Stop(); if (!_isHovered) StartFade(); };
 
         Loaded += OnLoaded;
     }
 
     private void ApplyTheme()
     {
-        // Detect Windows dark/light mode
-        bool isDark = IsDarkTheme();
-        if (isDark)
-        {
-            RootBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(230, 32, 32, 32));
-            RootBorder.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 255, 255));
-        }
-        else
-        {
-            RootBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(240, 250, 250, 250));
-            RootBorder.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(40, 0, 0, 0));
-            // Dark icons on light background
-            foreach (var path in FindVisualChildren<System.Windows.Shapes.Path>(RootBorder))
-                path.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 30));
-        }
+        Theme.Refresh();
+        RootBorder.Background = Theme.Brush(Theme.BgElevated);
+        RootBorder.BorderBrush = Theme.Brush(Theme.Border);
+
+        // Icon color
+        foreach (var path in FindChildren<System.Windows.Shapes.Path>(RootBorder))
+            path.Fill = Theme.Brush(Theme.TextPrimary);
+
+        // Save button bg
+        SaveBtn.Background = Theme.Brush(Theme.AccentSubtle);
     }
 
-    private static bool IsDarkTheme()
+    private static IEnumerable<T> FindChildren<T>(DependencyObject o) where T : DependencyObject
     {
-        try
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(o); i++)
         {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            var val = key?.GetValue("AppsUseLightTheme");
-            return val is int i && i == 0;
-        }
-        catch { return true; }
-    }
-
-    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject obj) where T : DependencyObject
-    {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
-        {
-            var child = VisualTreeHelper.GetChild(obj, i);
-            if (child is T t) yield return t;
-            foreach (var sub in FindVisualChildren<T>(child)) yield return sub;
+            var c = VisualTreeHelper.GetChild(o, i);
+            if (c is T t) yield return t;
+            foreach (var s in FindChildren<T>(c)) yield return s;
         }
     }
 
@@ -104,76 +83,53 @@ public partial class PreviewWindow : Window
         ThumbnailImage.Source = bmp;
     }
 
-    private void PositionBottomRight()
-    {
-        // Initial position off-screen; will be corrected in OnLoaded after layout
-        var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - 320;
-        Top = workArea.Bottom;
-    }
-
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        // Now ActualWidth/ActualHeight are known - anchor to bottom-right
-        var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - ActualWidth - 16;
-        double targetTop = workArea.Bottom - ActualHeight - 16;
+        var wa = SystemParameters.WorkArea;
+        Left = wa.Right - ActualWidth - 16;
+        double targetTop = wa.Bottom - ActualHeight - 16;
 
-        var slideIn = new DoubleAnimation
+        var slide = new DoubleAnimation
         {
             From = targetTop + 50, To = targetTop,
             Duration = TimeSpan.FromMilliseconds(220),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
-        var fadeIn = new DoubleAnimation
-        {
-            From = 0, To = 1,
-            Duration = TimeSpan.FromMilliseconds(180)
-        };
-        BeginAnimation(TopProperty, slideIn);
-        BeginAnimation(OpacityProperty, fadeIn);
+        var fade = new DoubleAnimation { From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(180) };
+        BeginAnimation(TopProperty, slide);
+        BeginAnimation(OpacityProperty, fade);
         _fadeTimer.Start();
     }
 
-    private void StartFadeOut()
+    private void StartFade()
     {
         if (_isFading) return;
         _isFading = true;
-        var fadeOut = new DoubleAnimation
+        var a = new DoubleAnimation
         {
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(2500),
+            To = 0, Duration = TimeSpan.FromMilliseconds(2500),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
         };
-        fadeOut.Completed += (_, _) =>
-        {
-            if (!_isHovered) ForceClose();
-        };
-        BeginAnimation(OpacityProperty, fadeOut);
+        a.Completed += (_, _) => { if (!_isHovered) ForceClose(); };
+        BeginAnimation(OpacityProperty, a);
     }
 
     private void CancelFade()
     {
         _isFading = false;
-        // Cancel any running opacity animation and snap back to 1
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
     }
 
-    // ─── Mouse interaction ─────────────────────────────────────────
-
     private void OnMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        _isHovered = true;
-        _fadeTimer.Stop();
+        _isHovered = true; _fadeTimer.Stop();
         if (_isFading) CancelFade();
     }
 
     private void OnMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        _isHovered = false;
-        _mouseIsDown = false;
-        // Restart the 3s timer
+        _isHovered = false; _mouseIsDown = false;
         _fadeTimer.Interval = TimeSpan.FromSeconds(3);
         _fadeTimer.Start();
     }
@@ -187,68 +143,41 @@ public partial class PreviewWindow : Window
 
     protected override void OnMouseMove(System.Windows.Input.MouseEventArgs e)
     {
-        if (!_mouseIsDown || e.LeftButton != MouseButtonState.Pressed)
-        {
-            base.OnMouseMove(e);
-            return;
-        }
-
-        var pos = e.GetPosition(this);
-        var diff = pos - _mouseDownPos;
-
+        if (!_mouseIsDown || e.LeftButton != MouseButtonState.Pressed) { base.OnMouseMove(e); return; }
+        var diff = e.GetPosition(this) - _mouseDownPos;
         if (Math.Abs(diff.X) > 4 || Math.Abs(diff.Y) > 4)
         {
             _mouseIsDown = false;
-
-            // Save temp file and start OLE drag-drop
-            var tempFile = Path.Combine(Path.GetTempPath(),
-                $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-            _screenshot.Save(tempFile, ImageFormat.Png);
-
-            var data = new DataObject();
-            data.SetFileDropList(new System.Collections.Specialized.StringCollection { tempFile });
-            DragDrop.DoDragDrop(this, data, DragDropEffects.Copy);
+            var tmp = Path.Combine(Path.GetTempPath(), $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            _screenshot.Save(tmp, ImageFormat.Png);
+            var d = new DataObject();
+            d.SetFileDropList(new System.Collections.Specialized.StringCollection { tmp });
+            DragDrop.DoDragDrop(this, d, DragDropEffects.Copy);
         }
-
         base.OnMouseMove(e);
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
-        if (_mouseIsDown)
-        {
-            // Single click (no drag) = copy to clipboard
-            _mouseIsDown = false;
-            ClipboardService.CopyToClipboard(_screenshot);
-            ForceClose();
-        }
+        _mouseIsDown = false;
         base.OnMouseLeftButtonUp(e);
-    }
-
-    // ─── Button clicks ─────────────────────────────────────────────
-
-    private void CopyClick(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
-        ClipboardService.CopyToClipboard(_screenshot);
-        ForceClose();
     }
 
     private void SaveClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
         _fadeTimer.Stop();
-        var dialog = new SaveFileDialog
+        var dlg = new SaveFileDialog
         {
-            Filter = "PNG Image|*.png|JPEG Image|*.jpg",
+            Filter = "PNG|*.png|JPEG|*.jpg",
             FileName = $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png",
             DefaultExt = ".png"
         };
-        if (dialog.ShowDialog() == true)
+        if (dlg.ShowDialog() == true)
         {
-            var fmt = dialog.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+            var fmt = dlg.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
                 ? ImageFormat.Jpeg : ImageFormat.Png;
-            _screenshot.Save(dialog.FileName, fmt);
+            _screenshot.Save(dlg.FileName, fmt);
         }
         ForceClose();
     }

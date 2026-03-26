@@ -9,11 +9,16 @@ public enum AfterCaptureAction
 public sealed class AppSettings
 {
     public uint HotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
-    public uint HotkeyKey { get; set; } = 0xC0; // VK_OEM_3 = backtick/tilde key
-    public AfterCaptureAction AfterCapture { get; set; } = AfterCaptureAction.CopyToClipboard;
-    public bool SaveToFile { get; set; }
+    public uint HotkeyKey { get; set; } = 0xC0; // VK_OEM_3 = backtick/tilde
+
+    // OCR hotkey: Alt+Shift+`
+    public uint OcrHotkeyModifiers { get; set; } = Native.User32.MOD_ALT | Native.User32.MOD_SHIFT;
+    public uint OcrHotkeyKey { get; set; } = 0xC0;
+
+    public AfterCaptureAction AfterCapture { get; set; } = AfterCaptureAction.ShowPreview;
+    public bool SaveToFile { get; set; } = true;
     public string SaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-    public bool StartWithWindows { get; set; }
+    public bool StartWithWindows { get; set; } = true;
     public CaptureMode LastCaptureMode { get; set; } = CaptureMode.Rectangle;
     public bool SaveHistory { get; set; } = true;
 }

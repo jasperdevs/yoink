@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
@@ -28,20 +27,12 @@ public partial class ImageViewerWindow : Window
         bmp.EndInit();
         bmp.Freeze();
         ViewerImage.Source = bmp;
-
-        InfoText.Text = $"{_entry.Width} x {_entry.Height}  |  {FormatTime(_entry.CapturedAt)}";
+        InfoText.Text = $"{_entry.Width} x {_entry.Height}  |  {_entry.CapturedAt:MMM d, yyyy  h:mm tt}";
     }
 
     private void OnKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == Key.Escape) Close();
-    }
-
-    private void OnClick(object sender, MouseButtonEventArgs e)
-    {
-        // Click on background (not buttons) closes
-        if (e.OriginalSource == this || e.OriginalSource == ViewerImage)
-            Close();
     }
 
     private void CopyClick(object sender, RoutedEventArgs e)
@@ -61,6 +52,4 @@ public partial class ImageViewerWindow : Window
     }
 
     private void CloseClick(object sender, RoutedEventArgs e) => Close();
-
-    private static string FormatTime(DateTime dt) => dt.ToString("MMM d, yyyy  h:mm tt");
 }

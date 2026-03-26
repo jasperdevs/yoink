@@ -1,53 +1,46 @@
-using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using Yoink.Native;
 
 namespace Yoink.Services;
 
-/// <summary>
-/// Global hotkey using ComponentDispatcher to tap into the WPF thread's
-/// Win32 message loop. This is the correct way to receive WM_HOTKEY
-/// in a WPF app that has no visible windows.
-/// </summary>
 public sealed class HotkeyService : IDisposable
 {
-    private const int HOTKEY_ID = 9001;
-    private bool _isRegistered;
+    private const int HOTKEY_CAPTURE = 9001;
+    private const int HOTKEY_OCR = 9002;
+    private bool _captureRegistered;
+    private bool _ocrRegistered;
 
     public event Action? HotkeyPressed;
+    public event Action? OcrHotkeyPressed;
 
     public bool Register(uint modifiers, uint key)
     {
-        // Hook into WPF's message loop to intercept Win32 messages
-        ComponentDispatcher.ThreadPreprocessMessage += OnThreadMessage;
+        ComponentDispatcher.ThreadPreprocessMessage += OnMsg;
+        _captureRegistered = User32.RegisterHotKey(
+            IntPtr.Zero, HOTKEY_CAPTURE, modifiers | User32.MOD_NOREPEAT, key);
+        return _captureRegistered;
+    }
 
-        // RegisterHotKey with IntPtr.Zero = current thread receives WM_HOTKEY
-        // via its message queue (no specific window needed)
-        _isRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_ID,
-            modifiers | User32.MOD_NOREPEAT, key);
-
-        return _isRegistered;
+    public bool RegisterOcr(uint modifiers, uint key)
+    {
+        _ocrRegistered = User32.RegisterHotKey(
+            IntPtr.Zero, HOTKEY_OCR, modifiers | User32.MOD_NOREPEAT, key);
+        return _ocrRegistered;
     }
 
     public void Unregister()
     {
-        if (_isRegistered)
-        {
-            User32.UnregisterHotKey(IntPtr.Zero, HOTKEY_ID);
-            _isRegistered = false;
-        }
-
-        ComponentDispatcher.ThreadPreprocessMessage -= OnThreadMessage;
+        if (_captureRegistered) { User32.UnregisterHotKey(IntPtr.Zero, HOTKEY_CAPTURE); _captureRegistered = false; }
+        if (_ocrRegistered) { User32.UnregisterHotKey(IntPtr.Zero, HOTKEY_OCR); _ocrRegistered = false; }
+        ComponentDispatcher.ThreadPreprocessMessage -= OnMsg;
     }
 
-    private void OnThreadMessage(ref MSG msg, ref bool handled)
+    private void OnMsg(ref MSG msg, ref bool handled)
     {
-        if (msg.message == User32.WM_HOTKEY && (int)msg.wParam == HOTKEY_ID)
-        {
-            HotkeyPressed?.Invoke();
-            handled = true;
-        }
+        if (msg.message != User32.WM_HOTKEY) return;
+        int id = (int)msg.wParam;
+        if (id == HOTKEY_CAPTURE) { HotkeyPressed?.Invoke(); handled = true; }
+        else if (id == HOTKEY_OCR) { OcrHotkeyPressed?.Invoke(); handled = true; }
     }
 
     public void Dispose() => Unregister();
