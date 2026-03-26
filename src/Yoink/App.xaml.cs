@@ -22,13 +22,8 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        // Single instance check
         _mutex = new Mutex(true, "YoinkScreenshotTool_SingleInstance", out bool isNew);
-        if (!isNew)
-        {
-            Shutdown();
-            return;
-        }
+        if (!isNew) { Shutdown(); return; }
 
         base.OnStartup(e);
 
@@ -67,87 +62,14 @@ public partial class App : Application
             ToastWindow.Show("Yoink ready", $"{name} to capture, Alt+C for colors");
     }
 
-    private void OnPickerHotkeyPressed()
-    {
-        if (_isCapturing) return;
-        _isCapturing = true;
-        PreviewWindow.DismissCurrent();
-        Dispatcher.BeginInvoke(() =>
-        {
-            try { StartColorPicker(); }
-            catch (Exception ex)
-            {
-                ToastWindow.Show("Error", ex.Message);
-                _isCapturing = false;
-            }
-        });
-    }
-
-    private void StartColorPicker()
-    {
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
-
-            var thread = new Thread(() =>
-            {
-                System.Windows.Forms.Application.EnableVisualStyles();
-                var picker = new Capture.ColorPickerForm(bmp, bounds);
-
-                picker.ColorPicked += hex =>
-                {
-                    Dispatcher.BeginInvoke(() =>
-                    {
-                        SoundService.PlayColorSound();
-                        System.Windows.Clipboard.SetText(hex);
-                        // Parse hex to Color for swatch display
-                        byte r = Convert.ToByte(hex.Substring(1, 2), 16);
-                        byte g = Convert.ToByte(hex.Substring(3, 2), 16);
-                        byte b = Convert.ToByte(hex.Substring(5, 2), 16);
-                        var swatchColor = System.Windows.Media.Color.FromRgb(r, g, b);
-                        ToastWindow.ShowWithColor("Color copied", hex, swatchColor);
-                    });
-                    picker.Close();
-                    System.Windows.Forms.Application.ExitThread();
-                };
-
-                picker.Cancelled += () =>
-                {
-                    picker.Close();
-                    System.Windows.Forms.Application.ExitThread();
-                };
-
-                picker.FormClosed += (_, _) =>
-                {
-                    bmp.Dispose();
-                    Dispatcher.BeginInvoke(() => _isCapturing = false);
-                };
-
-                System.Windows.Forms.Application.Run(picker);
-            });
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.IsBackground = true;
-            thread.Start();
-        };
-        timer.Start();
-    }
+    // ─── Hotkeys (all open unified overlay with different initial tool) ──
 
     private void OnHotkeyPressed()
     {
         if (_isCapturing) return;
         _isCapturing = true;
         PreviewWindow.DismissCurrent();
-        Dispatcher.BeginInvoke(() =>
-        {
-            try { StartCapture(false); }
-            catch (Exception ex)
-            {
-                ToastWindow.Show("Error", ex.Message);
-                _isCapturing = false;
-            }
-        });
+        Dispatcher.BeginInvoke(() => LaunchOverlay(CaptureMode.Rectangle));
     }
 
     private void OnOcrHotkeyPressed()
@@ -155,88 +77,124 @@ public partial class App : Application
         if (_isCapturing) return;
         _isCapturing = true;
         PreviewWindow.DismissCurrent();
-        Dispatcher.BeginInvoke(() =>
-        {
-            try { StartCapture(true); }
-            catch (Exception ex)
-            {
-                ToastWindow.Show("Error", ex.Message);
-                _isCapturing = false;
-            }
-        });
+        Dispatcher.BeginInvoke(() => LaunchOverlay(CaptureMode.Ocr));
     }
 
-    private void StartCapture(bool ocrMode)
+    private void OnPickerHotkeyPressed()
+    {
+        if (_isCapturing) return;
+        _isCapturing = true;
+        PreviewWindow.DismissCurrent();
+        Dispatcher.BeginInvoke(() => LaunchOverlay(CaptureMode.ColorPicker));
+    }
+
+    // ─── Unified overlay launch ─────────────────────────────────────
+
+    private void LaunchOverlay(CaptureMode initialMode)
     {
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-        timer.Tick += (_, _) => { timer.Stop(); DoCapture(ocrMode); };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            Bitmap? screenshot = null;
+            try
+            {
+                var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
+                screenshot = bmp;
+
+                var thread = new Thread(() =>
+                {
+                    System.Windows.Forms.Application.EnableVisualStyles();
+                    var overlay = new RegionOverlayForm(screenshot, bounds, initialMode);
+
+                    // Screenshot capture (rect / fullscreen)
+                    overlay.RegionSelected += sel =>
+                    {
+                        overlay.Hide();
+                        using var cropped = ScreenCapture.CropRegion(screenshot, sel);
+                        HandleCaptureResult(cropped);
+                        overlay.Close();
+                        System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    overlay.FreeformSelected += fbmp =>
+                    {
+                        overlay.Hide();
+                        HandleCaptureResult(fbmp);
+                        fbmp.Dispose();
+                        overlay.Close();
+                        System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    // OCR capture
+                    overlay.OcrRegionSelected += sel =>
+                    {
+                        overlay.Hide();
+                        using var cropped = ScreenCapture.CropRegion(screenshot, sel);
+                        HandleOcrResult(cropped);
+                        overlay.Close();
+                        System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    overlay.OcrFreeformSelected += fbmp =>
+                    {
+                        overlay.Hide();
+                        HandleOcrResult(fbmp);
+                        fbmp.Dispose();
+                        overlay.Close();
+                        System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    // Color picker
+                    overlay.ColorPicked += hex =>
+                    {
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            SoundService.PlayColorSound();
+                            System.Windows.Clipboard.SetText(hex);
+                            byte r = Convert.ToByte(hex.Substring(1, 2), 16);
+                            byte g = Convert.ToByte(hex.Substring(3, 2), 16);
+                            byte b = Convert.ToByte(hex.Substring(5, 2), 16);
+                            ToastWindow.ShowWithColor("Color copied", hex,
+                                System.Windows.Media.Color.FromRgb(r, g, b));
+                        });
+                        overlay.Close();
+                        System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    overlay.SelectionCancelled += () =>
+                    {
+                        overlay.Close();
+                        System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    overlay.FormClosed += (_, _) =>
+                    {
+                        screenshot.Dispose();
+                        Dispatcher.BeginInvoke(() => _isCapturing = false);
+                    };
+
+                    System.Windows.Forms.Application.Run(overlay);
+                });
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.IsBackground = true;
+                thread.Start();
+            }
+            catch
+            {
+                screenshot?.Dispose();
+                _isCapturing = false;
+                throw;
+            }
+        };
         timer.Start();
     }
 
-    private void DoCapture(bool ocrMode)
-    {
-        Bitmap? screenshot = null;
-        try
-        {
-            var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
-            screenshot = bmp;
-            var lastMode = _settingsService!.Settings.LastCaptureMode;
-
-            var thread = new Thread(() =>
-            {
-                System.Windows.Forms.Application.EnableVisualStyles();
-                var overlay = new RegionOverlayForm(screenshot, bounds, lastMode);
-
-                overlay.RegionSelected += sel =>
-                {
-                    overlay.Hide();
-                    using var cropped = ScreenCapture.CropRegion(screenshot, sel);
-                    if (ocrMode)
-                        HandleOcrResult(cropped);
-                    else
-                        HandleCaptureResult(cropped);
-                    overlay.Close();
-                    System.Windows.Forms.Application.ExitThread();
-                };
-
-                overlay.FreeformSelected += fbmp =>
-                {
-                    overlay.Hide();
-                    if (ocrMode)
-                        HandleOcrResult(fbmp);
-                    else
-                        HandleCaptureResult(fbmp);
-                    fbmp.Dispose();
-                    overlay.Close();
-                    System.Windows.Forms.Application.ExitThread();
-                };
-
-                overlay.SelectionCancelled += () =>
-                {
-                    overlay.Close();
-                    System.Windows.Forms.Application.ExitThread();
-                };
-
-                overlay.FormClosed += (_, _) =>
-                {
-                    screenshot.Dispose();
-                    Dispatcher.BeginInvoke(() => _isCapturing = false);
-                };
-
-                System.Windows.Forms.Application.Run(overlay);
-            });
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.IsBackground = true;
-            thread.Start();
-        }
-        catch { screenshot?.Dispose(); _isCapturing = false; throw; }
-    }
+    // ─── Result handlers ────────────────────────────────────────────
 
     private void HandleCaptureResult(Bitmap captured)
     {
         var result = new Bitmap(captured);
-
-        // Play capture sound
         SoundService.PlayCaptureSound();
 
         Dispatcher.BeginInvoke(() =>
@@ -278,11 +236,9 @@ public partial class App : Application
                 {
                     SoundService.PlayTextSound();
                     System.Windows.Clipboard.SetText(text);
-                    // Show the copied text (truncated) in the balloon
                     var prev = text.Length > 100 ? text[..100] + "..." : text;
                     ToastWindow.Show("Text copied", prev);
 
-                    // Save to OCR history
                     if (_settingsService!.Settings.SaveHistory)
                         _historyService!.SaveOcrEntry(text);
                 }
@@ -307,6 +263,8 @@ public partial class App : Application
         bmp.Save(path, ImageFormat.Png);
         return path;
     }
+
+    // ─── Settings / History ─────────────────────────────────────────
 
     private void ShowSettings()
     {

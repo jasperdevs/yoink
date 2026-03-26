@@ -5,5 +5,7 @@ public enum CaptureMode
     Rectangle,
     Freeform,
     Window,
-    Fullscreen
+    Fullscreen,
+    ColorPicker,
+    Ocr
 }
