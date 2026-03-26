@@ -97,9 +97,9 @@ public partial class App : Application
 
                 picker.ColorPicked += hex =>
                 {
-                    SoundService.PlayColorSound();
                     Dispatcher.BeginInvoke(() =>
                     {
+                        SoundService.PlayColorSound();
                         System.Windows.Clipboard.SetText(hex);
                         ToastWindow.Show("Color copied", hex);
                     });
