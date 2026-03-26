@@ -1,11 +1,12 @@
 using System.Drawing;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
 using Yoink.Models;
 using Yoink.Services;
 using RadioButton = System.Windows.Controls.RadioButton;
+using Button = System.Windows.Controls.Button;
 
 namespace Yoink.UI;
 
@@ -59,7 +60,7 @@ public partial class SettingsWindow : Window
     private void HotkeyBox_GotFocus(object sender, RoutedEventArgs e)
     {
         _isRecordingHotkey = true;
-        HotkeyBox.Text = "Press a key combination...";
+        HotkeyBox.Text = "Press keys...";
         HotkeyHint.Visibility = Visibility.Visible;
     }
 
@@ -79,13 +80,26 @@ public partial class SettingsWindow : Window
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
-            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin) return;
+            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin
+            or Key.Escape) return;
+
+        // Escape cancels recording
+        if (e.Key == Key.Escape)
+        {
+            _isRecordingHotkey = false;
+            HotkeyHint.Visibility = Visibility.Collapsed;
+            HotkeyBox.Text = FormatHotkey(
+                _settingsService.Settings.HotkeyModifiers,
+                _settingsService.Settings.HotkeyKey);
+            Keyboard.ClearFocus();
+            return;
+        }
 
         uint modifiers = 0;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) modifiers |= Native.User32.MOD_ALT;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) modifiers |= Native.User32.MOD_CONTROL;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) modifiers |= Native.User32.MOD_SHIFT;
-        if (modifiers == 0) return;
+        if (modifiers == 0) return; // require at least one modifier
 
         uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
         _settingsService.Settings.HotkeyModifiers = modifiers;
@@ -102,7 +116,7 @@ public partial class SettingsWindow : Window
 
     // ─── Settings controls ─────────────────────────────────────────
 
-    private void AfterCaptureCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    private void AfterCaptureCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;
         _settingsService.Settings.AfterCapture = (AfterCaptureAction)AfterCaptureCombo.SelectedIndex;
@@ -160,10 +174,7 @@ public partial class SettingsWindow : Window
             var exe = Environment.ProcessPath;
             if (exe is not null) key.SetValue("Yoink", $"\"{exe}\"");
         }
-        else
-        {
-            key.DeleteValue("Yoink", false);
-        }
+        else key.DeleteValue("Yoink", false);
     }
 
     // ─── History ───────────────────────────────────────────────────
@@ -178,8 +189,9 @@ public partial class SettingsWindow : Window
             TimeAgo = FormatTimeAgo(e.CapturedAt)
         }).ToList();
 
-        HistoryList.ItemsSource = items;
+        HistoryItems.ItemsSource = items;
         HistoryCountText.Text = $"{items.Count} capture{(items.Count == 1 ? "" : "s")}";
+        HistoryEmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ClearHistoryClick(object sender, RoutedEventArgs e)
@@ -188,30 +200,18 @@ public partial class SettingsWindow : Window
         LoadHistory();
     }
 
-    private void HistoryCopyClick(object sender, RoutedEventArgs e)
+    private void HistoryItemClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is System.Windows.Controls.Button btn && btn.Tag is HistoryItemVM vm)
+        if (sender is Border border && border.Tag is HistoryItemVM vm)
         {
-            if (File.Exists(vm.Entry.FilePath))
-            {
-                using var bmp = new Bitmap(vm.Entry.FilePath);
-                ClipboardService.CopyToClipboard(bmp);
-            }
-        }
-    }
+            if (!File.Exists(vm.Entry.FilePath)) return;
 
-    private void HistoryDeleteClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.Button btn && btn.Tag is HistoryItemVM vm)
-        {
-            _historyService.DeleteEntry(vm.Entry);
-            LoadHistory();
+            // Open fullscreen viewer
+            var viewer = new ImageViewerWindow(vm.Entry.FilePath, _historyService, vm.Entry);
+            viewer.Owner = this;
+            viewer.ShowDialog();
+            LoadHistory(); // refresh in case it was deleted
         }
-    }
-
-    private void HistoryList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        HistoryList.SelectedIndex = -1; // deselect, items aren't selectable
     }
 
     private static string FormatTimeAgo(DateTime dt)
