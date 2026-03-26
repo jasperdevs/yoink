@@ -40,6 +40,10 @@ public sealed partial class RegionOverlayForm : Form
     private readonly System.Windows.Forms.Timer _animTimer;
     private readonly DateTime _showTime;
 
+    // Pre-rendered top bar: frosted blur + gradient fade
+    private readonly Bitmap _topBar;
+    private const int TopBarHeight = 90;
+
     // Color picker state
     private readonly Bitmap _magBitmap;
     private readonly int[] _magPixels;
@@ -111,6 +115,7 @@ public sealed partial class RegionOverlayForm : Form
 
         SetupForm();
         CalcToolbar();
+        _topBar = BuildTopBar(screenshot);
 
         _animTimer = new System.Windows.Forms.Timer { Interval = 12 };
         _animTimer.Tick += (_, _) =>
@@ -164,6 +169,65 @@ public sealed partial class RegionOverlayForm : Form
                 ButtonSize, ButtonSize);
     }
 
+    // Builds a frosted-glass strip for the top of the overlay.
+    // Downsamples then upsamples the top region for a soft blur,
+    // then overlays a dark-to-transparent gradient.
+    private Bitmap BuildTopBar(Bitmap src)
+    {
+        int w = src.Width;
+        int h = TopBarHeight;
+        var bar = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+
+        // Blur via downsample/upsample (factor 8 = soft mica-like look)
+        int smallW = Math.Max(1, w / 8);
+        int smallH = Math.Max(1, h / 8);
+        using var small = new Bitmap(smallW, smallH, PixelFormat.Format32bppArgb);
+        using (var sg = Graphics.FromImage(small))
+        {
+            sg.InterpolationMode = InterpolationMode.HighQualityBilinear;
+            sg.DrawImage(src, new Rectangle(0, 0, smallW, smallH),
+                new Rectangle(0, 0, w, h), GraphicsUnit.Pixel);
+        }
+
+        using (var bg = Graphics.FromImage(bar))
+        {
+            bg.InterpolationMode = InterpolationMode.HighQualityBilinear;
+            bg.DrawImage(small, new Rectangle(0, 0, w, h));
+
+            // Dark tint over the blur
+            using var tint = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            bg.FillRectangle(tint, 0, 0, w, h);
+        }
+
+        // Now apply per-row alpha fade: full opacity at top, zero at bottom
+        var bits = bar.LockBits(new Rectangle(0, 0, w, h),
+            System.Drawing.Imaging.ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+        unsafe
+        {
+            byte* scan0 = (byte*)bits.Scan0;
+            for (int y = 0; y < h; y++)
+            {
+                // Smooth ease-out curve for the fade
+                float t = 1f - (float)y / h;
+                t = t * t; // quadratic falloff
+                byte alpha = (byte)(t * 200);
+
+                byte* row = scan0 + y * bits.Stride;
+                for (int x = 0; x < w; x++)
+                {
+                    int off = x * 4;
+                    // Pre-multiply alpha into the existing pixel
+                    int a = row[off + 3];
+                    a = a * alpha / 255;
+                    row[off + 3] = (byte)a;
+                }
+            }
+        }
+        bar.UnlockBits(bits);
+
+        return bar;
+    }
+
     private void Cancel() => SelectionCancelled?.Invoke();
 
     private static Rectangle NormRect(Point a, Point b) =>
@@ -185,6 +249,7 @@ public sealed partial class RegionOverlayForm : Form
     {
         if (disposing)
         {
+            _topBar.Dispose();
             _animTimer.Dispose();
             _pickerTimer.Dispose();
             _magGfx.Dispose();

@@ -17,6 +17,9 @@ public sealed partial class RegionOverlayForm
         g.DrawImage(_screenshot, 0, 0);
         g.CompositingMode = CompositingMode.SourceOver;
 
+        // Frosted glass fade at the top behind the dock
+        g.DrawImageUnscaled(_topBar, 0, 0);
+
         if (_mode == CaptureMode.ColorPicker)
         {
             PaintToolbar(g);
