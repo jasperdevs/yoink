@@ -6,10 +6,6 @@ namespace Yoink.Capture;
 
 public static class ScreenCapture
 {
-    /// <summary>
-    /// Captures the entire virtual screen (all monitors) using BitBlt.
-    /// Returns the bitmap and the virtual screen bounds in physical pixels.
-    /// </summary>
     public static (Bitmap Bitmap, Rectangle Bounds) CaptureAllScreens()
     {
         // Use GetSystemMetrics for physical pixel bounds (DPI-unaware coordinates)
@@ -33,10 +29,6 @@ public static class ScreenCapture
         return (bitmap, bounds);
     }
 
-    /// <summary>
-    /// Crops a region from the full screenshot bitmap.
-    /// Selection coordinates are relative to the bitmap (0,0 = top-left of bitmap).
-    /// </summary>
     public static Bitmap CropRegion(Bitmap fullScreenshot, Rectangle selection)
     {
         // Clamp to bitmap bounds

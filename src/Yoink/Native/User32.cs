@@ -12,9 +12,6 @@ internal static partial class User32
     public const uint MOD_WIN = 0x0008;
     public const uint MOD_NOREPEAT = 0x4000;
 
-    public const int VK_SNAPSHOT = 0x2C;
-    public const int VK_S = 0x53;
-
     public const int SRCCOPY = 0x00CC0020;
 
     public const int SM_XVIRTUALSCREEN = 76;

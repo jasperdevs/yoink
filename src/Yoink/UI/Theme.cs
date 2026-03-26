@@ -3,9 +3,7 @@ using Color = System.Windows.Media.Color;
 
 namespace Yoink.UI;
 
-/// <summary>
-/// Centralized theme colors. Never hardcode colors elsewhere.
-/// </summary>
+// Centralized theme colors.
 public static class Theme
 {
     public static bool IsDark { get; private set; } = true;

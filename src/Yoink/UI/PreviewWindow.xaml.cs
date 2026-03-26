@@ -57,9 +57,6 @@ public partial class PreviewWindow : Window
         Loaded += OnLoaded;
     }
 
-    /// <summary>Set the file path for "click to open" after construction.</summary>
-    public void SetFilePath(string path) => _savedFilePath = path;
-
     private void ApplyTheme()
     {
         Theme.Refresh();
@@ -68,7 +65,6 @@ public partial class PreviewWindow : Window
         ImageBorder.Background = RootBorder.Background;
     }
 
-    /// <summary>Sizes the window to tightly fit the image, avoiding dead space that looks like thick borders.</summary>
     private void FitToImage()
     {
         if (ThumbnailImage.Source is not BitmapSource src) return;

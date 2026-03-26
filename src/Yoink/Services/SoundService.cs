@@ -32,7 +32,7 @@ public static class SoundService
         PlayAsync(_textWav);
     }
 
-    /// <summary>Plays a WAV on a background thread so it doesn't get killed with the caller.</summary>
+    // Play on a background thread so it doesn't get killed with the caller.
     private static void PlayAsync(byte[] wav)
     {
         var thread = new Thread(() =>
@@ -49,7 +49,6 @@ public static class SoundService
         thread.Start();
     }
 
-    /// <summary>Short 30ms soft click/pop for screenshot capture.</summary>
     private static byte[] GenerateClickWav()
     {
         const int sampleRate = 44100;
@@ -71,7 +70,6 @@ public static class SoundService
         return ms.ToArray();
     }
 
-    /// <summary>Bright ascending two-tone "bling" for color pick.</summary>
     private static byte[] GenerateColorWav()
     {
         const int sampleRate = 44100;
@@ -96,7 +94,6 @@ public static class SoundService
         return ms.ToArray();
     }
 
-    /// <summary>Soft descending sweep for text/OCR capture.</summary>
     private static byte[] GenerateTextWav()
     {
         const int sampleRate = 44100;

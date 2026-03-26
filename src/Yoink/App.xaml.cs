@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using Yoink.Capture;
 using Yoink.Models;
 using Yoink.Services;
+using Yoink.Helpers;
 using Yoink.UI;
 
 namespace Yoink;
@@ -56,7 +57,7 @@ public partial class App : Application
         _hotkeyService.RegisterOcr(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
         _hotkeyService.RegisterPicker(s.PickerHotkeyModifiers, s.PickerHotkeyKey);
 
-        var name = FormatHotkeyName(s.HotkeyModifiers, s.HotkeyKey);
+        var name = HotkeyFormatter.Format(s.HotkeyModifiers, s.HotkeyKey);
         if (!ok)
             ToastWindow.Show("Hotkey failed", $"Could not register {name}. Try a different combo.");
         else
@@ -301,17 +302,6 @@ public partial class App : Application
                     System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             }
         }, DispatcherPriority.Loaded);
-    }
-
-    private static string FormatHotkeyName(uint mod, uint key)
-    {
-        var parts = new List<string>();
-        if ((mod & Native.User32.MOD_CONTROL) != 0) parts.Add("Ctrl");
-        if ((mod & Native.User32.MOD_ALT) != 0) parts.Add("Alt");
-        if ((mod & Native.User32.MOD_SHIFT) != 0) parts.Add("Shift");
-        var k = System.Windows.Input.KeyInterop.KeyFromVirtualKey((int)key);
-        parts.Add(k == System.Windows.Input.Key.Oem3 ? "`" : k.ToString());
-        return string.Join("+", parts);
     }
 
     protected override void OnExit(ExitEventArgs e)

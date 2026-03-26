@@ -6,7 +6,6 @@ namespace Yoink.UI;
 public sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _notifyIcon;
-    private readonly ContextMenuStrip _menu;
 
     public event Action? OnCapture;
     public event Action? OnSettings;
@@ -15,8 +14,6 @@ public sealed class TrayIcon : IDisposable
 
     public TrayIcon()
     {
-        _menu = CreateThemedMenu();
-
         _notifyIcon = new NotifyIcon
         {
             Text = "Yoink",
@@ -100,8 +97,8 @@ public sealed class TrayIcon : IDisposable
     public void Dispose()
     {
         _notifyIcon.Visible = false;
+        _notifyIcon.ContextMenuStrip?.Dispose();
         _notifyIcon.Dispose();
-        _menu.Dispose();
     }
 }
 

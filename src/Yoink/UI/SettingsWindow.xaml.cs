@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Yoink.Helpers;
 using Yoink.Models;
 using Yoink.Services;
 using RadioButton = System.Windows.Controls.RadioButton;
@@ -18,8 +19,6 @@ public partial class SettingsWindow : Window
 {
     private readonly SettingsService _settingsService;
     private readonly HistoryService _historyService;
-    private bool _isRecordingHotkey;
-
     public event Action? HotkeyChanged;
 
     public SettingsWindow(SettingsService settingsService, HistoryService historyService)
@@ -27,6 +26,7 @@ public partial class SettingsWindow : Window
         _settingsService = settingsService;
         _historyService = historyService;
         InitializeComponent();
+        WireHotkeyBoxes();
         LoadSettings();
         Loaded += (_, _) => ApplyMicaBackdrop();
         Activated += (_, _) =>
@@ -50,9 +50,9 @@ public partial class SettingsWindow : Window
     private void LoadSettings()
     {
         var s = _settingsService.Settings;
-        HotkeyBox.Text = FormatHotkey(s.HotkeyModifiers, s.HotkeyKey);
-        OcrHotkeyBox.Text = FormatHotkey(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
-        PickerHotkeyBox.Text = FormatHotkey(s.PickerHotkeyModifiers, s.PickerHotkeyKey);
+        HotkeyBox.Text = HotkeyFormatter.Format(s.HotkeyModifiers, s.HotkeyKey);
+        OcrHotkeyBox.Text = HotkeyFormatter.Format(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
+        PickerHotkeyBox.Text = HotkeyFormatter.Format(s.PickerHotkeyModifiers, s.PickerHotkeyKey);
         AfterCaptureCombo.SelectedIndex = (int)s.AfterCapture;
         SaveToFileCheck.IsChecked = s.SaveToFile;
         SaveDirBox.Text = s.SaveDirectory;
@@ -100,111 +100,67 @@ public partial class SettingsWindow : Window
         }
     }
 
-    // ─── Hotkey ────────────────────────────────────────────────────
+    // ─── Hotkey recording ─────────────────────────────────────────
 
-    private void HotkeyBox_GotFocus(object sender, RoutedEventArgs e)
+    private readonly Dictionary<System.Windows.Controls.TextBox, bool> _recordingFlags = new();
+
+    private void WireHotkeyBoxes()
     {
-        _isRecordingHotkey = true;
-        HotkeyBox.Text = "Press keys...";
+        RecordHotkey(HotkeyBox,
+            s => s.HotkeyModifiers, s => s.HotkeyKey,
+            (s, m, k) => { s.HotkeyModifiers = m; s.HotkeyKey = k; });
+        RecordHotkey(OcrHotkeyBox,
+            s => s.OcrHotkeyModifiers, s => s.OcrHotkeyKey,
+            (s, m, k) => { s.OcrHotkeyModifiers = m; s.OcrHotkeyKey = k; });
+        RecordHotkey(PickerHotkeyBox,
+            s => s.PickerHotkeyModifiers, s => s.PickerHotkeyKey,
+            (s, m, k) => { s.PickerHotkeyModifiers = m; s.PickerHotkeyKey = k; });
     }
 
-    private void HotkeyBox_LostFocus(object sender, RoutedEventArgs e)
+    private void RecordHotkey(
+        System.Windows.Controls.TextBox box,
+        Func<AppSettings, uint> getMod, Func<AppSettings, uint> getKey,
+        Action<AppSettings, uint, uint> setModKey)
     {
-        _isRecordingHotkey = false;
-        HotkeyBox.Text = FormatHotkey(_settingsService.Settings.HotkeyModifiers, _settingsService.Settings.HotkeyKey);
+        box.GotFocus += (_, _) =>
+        {
+            _recordingFlags[box] = true;
+            box.Text = "Press keys...";
+        };
+        box.LostFocus += (_, _) =>
+        {
+            _recordingFlags[box] = false;
+            box.Text = HotkeyFormatter.Format(getMod(_settingsService.Settings), getKey(_settingsService.Settings));
+        };
+        box.PreviewKeyDown += (_, e) =>
+        {
+            if (!_recordingFlags.GetValueOrDefault(box)) return;
+            e.Handled = true;
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (IsModifierOnly(key)) return;
+
+            uint mod = GetModifiers();
+            if (mod == 0) return;
+
+            uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
+            setModKey(_settingsService.Settings, mod, vk);
+            _settingsService.Save();
+            box.Text = HotkeyFormatter.Format(mod, vk);
+            _recordingFlags[box] = false;
+            Keyboard.ClearFocus();
+            HotkeyChanged?.Invoke();
+        };
     }
 
-    private void HotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (!_isRecordingHotkey) return;
-        e.Handled = true;
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (IsModifierOnly(key)) return;
-
-        uint mod = GetModifiers();
-        if (mod == 0) return;
-
-        uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
-        _settingsService.Settings.HotkeyModifiers = mod;
-        _settingsService.Settings.HotkeyKey = vk;
-        _settingsService.Save();
-        HotkeyBox.Text = FormatHotkey(mod, vk);
-        _isRecordingHotkey = false;
-        Keyboard.ClearFocus();
-        HotkeyChanged?.Invoke();
-    }
-
-    // ─── OCR Hotkey ────────────────────────────────────────────────
-
-    private bool _isRecordingOcr;
-
-    private void OcrHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
-    {
-        _isRecordingOcr = true;
-        OcrHotkeyBox.Text = "Press keys...";
-    }
-
-    private void OcrHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        _isRecordingOcr = false;
-        OcrHotkeyBox.Text = FormatHotkey(_settingsService.Settings.OcrHotkeyModifiers, _settingsService.Settings.OcrHotkeyKey);
-    }
-
-    private void OcrHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (!_isRecordingOcr) return;
-        e.Handled = true;
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (IsModifierOnly(key)) return;
-
-        uint mod = GetModifiers();
-        if (mod == 0) return;
-
-        uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
-        _settingsService.Settings.OcrHotkeyModifiers = mod;
-        _settingsService.Settings.OcrHotkeyKey = vk;
-        _settingsService.Save();
-        OcrHotkeyBox.Text = FormatHotkey(mod, vk);
-        _isRecordingOcr = false;
-        Keyboard.ClearFocus();
-        HotkeyChanged?.Invoke();
-    }
-
-    // ─── Picker Hotkey ───────────────────────────────────────────
-
-    private bool _isRecordingPicker;
-
-    private void PickerHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
-    {
-        _isRecordingPicker = true;
-        PickerHotkeyBox.Text = "Press keys...";
-    }
-
-    private void PickerHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        _isRecordingPicker = false;
-        PickerHotkeyBox.Text = FormatHotkey(_settingsService.Settings.PickerHotkeyModifiers, _settingsService.Settings.PickerHotkeyKey);
-    }
-
-    private void PickerHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (!_isRecordingPicker) return;
-        e.Handled = true;
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (IsModifierOnly(key)) return;
-
-        uint mod = GetModifiers();
-        if (mod == 0) return;
-
-        uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
-        _settingsService.Settings.PickerHotkeyModifiers = mod;
-        _settingsService.Settings.PickerHotkeyKey = vk;
-        _settingsService.Save();
-        PickerHotkeyBox.Text = FormatHotkey(mod, vk);
-        _isRecordingPicker = false;
-        Keyboard.ClearFocus();
-        HotkeyChanged?.Invoke();
-    }
+    private void HotkeyBox_GotFocus(object sender, RoutedEventArgs e) { }
+    private void HotkeyBox_LostFocus(object sender, RoutedEventArgs e) { }
+    private void HotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e) { }
+    private void OcrHotkeyBox_GotFocus(object sender, RoutedEventArgs e) { }
+    private void OcrHotkeyBox_LostFocus(object sender, RoutedEventArgs e) { }
+    private void OcrHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e) { }
+    private void PickerHotkeyBox_GotFocus(object sender, RoutedEventArgs e) { }
+    private void PickerHotkeyBox_LostFocus(object sender, RoutedEventArgs e) { }
+    private void PickerHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e) { }
 
     private static bool IsModifierOnly(Key k) =>
         k is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
@@ -558,31 +514,4 @@ public partial class SettingsWindow : Window
         return dt.ToString("MMM d, yyyy");
     }
 
-    private static string FormatHotkey(uint mod, uint vk)
-    {
-        var parts = new List<string>();
-        if ((mod & Native.User32.MOD_CONTROL) != 0) parts.Add("Ctrl");
-        if ((mod & Native.User32.MOD_ALT) != 0) parts.Add("Alt");
-        if ((mod & Native.User32.MOD_SHIFT) != 0) parts.Add("Shift");
-        var key = KeyInterop.KeyFromVirtualKey((int)vk);
-        parts.Add(key switch { Key.Oem3 => "`", _ => key.ToString() });
-        return string.Join(" + ", parts);
-    }
-}
-
-internal sealed class HistoryItemVM : System.ComponentModel.INotifyPropertyChanged
-{
-    public HistoryEntry Entry { get; set; } = null!;
-    public string ThumbPath { get; set; } = "";
-    public string Dimensions { get; set; } = "";
-    public string TimeAgo { get; set; } = "";
-
-    private bool _isSelected;
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set { _isSelected = value; PropertyChanged?.Invoke(this, new(nameof(IsSelected))); }
-    }
-
-    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 }

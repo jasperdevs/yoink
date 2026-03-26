@@ -52,7 +52,6 @@ public partial class ToastWindow : Window
         _timer.Start();
     }
 
-    /// <summary>Always dismisses by sliding right off screen edge.</summary>
     private void SlideAway()
     {
         if (_isDismissing) return;
