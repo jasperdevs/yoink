@@ -27,7 +27,8 @@ public sealed class RegionOverlayForm : Form
     private readonly List<Point> _freeformPoints = new();
 
     // ─── Toolbar ───────────────────────────────────────────────────
-    private const int BtnCount = 6; // rect, freeform, fullscreen, OCR, colorpicker, close
+    // rect, freeform, fullscreen, OCR, colorpicker, draw, blur, settings, close
+    private const int BtnCount = 9;
     private readonly Rectangle[] _toolbarButtons = new Rectangle[BtnCount];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
@@ -51,7 +52,7 @@ public sealed class RegionOverlayForm : Form
     private Point _pickerCursorPos;
     private Rectangle _pickerPrevDirty;
     private Color _pickedColor = Color.Black;
-    private string _hexStr = "#000000";
+    private string _hexStr = "000000";
     private string _rgbStr = "0, 0, 0";
     private readonly System.Windows.Forms.Timer _pickerTimer;
 
@@ -59,6 +60,12 @@ public sealed class RegionOverlayForm : Form
     private const int InfoH = 48, PPad = 10;
     private const int PW = Mag + PPad * 2, PH = Mag + InfoH + PPad * 2;
     private const int MagOff = 22, MagMargin = 4;
+
+    // ─── Draw / Blur state ─────────────────────────────────────────
+    private readonly List<(Point pt, Color col)> _drawPoints = new();
+    private readonly List<Rectangle> _blurRects = new();
+    private Point _blurStart;
+    private bool _isBlurring;
 
     // ─── Events ────────────────────────────────────────────────────
     public event Action<Rectangle>? RegionSelected;
@@ -69,6 +76,7 @@ public sealed class RegionOverlayForm : Form
 #pragma warning restore CS0067
     public event Action<string>? ColorPicked;
     public event Action? SelectionCancelled;
+    public event Action? SettingsRequested;
 
     public RegionOverlayForm(Bitmap screenshot, Rectangle virtualBounds,
         CaptureMode initialMode = CaptureMode.Rectangle)
@@ -167,23 +175,19 @@ public sealed class RegionOverlayForm : Form
         var g = e.Graphics;
         g.InterpolationMode = InterpolationMode.NearestNeighbor;
 
+        // Background: raw screenshot for color picker, dimmed for everything else.
+        // Always draw full background to avoid black regions from partial invalidation.
+        var bgBmp = _mode == CaptureMode.ColorPicker ? _screenshot : _dimmed;
+        g.CompositingMode = CompositingMode.SourceCopy;
+        g.DrawImage(bgBmp, 0, 0);
+        g.CompositingMode = CompositingMode.SourceOver;
+
         if (_mode == CaptureMode.ColorPicker)
         {
-            // No dimming – raw screenshot
-            var clip = e.ClipRectangle;
-            g.CompositingMode = CompositingMode.SourceCopy;
-            g.DrawImage(_screenshot, clip, clip, GraphicsUnit.Pixel);
-            g.CompositingMode = CompositingMode.SourceOver;
-
             PaintToolbar(g);
             PaintMagnifier(g);
             return;
         }
-
-        // Dimmed background for all other modes
-        g.CompositingMode = CompositingMode.SourceCopy;
-        g.DrawImage(_dimmed, 0, 0);
-        g.CompositingMode = CompositingMode.SourceOver;
 
         bool isOcr = _mode == CaptureMode.Ocr;
 
@@ -211,6 +215,31 @@ public sealed class RegionOverlayForm : Form
                 break;
         }
 
+        // Draw annotations (always visible across modes)
+        if (_drawPoints.Count >= 2)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var drawPen = new Pen(Color.Red, 3f) { LineJoin = LineJoin.Round };
+            var pts = _drawPoints.Select(p => p.pt).ToArray();
+            g.DrawLines(drawPen, pts);
+            g.SmoothingMode = SmoothingMode.Default;
+        }
+
+        // Blur rects (pixelate the region)
+        foreach (var br in _blurRects)
+            PaintBlurRect(g, br);
+
+        // Active blur preview
+        if (_mode == CaptureMode.Blur && _isBlurring)
+        {
+            var previewRect = NormRect(_blurStart, PointToClient(System.Windows.Forms.Cursor.Position));
+            if (previewRect.Width > 2 && previewRect.Height > 2)
+            {
+                using var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash };
+                g.DrawRectangle(pen, previewRect);
+            }
+        }
+
         PaintToolbar(g);
     }
 
@@ -234,22 +263,23 @@ public sealed class RegionOverlayForm : Form
             g.DrawPath(bp, p);
         }
 
-        // 0=rect, 1=freeform, 2=fullscreen, 3=OCR, 4=colorpicker, 5=close
-        string[] icons = { "rect", "free", "full", "ocr", "picker", "close" };
+        // 0=rect, 1=freeform, 2=fullscreen, 3=OCR, 4=colorpicker, 5=draw, 6=blur, 7=settings, 8=close
+        string[] icons = { "rect", "free", "full", "ocr", "picker", "draw", "blur", "gear", "close" };
         CaptureMode[] modes = { CaptureMode.Rectangle, CaptureMode.Freeform,
-            CaptureMode.Fullscreen, CaptureMode.Ocr, CaptureMode.ColorPicker };
+            CaptureMode.Fullscreen, CaptureMode.Ocr, CaptureMode.ColorPicker,
+            CaptureMode.Draw, CaptureMode.Blur };
 
         for (int i = 0; i < BtnCount; i++)
         {
             var btn = new Rectangle(_toolbarButtons[i].X, _toolbarButtons[i].Y + oy,
                 ButtonSize, ButtonSize);
-            bool active = i < 5 && _mode == modes[i];
+            bool active = i < 7 && _mode == modes[i];
             bool hover = _hoveredButton == i;
             if (active || hover)
                 using (var p = RRect(btn, 6))
                 using (var b = new SolidBrush(Color.FromArgb((int)(t * (active ? 80 : 40)), 255, 255, 255)))
                     g.FillPath(b, p);
-            int ia = (int)(t * (i == BtnCount - 1 ? 200 : 255));
+            int ia = (int)(t * (i >= BtnCount - 2 ? 200 : 255));
             DrawIcon(g, icons[i], btn, Color.FromArgb(ia, 255, 255, 255));
         }
         g.SmoothingMode = SmoothingMode.Default;
@@ -275,6 +305,22 @@ public sealed class RegionOverlayForm : Form
                 // Eyedropper: small circle + angled line
                 g.DrawEllipse(pen, cx - 4, cy - 7, 8, 8);
                 g.DrawLine(pen, cx, cy + 1, cx, cy + 7); break;
+            case "draw":
+                // Pen/pencil: diagonal line with small tip
+                g.DrawLine(pen, cx - 6, cy + 6, cx + 5, cy - 5);
+                g.DrawLine(pen, cx + 5, cy - 5, cx + 7, cy - 7); break;
+            case "blur":
+                // Blur: three horizontal wavy lines
+                g.DrawLine(pen, cx - 6, cy - 4, cx + 6, cy - 4);
+                g.DrawLine(pen, cx - 6, cy, cx + 6, cy);
+                g.DrawLine(pen, cx - 6, cy + 4, cx + 6, cy + 4); break;
+            case "gear":
+                // Settings gear: circle with notches
+                g.DrawEllipse(pen, cx - 5, cy - 5, 10, 10);
+                g.DrawLine(pen, cx, cy - 7, cx, cy - 4);
+                g.DrawLine(pen, cx, cy + 4, cx, cy + 7);
+                g.DrawLine(pen, cx - 7, cy, cx - 4, cy);
+                g.DrawLine(pen, cx + 4, cy, cx + 7, cy); break;
             case "close":
                 g.DrawLine(pen, cx - 5, cy - 5, cx + 5, cy + 5);
                 g.DrawLine(pen, cx + 5, cy - 5, cx - 5, cy + 5); break;
@@ -320,7 +366,7 @@ public sealed class RegionOverlayForm : Form
         int cy = Math.Clamp(_pickerCursorPos.Y, 0, _bmpH - 1);
         int argb = _pixelData[cy * _bmpW + cx];
         _pickedColor = Color.FromArgb(argb);
-        _hexStr = $"#{_pickedColor.R:X2}{_pickedColor.G:X2}{_pickedColor.B:X2}";
+        _hexStr = $"{_pickedColor.R:X2}{_pickedColor.G:X2}{_pickedColor.B:X2}";
         _rgbStr = $"{_pickedColor.R}, {_pickedColor.G}, {_pickedColor.B}";
 
         const int bg = unchecked((int)0xF5161616);
@@ -432,6 +478,31 @@ public sealed class RegionOverlayForm : Form
         return new Rectangle(left, top, right - left, bottom - top);
     }
 
+    private void PaintBlurRect(Graphics g, Rectangle rect)
+    {
+        // Pixelate effect: downsample then upsample
+        int blockSize = Math.Max(6, Math.Min(rect.Width, rect.Height) / 8);
+        if (rect.Width < 3 || rect.Height < 3) return;
+
+        var clamped = Rectangle.Intersect(rect, new Rectangle(0, 0, _bmpW, _bmpH));
+        if (clamped.Width < 1 || clamped.Height < 1) return;
+
+        int smallW = Math.Max(1, clamped.Width / blockSize);
+        int smallH = Math.Max(1, clamped.Height / blockSize);
+
+        using var small = new Bitmap(smallW, smallH, PixelFormat.Format32bppArgb);
+        using (var sg = Graphics.FromImage(small))
+        {
+            sg.InterpolationMode = InterpolationMode.Bilinear;
+            sg.DrawImage(_screenshot, new Rectangle(0, 0, smallW, smallH), clamped, GraphicsUnit.Pixel);
+        }
+        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+        g.PixelOffsetMode = PixelOffsetMode.Half;
+        g.DrawImage(small, clamped);
+        g.InterpolationMode = InterpolationMode.Default;
+        g.PixelOffsetMode = PixelOffsetMode.Default;
+    }
+
     // ─── Mouse ─────────────────────────────────────────────────────
 
     protected override void OnMouseDown(MouseEventArgs e)
@@ -442,9 +513,11 @@ public sealed class RegionOverlayForm : Form
         int btn = GetToolbarButtonAt(e.Location);
         if (btn >= 0)
         {
-            if (btn == BtnCount - 1) { Cancel(); return; }
+            if (btn == BtnCount - 1) { Cancel(); return; }       // close
+            if (btn == BtnCount - 2) { SettingsRequested?.Invoke(); Cancel(); return; } // settings
             var modeMap = new[] { CaptureMode.Rectangle, CaptureMode.Freeform,
-                CaptureMode.Fullscreen, CaptureMode.Ocr, CaptureMode.ColorPicker };
+                CaptureMode.Fullscreen, CaptureMode.Ocr, CaptureMode.ColorPicker,
+                CaptureMode.Draw, CaptureMode.Blur };
             SetMode(modeMap[btn]);
             return;
         }
@@ -456,7 +529,6 @@ public sealed class RegionOverlayForm : Form
         }
 
         _hasDragged = false;
-        bool isOcr = _mode == CaptureMode.Ocr;
         switch (_mode)
         {
             case CaptureMode.Rectangle:
@@ -473,6 +545,14 @@ public sealed class RegionOverlayForm : Form
             case CaptureMode.Fullscreen:
                 RegionSelected?.Invoke(new Rectangle(0, 0, _screenshot.Width, _screenshot.Height));
                 break;
+            case CaptureMode.Draw:
+                _isSelecting = true;
+                _drawPoints.Add((e.Location, Color.Red));
+                break;
+            case CaptureMode.Blur:
+                _isBlurring = true;
+                _blurStart = e.Location;
+                break;
         }
     }
 
@@ -482,7 +562,6 @@ public sealed class RegionOverlayForm : Form
         if (btn != _hoveredButton) { _hoveredButton = btn; Invalidate(); }
         Cursor = btn >= 0 ? Cursors.Hand : Cursors.Cross;
 
-        bool isOcr = _mode == CaptureMode.Ocr;
         switch (_mode)
         {
             case CaptureMode.Rectangle when _isSelecting:
@@ -498,18 +577,34 @@ public sealed class RegionOverlayForm : Form
                 _hasDragged = true;
                 Invalidate();
                 break;
+            case CaptureMode.Draw when _isSelecting:
+                _drawPoints.Add((e.Location, Color.Red));
+                Invalidate();
+                break;
+            case CaptureMode.Blur when _isBlurring:
+                Invalidate();
+                break;
         }
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left) return;
-        bool isOcr = _mode == CaptureMode.Ocr;
         switch (_mode)
         {
+            case CaptureMode.Draw when _isSelecting:
+                _isSelecting = false;
+                break;
+            case CaptureMode.Blur when _isBlurring:
+                _isBlurring = false;
+                var blurRect = NormRect(_blurStart, e.Location);
+                if (blurRect.Width > 3 && blurRect.Height > 3) _blurRects.Add(blurRect);
+                Invalidate();
+                break;
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
                 _isSelecting = false;
+                bool isOcr = _mode == CaptureMode.Ocr;
                 if (!_hasDragged)
                 {
                     var fullRect = new Rectangle(0, 0, _screenshot.Width, _screenshot.Height);
@@ -540,6 +635,8 @@ public sealed class RegionOverlayForm : Form
         if (e.KeyCode == Keys.D3) SetMode(CaptureMode.Fullscreen);
         if (e.KeyCode == Keys.D4) SetMode(CaptureMode.Ocr);
         if (e.KeyCode == Keys.D5) SetMode(CaptureMode.ColorPicker);
+        if (e.KeyCode == Keys.D6) SetMode(CaptureMode.Draw);
+        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.Blur);
     }
 
     private int GetToolbarButtonAt(Point p)
@@ -553,7 +650,7 @@ public sealed class RegionOverlayForm : Form
     {
         _mode = m; _hasSelection = false; _hasDragged = false;
         _freeformPoints.Clear();
-        _isSelecting = false;
+        _isSelecting = false; _isBlurring = false;
 
         if (m == CaptureMode.ColorPicker)
             _pickerTimer.Start();

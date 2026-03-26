@@ -7,5 +7,7 @@ public enum CaptureMode
     Window,
     Fullscreen,
     ColorPicker,
-    Ocr
+    Ocr,
+    Draw,
+    Blur
 }

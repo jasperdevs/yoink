@@ -200,6 +200,8 @@
                                          IsChecked="True" Click="HistorySubTabChanged" Style="{StaticResource SubTab}"/>
                             <RadioButton x:Name="TextSubTab" Content="Text" GroupName="HistSub"
                                          Click="HistorySubTabChanged" Margin="2,0,0,0" Style="{StaticResource SubTab}"/>
+                            <RadioButton x:Name="ColorsSubTab" Content="Colors" GroupName="HistSub"
+                                         Click="HistorySubTabChanged" Margin="2,0,0,0" Style="{StaticResource SubTab}"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button x:Name="SelectBtn" Content="Select" FontSize="10" Padding="8,3"
@@ -219,6 +221,12 @@
                 <ScrollViewer x:Name="TextPanel" Grid.Row="1" VerticalScrollBarVisibility="Auto"
                               Padding="14,2,14,14" Visibility="Collapsed">
                     <StackPanel x:Name="OcrStack"/>
+                </ScrollViewer>
+
+                <!-- Color history -->
+                <ScrollViewer x:Name="ColorsPanel" Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              Padding="14,2,14,14" Visibility="Collapsed">
+                    <WrapPanel x:Name="ColorStack"/>
                 </ScrollViewer>
 
                 <!-- Empty states -->

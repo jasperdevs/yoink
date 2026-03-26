@@ -66,17 +66,24 @@ public partial class SettingsWindow : Window
 
     private void LoadCurrentHistoryTab()
     {
+        ImagesPanel.Visibility = Visibility.Collapsed;
+        TextPanel.Visibility = Visibility.Collapsed;
+        ColorsPanel.Visibility = Visibility.Collapsed;
+
         if (ImagesSubTab.IsChecked == true)
         {
             ImagesPanel.Visibility = Visibility.Visible;
-            TextPanel.Visibility = Visibility.Collapsed;
             LoadHistory();
         }
-        else
+        else if (TextSubTab.IsChecked == true)
         {
-            ImagesPanel.Visibility = Visibility.Collapsed;
             TextPanel.Visibility = Visibility.Visible;
             LoadOcrHistory();
+        }
+        else if (ColorsSubTab.IsChecked == true)
+        {
+            ColorsPanel.Visibility = Visibility.Visible;
+            LoadColorHistory();
         }
     }
 
@@ -433,6 +440,59 @@ public partial class SettingsWindow : Window
 
             card.Child = grid;
             OcrStack.Children.Add(card);
+        }
+    }
+
+    // ─── Color History ──────────────────────────────────────────────
+
+    private void LoadColorHistory()
+    {
+        ColorStack.Children.Clear();
+        var entries = _historyService.ColorEntries;
+        HistoryEmptyText.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        HistoryEmptyText.Text = "No colors yet";
+        HistoryCountText.Text = $"{entries.Count} color{(entries.Count == 1 ? "" : "s")}";
+
+        foreach (var entry in entries)
+        {
+            byte r = 0, g = 0, b = 0;
+            try
+            {
+                r = Convert.ToByte(entry.Hex[..2], 16);
+                g = Convert.ToByte(entry.Hex[2..4], 16);
+                b = Convert.ToByte(entry.Hex[4..6], 16);
+            }
+            catch { }
+
+            var swatch = new Border
+            {
+                Width = 40, Height = 40,
+                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b)),
+                Margin = new Thickness(3),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                ToolTip = entry.Hex
+            };
+
+            var hexLabel = new TextBlock
+            {
+                Text = entry.Hex, FontSize = 9.5,
+                Foreground = new SolidColorBrush(System.Windows.Media.Colors.White),
+                Opacity = 0.6, HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+
+            var stack = new StackPanel { Margin = new Thickness(3) };
+            stack.Children.Add(swatch);
+            stack.Children.Add(hexLabel);
+
+            swatch.MouseLeftButtonDown += (_, _) =>
+            {
+                System.Windows.Clipboard.SetText(entry.Hex);
+                ToastWindow.Show("Copied", entry.Hex);
+            };
+
+            ColorStack.Children.Add(stack);
         }
     }
 

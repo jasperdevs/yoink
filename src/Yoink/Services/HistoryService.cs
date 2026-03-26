@@ -21,6 +21,12 @@ public sealed class OcrHistoryEntry
     public DateTime CapturedAt { get; set; }
 }
 
+public sealed class ColorHistoryEntry
+{
+    public string Hex { get; set; } = "";
+    public DateTime CapturedAt { get; set; }
+}
+
 public sealed class HistoryService
 {
     private static readonly string HistoryDir = Path.Combine(
@@ -28,14 +34,17 @@ public sealed class HistoryService
 
     private static readonly string IndexPath = Path.Combine(HistoryDir, "index.json");
     private static readonly string OcrIndexPath = Path.Combine(HistoryDir, "ocr_index.json");
+    private static readonly string ColorIndexPath = Path.Combine(HistoryDir, "color_index.json");
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
     private List<HistoryEntry> _entries = new();
     private List<OcrHistoryEntry> _ocrEntries = new();
+    private List<ColorHistoryEntry> _colorEntries = new();
 
     public IReadOnlyList<HistoryEntry> Entries => _entries;
     public IReadOnlyList<OcrHistoryEntry> OcrEntries => _ocrEntries;
+    public IReadOnlyList<ColorHistoryEntry> ColorEntries => _colorEntries;
 
     public void Load()
     {
@@ -60,6 +69,16 @@ public sealed class HistoryService
                     File.ReadAllText(OcrIndexPath), JsonOpts) ?? new();
             }
             catch { _ocrEntries = new(); }
+        }
+
+        if (File.Exists(ColorIndexPath))
+        {
+            try
+            {
+                _colorEntries = JsonSerializer.Deserialize<List<ColorHistoryEntry>>(
+                    File.ReadAllText(ColorIndexPath), JsonOpts) ?? new();
+            }
+            catch { _colorEntries = new(); }
         }
     }
 
@@ -109,6 +128,20 @@ public sealed class HistoryService
         SaveOcrIndex();
     }
 
+    public void SaveColorEntry(string hex)
+    {
+        _colorEntries.Insert(0, new ColorHistoryEntry { Hex = hex, CapturedAt = DateTime.Now });
+        while (_colorEntries.Count > 200)
+            _colorEntries.RemoveAt(_colorEntries.Count - 1);
+        SaveColorIndex();
+    }
+
+    public void DeleteColorEntry(ColorHistoryEntry entry)
+    {
+        _colorEntries.Remove(entry);
+        SaveColorIndex();
+    }
+
     public void ClearAll()
     {
         foreach (var e in _entries)
@@ -122,4 +155,7 @@ public sealed class HistoryService
 
     private void SaveOcrIndex() =>
         File.WriteAllText(OcrIndexPath, JsonSerializer.Serialize(_ocrEntries, JsonOpts));
+
+    private void SaveColorIndex() =>
+        File.WriteAllText(ColorIndexPath, JsonSerializer.Serialize(_colorEntries, JsonOpts));
 }

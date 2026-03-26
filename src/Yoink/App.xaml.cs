@@ -145,21 +145,30 @@ public partial class App : Application
                         System.Windows.Forms.Application.ExitThread();
                     };
 
-                    // Color picker
+                    // Color picker – copy hex without # prefix
                     overlay.ColorPicked += hex =>
                     {
                         Dispatcher.BeginInvoke(() =>
                         {
                             SoundService.PlayColorSound();
-                            System.Windows.Clipboard.SetText(hex);
-                            byte r = Convert.ToByte(hex.Substring(1, 2), 16);
-                            byte g = Convert.ToByte(hex.Substring(3, 2), 16);
-                            byte b = Convert.ToByte(hex.Substring(5, 2), 16);
-                            ToastWindow.ShowWithColor("Color copied", hex,
+                            string bare = hex.TrimStart('#');
+                            System.Windows.Clipboard.SetText(bare);
+                            byte r = Convert.ToByte(bare[..2], 16);
+                            byte g = Convert.ToByte(bare[2..4], 16);
+                            byte b = Convert.ToByte(bare[4..6], 16);
+                            ToastWindow.ShowWithColor("Color copied", bare,
                                 System.Windows.Media.Color.FromRgb(r, g, b));
+
+                            if (_settingsService!.Settings.SaveHistory)
+                                _historyService!.SaveColorEntry(bare);
                         });
                         overlay.Close();
                         System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    overlay.SettingsRequested += () =>
+                    {
+                        Dispatcher.BeginInvoke(ShowSettings);
                     };
 
                     overlay.SelectionCancelled += () =>
