@@ -45,18 +45,32 @@ public partial class App : Application
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
         var s = _settingsService!.Settings;
-        if (!_hotkeyService.Register(s.HotkeyModifiers, s.HotkeyKey))
+        var hotkeyName = FormatHotkeyName(s.HotkeyModifiers, s.HotkeyKey);
+        bool ok = _hotkeyService.Register(s.HotkeyModifiers, s.HotkeyKey);
+
+        if (!ok)
         {
             _trayIcon!.ShowBalloon("Yoink",
-                "Failed to register hotkey. Another app may be using it.",
+                $"Failed to register {hotkeyName}. Try a different hotkey.",
                 System.Windows.Forms.ToolTipIcon.Warning);
         }
         else
         {
             _trayIcon!.ShowBalloon("Yoink",
-                "Ready! Press Alt+` to yoink.",
+                $"Ready! Press {hotkeyName} to yoink.",
                 System.Windows.Forms.ToolTipIcon.Info);
         }
+    }
+
+    private static string FormatHotkeyName(uint mod, uint key)
+    {
+        var parts = new List<string>();
+        if ((mod & Native.User32.MOD_CONTROL) != 0) parts.Add("Ctrl");
+        if ((mod & Native.User32.MOD_ALT) != 0) parts.Add("Alt");
+        if ((mod & Native.User32.MOD_SHIFT) != 0) parts.Add("Shift");
+        var k = System.Windows.Input.KeyInterop.KeyFromVirtualKey((int)key);
+        parts.Add(k == System.Windows.Input.Key.Oem3 ? "`" : k.ToString());
+        return string.Join("+", parts);
     }
 
     private void OnHotkeyPressed()
