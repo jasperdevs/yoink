@@ -1,71 +1,163 @@
 <Window x:Class="Yoink.UI.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Yoink Settings"
-        Height="420" Width="480"
+        Title="Yoink"
+        Height="560" Width="520"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         ThemeMode="System">
 
-    <Grid Margin="24">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="24"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="16"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="16"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="16"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <TextBlock Grid.Row="0" Text="Settings" FontSize="24" FontWeight="SemiBold"/>
+        <!-- Header bar -->
+        <Border Grid.Row="0" Padding="20,16,20,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="16"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-        <!-- Hotkey -->
-        <StackPanel Grid.Row="2">
-            <TextBlock Text="Hotkey" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-            <TextBox x:Name="HotkeyBox"
-                     IsReadOnly="True"
-                     FontSize="14"
-                     Padding="10,8"
-                     PreviewKeyDown="HotkeyBox_PreviewKeyDown"
-                     GotFocus="HotkeyBox_GotFocus"
-                     LostFocus="HotkeyBox_LostFocus"/>
-            <TextBlock x:Name="HotkeyHint" Text="Click and press a new key combination" 
-                       FontSize="12" Foreground="Gray" Margin="0,4,0,0" Visibility="Collapsed"/>
-        </StackPanel>
+                <!-- App title -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Yoink" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock Text="v0.1.0" FontSize="12" Foreground="Gray" 
+                               VerticalAlignment="Center" Margin="8,3,0,0"/>
+                </StackPanel>
 
-        <!-- After Capture -->
-        <StackPanel Grid.Row="4">
-            <TextBlock Text="After capture" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-            <ComboBox x:Name="AfterCaptureCombo" FontSize="14" Padding="10,8"
-                      SelectionChanged="AfterCaptureCombo_SelectionChanged">
-                <ComboBoxItem Content="Copy to clipboard"/>
-                <ComboBoxItem Content="Show preview"/>
-            </ComboBox>
-        </StackPanel>
+                <!-- Tab buttons -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal">
+                    <RadioButton x:Name="SettingsTab" Content="Settings" GroupName="Tabs"
+                                 IsChecked="True" Click="TabChanged"
+                                 Style="{StaticResource TabButtonStyle}"/>
+                    <RadioButton x:Name="HistoryTab" Content="History" GroupName="Tabs"
+                                 Click="TabChanged" Margin="4,0,0,0"
+                                 Style="{StaticResource TabButtonStyle}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-        <!-- Save to file -->
-        <StackPanel Grid.Row="6">
-            <CheckBox x:Name="SaveToFileCheck" Content="Also save to file" FontSize="14"
-                      Checked="SaveToFileCheck_Changed" Unchecked="SaveToFileCheck_Changed"/>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0" x:Name="SaveDirPanel" Visibility="Collapsed">
-                <TextBox x:Name="SaveDirBox" IsReadOnly="True" FontSize="13" Padding="10,8" Width="300"/>
-                <Button Content="Browse" FontSize="13" Padding="12,8" Margin="8,0,0,0"
-                        Click="BrowseButton_Click"/>
-            </StackPanel>
-        </StackPanel>
+        <!-- Tab content -->
+        <Grid Grid.Row="1">
+            <!-- Settings panel -->
+            <ScrollViewer x:Name="SettingsPanel" VerticalScrollBarVisibility="Auto" Padding="20,16,20,20">
+                <StackPanel>
+                    <!-- Hotkey -->
+                    <TextBlock Text="Hotkey" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBox x:Name="HotkeyBox" IsReadOnly="True" FontSize="13" Padding="10,8"
+                             PreviewKeyDown="HotkeyBox_PreviewKeyDown"
+                             GotFocus="HotkeyBox_GotFocus"
+                             LostFocus="HotkeyBox_LostFocus"/>
+                    <TextBlock x:Name="HotkeyHint" Text="Click and press a new key combination"
+                               FontSize="11" Foreground="Gray" Margin="0,4,0,0" Visibility="Collapsed"/>
 
-        <!-- Start with Windows -->
-        <CheckBox Grid.Row="8" x:Name="StartWithWindowsCheck" Content="Start with Windows" FontSize="14"
-                  Checked="StartWithWindowsCheck_Changed" Unchecked="StartWithWindowsCheck_Changed"/>
+                    <!-- After capture -->
+                    <TextBlock Text="After capture" FontSize="13" FontWeight="SemiBold" Margin="0,20,0,6"/>
+                    <ComboBox x:Name="AfterCaptureCombo" FontSize="13" Padding="10,8"
+                              SelectionChanged="AfterCaptureCombo_SelectionChanged">
+                        <ComboBoxItem Content="Copy to clipboard"/>
+                        <ComboBoxItem Content="Show preview"/>
+                    </ComboBox>
 
-        <!-- Version -->
-        <TextBlock Grid.Row="10" Text="Yoink v0.1.0" FontSize="12" Foreground="Gray"
-                   HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                    <!-- Save to file -->
+                    <CheckBox x:Name="SaveToFileCheck" Content="Also save screenshots to file" 
+                              FontSize="13" Margin="0,20,0,0"
+                              Checked="SaveToFileCheck_Changed" Unchecked="SaveToFileCheck_Changed"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" x:Name="SaveDirPanel" Visibility="Collapsed">
+                        <TextBox x:Name="SaveDirBox" IsReadOnly="True" FontSize="12" Padding="10,8" Width="320"/>
+                        <Button Content="Browse" FontSize="12" Padding="12,8" Margin="8,0,0,0"
+                                Click="BrowseButton_Click"/>
+                    </StackPanel>
+
+                    <!-- Start with Windows -->
+                    <CheckBox x:Name="StartWithWindowsCheck" Content="Start with Windows"
+                              FontSize="13" Margin="0,20,0,0"
+                              Checked="StartWithWindowsCheck_Changed" Unchecked="StartWithWindowsCheck_Changed"/>
+
+                    <!-- Save history -->
+                    <CheckBox x:Name="SaveHistoryCheck" Content="Save capture history"
+                              FontSize="13" Margin="0,20,0,0"
+                              Checked="SaveHistoryCheck_Changed" Unchecked="SaveHistoryCheck_Changed"/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- History panel -->
+            <Grid x:Name="HistoryPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,12,20,0">
+                    <TextBlock Text="" FontSize="13" Foreground="Gray" VerticalAlignment="Center"
+                               x:Name="HistoryCountText"/>
+                    <Button Content="Clear all" FontSize="11" Padding="8,4" Margin="12,0,0,0"
+                            Click="ClearHistoryClick" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <ListBox x:Name="HistoryList" Grid.Row="1" Margin="12,8,12,12"
+                         BorderThickness="0" Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="HistoryList_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="4,4" Height="64">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" CornerRadius="4" ClipToBounds="True" Background="#20808080">
+                                    <Image Source="{Binding ThumbPath}" Stretch="UniformToFill"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <TextBlock Text="{Binding Dimensions}" FontSize="13"/>
+                                    <TextBlock Text="{Binding TimeAgo}" FontSize="11" Foreground="Gray"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="Copy" FontSize="11" Padding="8,4" Margin="0,0,4,0"
+                                            Tag="{Binding}" Click="HistoryCopyClick"/>
+                                    <Button Content="Delete" FontSize="11" Padding="8,4"
+                                            Tag="{Binding}" Click="HistoryDeleteClick"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Grid>
     </Grid>
+
+    <Window.Resources>
+        <Style x:Key="TabButtonStyle" TargetType="RadioButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Padding="12,6" CornerRadius="6" Cursor="Hand"
+                                Background="Transparent" BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"/>
+        </Style>
+    </Window.Resources>
 </Window>

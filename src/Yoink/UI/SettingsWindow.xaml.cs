@@ -1,23 +1,26 @@
+using System.Drawing;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using Microsoft.Win32;
+using System.Windows.Media.Imaging;
 using Yoink.Models;
 using Yoink.Services;
+using RadioButton = System.Windows.Controls.RadioButton;
 
 namespace Yoink.UI;
 
 public partial class SettingsWindow : Window
 {
     private readonly SettingsService _settingsService;
+    private readonly HistoryService _historyService;
     private bool _isRecordingHotkey;
-    private uint _pendingModifiers;
-    private uint _pendingKey;
 
     public event Action? HotkeyChanged;
 
-    public SettingsWindow(SettingsService settingsService)
+    public SettingsWindow(SettingsService settingsService, HistoryService historyService)
     {
         _settingsService = settingsService;
+        _historyService = historyService;
         InitializeComponent();
         LoadSettings();
     }
@@ -25,14 +28,33 @@ public partial class SettingsWindow : Window
     private void LoadSettings()
     {
         var s = _settingsService.Settings;
-
         HotkeyBox.Text = FormatHotkey(s.HotkeyModifiers, s.HotkeyKey);
         AfterCaptureCombo.SelectedIndex = (int)s.AfterCapture;
         SaveToFileCheck.IsChecked = s.SaveToFile;
         SaveDirBox.Text = s.SaveDirectory;
         SaveDirPanel.Visibility = s.SaveToFile ? Visibility.Visible : Visibility.Collapsed;
         StartWithWindowsCheck.IsChecked = s.StartWithWindows;
+        SaveHistoryCheck.IsChecked = s.SaveHistory;
     }
+
+    // ─── Tabs ──────────────────────────────────────────────────────
+
+    private void TabChanged(object sender, RoutedEventArgs e)
+    {
+        if (SettingsTab?.IsChecked == true)
+        {
+            SettingsPanel.Visibility = Visibility.Visible;
+            HistoryPanel.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            SettingsPanel.Visibility = Visibility.Collapsed;
+            HistoryPanel.Visibility = Visibility.Visible;
+            LoadHistory();
+        }
+    }
+
+    // ─── Hotkey ────────────────────────────────────────────────────
 
     private void HotkeyBox_GotFocus(object sender, RoutedEventArgs e)
     {
@@ -45,7 +67,6 @@ public partial class SettingsWindow : Window
     {
         _isRecordingHotkey = false;
         HotkeyHint.Visibility = Visibility.Collapsed;
-        // Revert to current setting if nothing was pressed
         HotkeyBox.Text = FormatHotkey(
             _settingsService.Settings.HotkeyModifiers,
             _settingsService.Settings.HotkeyKey);
@@ -53,34 +74,20 @@ public partial class SettingsWindow : Window
 
     private void HotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (!_isRecordingHotkey)
-            return;
-
+        if (!_isRecordingHotkey) return;
         e.Handled = true;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-
-        // Ignore bare modifier presses
         if (key is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
-            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin)
-            return;
+            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin) return;
 
-        // Build modifier flags
         uint modifiers = 0;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) modifiers |= Native.User32.MOD_ALT;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) modifiers |= Native.User32.MOD_CONTROL;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) modifiers |= Native.User32.MOD_SHIFT;
-
-        // Need at least one modifier
-        if (modifiers == 0)
-            return;
+        if (modifiers == 0) return;
 
         uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
-
-        _pendingModifiers = modifiers;
-        _pendingKey = vk;
-
-        // Apply immediately
         _settingsService.Settings.HotkeyModifiers = modifiers;
         _settingsService.Settings.HotkeyKey = vk;
         _settingsService.Save();
@@ -88,13 +95,12 @@ public partial class SettingsWindow : Window
         HotkeyBox.Text = FormatHotkey(modifiers, vk);
         _isRecordingHotkey = false;
         HotkeyHint.Visibility = Visibility.Collapsed;
-
-        // Move focus away
         FocusManager.SetFocusedElement(this, this);
         Keyboard.ClearFocus();
-
         HotkeyChanged?.Invoke();
     }
+
+    // ─── Settings controls ─────────────────────────────────────────
 
     private void AfterCaptureCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
@@ -106,9 +112,9 @@ public partial class SettingsWindow : Window
     private void SaveToFileCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
-        bool isChecked = SaveToFileCheck.IsChecked == true;
-        _settingsService.Settings.SaveToFile = isChecked;
-        SaveDirPanel.Visibility = isChecked ? Visibility.Visible : Visibility.Collapsed;
+        bool on = SaveToFileCheck.IsChecked == true;
+        _settingsService.Settings.SaveToFile = on;
+        SaveDirPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         _settingsService.Save();
     }
 
@@ -120,7 +126,6 @@ public partial class SettingsWindow : Window
             SelectedPath = _settingsService.Settings.SaveDirectory,
             ShowNewFolderButton = true
         };
-
         if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
             _settingsService.Settings.SaveDirectory = dialog.SelectedPath;
@@ -132,30 +137,91 @@ public partial class SettingsWindow : Window
     private void StartWithWindowsCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
-        bool isChecked = StartWithWindowsCheck.IsChecked == true;
-        _settingsService.Settings.StartWithWindows = isChecked;
+        bool on = StartWithWindowsCheck.IsChecked == true;
+        _settingsService.Settings.StartWithWindows = on;
         _settingsService.Save();
-        SetStartWithWindows(isChecked);
+        SetStartWithWindows(on);
+    }
+
+    private void SaveHistoryCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.SaveHistory = SaveHistoryCheck.IsChecked == true;
+        _settingsService.Save();
     }
 
     private static void SetStartWithWindows(bool enable)
     {
         const string keyName = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-        const string valueName = "Yoink";
-
-        using var key = Registry.CurrentUser.OpenSubKey(keyName, true);
+        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(keyName, true);
         if (key is null) return;
-
         if (enable)
         {
-            var exePath = Environment.ProcessPath;
-            if (exePath is not null)
-                key.SetValue(valueName, $"\"{exePath}\"");
+            var exe = Environment.ProcessPath;
+            if (exe is not null) key.SetValue("Yoink", $"\"{exe}\"");
         }
         else
         {
-            key.DeleteValue(valueName, false);
+            key.DeleteValue("Yoink", false);
         }
+    }
+
+    // ─── History ───────────────────────────────────────────────────
+
+    private void LoadHistory()
+    {
+        var items = _historyService.Entries.Select(e => new HistoryItemVM
+        {
+            Entry = e,
+            ThumbPath = e.FilePath,
+            Dimensions = $"{e.Width} x {e.Height}",
+            TimeAgo = FormatTimeAgo(e.CapturedAt)
+        }).ToList();
+
+        HistoryList.ItemsSource = items;
+        HistoryCountText.Text = $"{items.Count} capture{(items.Count == 1 ? "" : "s")}";
+    }
+
+    private void ClearHistoryClick(object sender, RoutedEventArgs e)
+    {
+        _historyService.ClearAll();
+        LoadHistory();
+    }
+
+    private void HistoryCopyClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button btn && btn.Tag is HistoryItemVM vm)
+        {
+            if (File.Exists(vm.Entry.FilePath))
+            {
+                using var bmp = new Bitmap(vm.Entry.FilePath);
+                ClipboardService.CopyToClipboard(bmp);
+            }
+        }
+    }
+
+    private void HistoryDeleteClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button btn && btn.Tag is HistoryItemVM vm)
+        {
+            _historyService.DeleteEntry(vm.Entry);
+            LoadHistory();
+        }
+    }
+
+    private void HistoryList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        HistoryList.SelectedIndex = -1; // deselect, items aren't selectable
+    }
+
+    private static string FormatTimeAgo(DateTime dt)
+    {
+        var diff = DateTime.Now - dt;
+        if (diff.TotalSeconds < 60) return "Just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return dt.ToString("MMM d, yyyy");
     }
 
     private static string FormatHotkey(uint modifiers, uint vk)
@@ -164,15 +230,16 @@ public partial class SettingsWindow : Window
         if ((modifiers & Native.User32.MOD_CONTROL) != 0) parts.Add("Ctrl");
         if ((modifiers & Native.User32.MOD_ALT) != 0) parts.Add("Alt");
         if ((modifiers & Native.User32.MOD_SHIFT) != 0) parts.Add("Shift");
-
         var key = KeyInterop.KeyFromVirtualKey((int)vk);
-        string keyName = key switch
-        {
-            Key.Oem3 => "`",  // backtick/tilde key
-            _ => key.ToString()
-        };
-
-        parts.Add(keyName);
+        parts.Add(key switch { Key.Oem3 => "`", _ => key.ToString() });
         return string.Join(" + ", parts);
     }
+}
+
+internal sealed class HistoryItemVM
+{
+    public HistoryEntry Entry { get; set; } = null!;
+    public string ThumbPath { get; set; } = "";
+    public string Dimensions { get; set; } = "";
+    public string TimeAgo { get; set; } = "";
 }

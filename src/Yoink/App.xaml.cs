@@ -14,6 +14,7 @@ public partial class App : Application
 {
     private HotkeyService? _hotkeyService;
     private SettingsService? _settingsService;
+    private HistoryService? _historyService;
     private TrayIcon? _trayIcon;
     private SettingsWindow? _settingsWindow;
     private bool _isCapturing;
@@ -25,8 +26,13 @@ public partial class App : Application
         _settingsService = new SettingsService();
         _settingsService.Load();
 
+        _historyService = new HistoryService();
+        _historyService.Load();
+
         _trayIcon = new TrayIcon();
+        _trayIcon.OnCapture += () => OnHotkeyPressed();
         _trayIcon.OnSettings += ShowSettings;
+        _trayIcon.OnHistory += ShowHistory;
         _trayIcon.OnQuit += () => Shutdown();
 
         RegisterHotkey();
@@ -140,14 +146,19 @@ public partial class App : Application
 
     private void HandleCaptureResult(Bitmap captured)
     {
-        // Clone the bitmap so we own it after this method
         var result = new Bitmap(captured);
 
         Dispatcher.BeginInvoke(() =>
         {
             var action = _settingsService!.Settings.AfterCapture;
 
-            // Always save to file if enabled
+            // Save to history
+            if (_settingsService.Settings.SaveHistory)
+            {
+                _historyService!.SaveCapture(result);
+            }
+
+            // Save to file if enabled
             if (_settingsService.Settings.SaveToFile)
             {
                 SaveToFile(result);
@@ -187,9 +198,29 @@ public partial class App : Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settingsService!);
+        _settingsWindow = new SettingsWindow(_settingsService!, _historyService!);
         _settingsWindow.HotkeyChanged += () => RegisterHotkey();
         _settingsWindow.Show();
+    }
+
+    private void ShowHistory()
+    {
+        ShowSettings();
+        // Switch to history tab after a short delay to ensure the window is loaded
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_settingsWindow is not null)
+            {
+                // Programmatically click the history tab
+                var historyTab = _settingsWindow.FindName("HistoryTab") as System.Windows.Controls.RadioButton;
+                if (historyTab is not null)
+                {
+                    historyTab.IsChecked = true;
+                    // Fire the tab changed event
+                    historyTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                }
+            }
+        }, DispatcherPriority.Loaded);
     }
 
     protected override void OnExit(ExitEventArgs e)

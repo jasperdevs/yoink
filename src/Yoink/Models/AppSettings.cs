@@ -8,7 +8,6 @@ public enum AfterCaptureAction
 
 public sealed class AppSettings
 {
-    // Default hotkey: Alt+` (tilde) - left hand, no reach, not taken by anything
     public uint HotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
     public uint HotkeyKey { get; set; } = 0xC0; // VK_OEM_3 = backtick/tilde key
     public AfterCaptureAction AfterCapture { get; set; } = AfterCaptureAction.CopyToClipboard;
@@ -16,4 +15,5 @@ public sealed class AppSettings
     public string SaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
     public bool StartWithWindows { get; set; }
     public CaptureMode LastCaptureMode { get; set; } = CaptureMode.Rectangle;
+    public bool SaveHistory { get; set; } = true;
 }
