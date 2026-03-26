@@ -5,6 +5,7 @@
         Height="580" Width="540"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
+        Foreground="White"
         ThemeMode="Dark">
 
     <Window.Resources>
@@ -15,7 +16,7 @@
                     <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="Bd" Padding="12,5" CornerRadius="6" Cursor="Hand" Background="Transparent">
                             <TextBlock x:Name="Tb" Text="{TemplateBinding Content}" FontSize="12"
-                                       Opacity="0.4"/>
+                                       Foreground="White" Opacity="0.4"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
@@ -39,7 +40,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="Bd" Padding="10,4" CornerRadius="5" Cursor="Hand" Background="Transparent">
-                            <TextBlock x:Name="Tb" Text="{TemplateBinding Content}" FontSize="11" Opacity="0.35"/>
+                            <TextBlock x:Name="Tb" Text="{TemplateBinding Content}" FontSize="11" Foreground="White" Opacity="0.35"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
