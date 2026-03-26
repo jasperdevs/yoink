@@ -97,6 +97,7 @@ public partial class App : Application
 
                 picker.ColorPicked += hex =>
                 {
+                    SoundService.PlayColorSound();
                     Dispatcher.BeginInvoke(() =>
                     {
                         System.Windows.Clipboard.SetText(hex);
@@ -267,6 +268,7 @@ public partial class App : Application
                 string text = await OcrService.RecognizeAsync(result);
                 if (!string.IsNullOrWhiteSpace(text))
                 {
+                    SoundService.PlayTextSound();
                     System.Windows.Clipboard.SetText(text);
                     // Show the copied text (truncated) in the balloon
                     var prev = text.Length > 100 ? text[..100] + "..." : text;

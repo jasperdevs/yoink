@@ -39,6 +39,7 @@ public partial class PreviewWindow : Window
         InitializeComponent();
         ApplyTheme();
         SetThumbnail();
+        FitToImage();
 
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _fadeTimer.Tick += (_, _) => { _fadeTimer.Stop(); if (!_isHovered) AnimateDismiss(); };
@@ -54,7 +55,25 @@ public partial class PreviewWindow : Window
         Theme.Refresh();
         RootBorder.Background = Theme.Brush(Theme.BgElevated);
         RootBorder.BorderBrush = Theme.Brush(Theme.BorderSubtle);
-        ImageBorder.Background = Theme.Brush(Theme.BgElevated);
+        ImageBorder.Background = RootBorder.Background;
+    }
+
+    /// <summary>Sizes the window to tightly fit the image, avoiding dead space that looks like thick borders.</summary>
+    private void FitToImage()
+    {
+        if (ThumbnailImage.Source is not BitmapSource src) return;
+
+        double maxW = 280, maxH = 180;
+        double imgW = src.PixelWidth, imgH = src.PixelHeight;
+
+        // Scale to fit within max bounds
+        double scale = Math.Min(maxW / imgW, maxH / imgH);
+        scale = Math.Min(scale, 1.0); // don't upscale
+        double fitW = Math.Max(100, imgW * scale);
+        double fitH = imgH * scale;
+
+        ImageBorder.Width = fitW;
+        ImageBorder.Height = fitH;
     }
 
     private void SetThumbnail()

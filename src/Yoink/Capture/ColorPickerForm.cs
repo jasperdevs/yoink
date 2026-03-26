@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Yoink.Native;
@@ -11,24 +12,36 @@ public sealed class ColorPickerForm : Form
 {
     private readonly Bitmap _screenshot;
     private readonly Bitmap _dimmed;
-    private readonly int[] _pixelData; // pre-cached ARGB pixel data
+    private readonly int[] _pixelData;
     private readonly int _bmpW, _bmpH;
     private readonly Rectangle _virtualBounds;
     private readonly System.Windows.Forms.Timer _trackTimer;
+
+    // Reusable GDI objects to avoid per-frame allocation
+    private readonly SolidBrush _bgBrush = new(Color.FromArgb(240, 24, 24, 24));
+    private readonly Pen _borderPen = new(Color.FromArgb(50, 255, 255, 255));
+    private readonly Pen _gridPen = new(Color.FromArgb(25, 255, 255, 255));
+    private readonly Pen _centerPen = new(Color.White, 2f);
+    private readonly Pen _crossPen = new(Color.FromArgb(180, 255, 255, 255), 1f);
+    private readonly SolidBrush _whiteBrush = new(Color.White);
+    private readonly SolidBrush _mutedBrush = new(Color.FromArgb(140, 255, 255, 255));
+    private readonly SolidBrush _pixelBrush = new(Color.Black);
+    private readonly Font _hexFont = new("Segoe UI", 11f, FontStyle.Bold);
+    private readonly Font _rgbFont = new("Segoe UI", 9f);
 
     private Point _cursorPos;
     private Point _prevCursorPos;
     private Rectangle _prevPanelRect;
     private Color _pickedColor = Color.Black;
 
-    private const int GridSize = 7;
-    private const int CellSize = 12;
-    private const int MagSize = GridSize * CellSize;
-    private const int InfoHeight = 40;
-    private const int Pad = 8;
+    private const int GridSize = 9;
+    private const int CellSize = 14;
+    private const int MagSize = GridSize * CellSize; // 126px
+    private const int InfoHeight = 48;
+    private const int Pad = 10;
     private const int PanelW = MagSize + Pad * 2;
     private const int PanelH = MagSize + InfoHeight + Pad * 2;
-    private const int CursorOffset = 18;
+    private const int CursorOffset = 20;
 
     public event Action<string>? ColorPicked;
     public event Action? Cancelled;
@@ -40,7 +53,7 @@ public sealed class ColorPickerForm : Form
         _bmpW = screenshot.Width;
         _bmpH = screenshot.Height;
 
-        // Pre-cache all pixels into int array for fast access (no GetPixel)
+        // Pre-cache all pixels into int array for fast access
         _pixelData = new int[_bmpW * _bmpH];
         var bits = screenshot.LockBits(new Rectangle(0, 0, _bmpW, _bmpH),
             ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
@@ -78,7 +91,6 @@ public sealed class ColorPickerForm : Form
                 _prevCursorPos = _cursorPos;
                 _cursorPos = np;
 
-                // Only invalidate the old and new regions (panel + crosshair)
                 var oldCross = new Rectangle(_prevCursorPos.X - 12, _prevCursorPos.Y - 12, 24, 24);
                 var newCross = new Rectangle(_cursorPos.X - 12, _cursorPos.Y - 12, 24, 24);
                 var newPanel = CalcPanelRect(_cursorPos);
@@ -99,8 +111,7 @@ public sealed class ColorPickerForm : Form
         if (py + PanelH > ClientSize.Height) py = cursor.Y - CursorOffset - PanelH;
         px = Math.Max(2, px);
         py = Math.Max(2, py);
-        // Add margin for shadow/border
-        return new Rectangle(px - 2, py - 2, PanelW + 4, PanelH + 4);
+        return new Rectangle(px - 3, py - 3, PanelW + 6, PanelH + 6);
     }
 
     private Color GetFastPixel(int x, int y)
@@ -140,13 +151,12 @@ public sealed class ColorPickerForm : Form
 
         var panelRect = new Rectangle(px, py, PanelW, PanelH);
 
+        // Panel background
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var path = RRect(panelRect, 8))
+        using (var path = RRect(panelRect, 10))
         {
-            using var bg = new SolidBrush(Color.FromArgb(235, 28, 28, 28));
-            g.FillPath(bg, path);
-            using var border = new Pen(Color.FromArgb(40, 255, 255, 255));
-            g.DrawPath(border, path);
+            g.FillPath(_bgBrush, path);
+            g.DrawPath(_borderPen, path);
         }
         g.SmoothingMode = SmoothingMode.Default;
 
@@ -156,7 +166,7 @@ public sealed class ColorPickerForm : Form
 
         // Clip to rounded mag area
         var oldClip = g.Clip;
-        using (var magClip = new Region(RRect(magRect, 6)))
+        using (var magClip = new Region(RRect(magRect, 7)))
         {
             g.Clip = magClip;
             int half = GridSize / 2;
@@ -164,44 +174,47 @@ public sealed class ColorPickerForm : Form
                 for (int gx = 0; gx < GridSize; gx++)
                 {
                     var pc = GetFastPixel(cx - half + gx, cy - half + gy);
-                    using var brush = new SolidBrush(pc);
-                    g.FillRectangle(brush, magX + gx * CellSize, magY + gy * CellSize, CellSize, CellSize);
+                    _pixelBrush.Color = pc;
+                    g.FillRectangle(_pixelBrush, magX + gx * CellSize, magY + gy * CellSize, CellSize, CellSize);
                 }
 
-            using var gp = new Pen(Color.FromArgb(20, 255, 255, 255));
+            // Grid lines
             for (int i = 0; i <= GridSize; i++)
             {
-                g.DrawLine(gp, magX + i * CellSize, magY, magX + i * CellSize, magY + MagSize);
-                g.DrawLine(gp, magX, magY + i * CellSize, magX + MagSize, magY + i * CellSize);
+                g.DrawLine(_gridPen, magX + i * CellSize, magY, magX + i * CellSize, magY + MagSize);
+                g.DrawLine(_gridPen, magX, magY + i * CellSize, magX + MagSize, magY + i * CellSize);
             }
         }
         g.Clip = oldClip;
 
-        // Center pixel
-        var cr = new Rectangle(magX + (GridSize / 2) * CellSize - 1, magY + (GridSize / 2) * CellSize - 1,
-            CellSize + 1, CellSize + 1);
-        using (var hp = new Pen(Color.White, 1.5f))
-            g.DrawRectangle(hp, cr);
+        // Center pixel highlight
+        var cr = new Rectangle(magX + (GridSize / 2) * CellSize, magY + (GridSize / 2) * CellSize,
+            CellSize - 1, CellSize - 1);
+        g.DrawRectangle(_centerPen, cr);
 
-        // Info
-        int iy = magY + MagSize + 6;
-        using (var sb = new SolidBrush(_pickedColor))
-            g.FillRectangle(sb, magX, iy, 22, 22);
+        // Info section
+        int iy = magY + MagSize + 8;
+
+        // Color swatch with rounded corners
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        var swatchRect = new Rectangle(magX, iy, 26, 26);
+        using (var swatchPath = RRect(swatchRect, 4))
+        {
+            _pixelBrush.Color = _pickedColor;
+            g.FillPath(_pixelBrush, swatchPath);
+        }
+        g.SmoothingMode = SmoothingMode.Default;
 
         string hex = $"#{_pickedColor.R:X2}{_pickedColor.G:X2}{_pickedColor.B:X2}";
-        using var fb = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        using var fs = new Font("Segoe UI", 8f);
-        using var w = new SolidBrush(Color.White);
-        using var m = new SolidBrush(Color.FromArgb(120, 255, 255, 255));
-        g.DrawString(hex, fb, w, magX + 28, iy - 1);
-        g.DrawString($"{_pickedColor.R}, {_pickedColor.G}, {_pickedColor.B}", fs, m, magX + 28, iy + 13);
+        g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+        g.DrawString(hex, _hexFont, _whiteBrush, magX + 32, iy - 2);
+        g.DrawString($"{_pickedColor.R}, {_pickedColor.G}, {_pickedColor.B}", _rgbFont, _mutedBrush, magX + 32, iy + 15);
 
         // Crosshair
-        using var cp = new Pen(Color.FromArgb(150, 255, 255, 255), 1f);
-        g.DrawLine(cp, _cursorPos.X - 8, _cursorPos.Y, _cursorPos.X - 3, _cursorPos.Y);
-        g.DrawLine(cp, _cursorPos.X + 3, _cursorPos.Y, _cursorPos.X + 8, _cursorPos.Y);
-        g.DrawLine(cp, _cursorPos.X, _cursorPos.Y - 8, _cursorPos.X, _cursorPos.Y - 3);
-        g.DrawLine(cp, _cursorPos.X, _cursorPos.Y + 3, _cursorPos.X, _cursorPos.Y + 8);
+        g.DrawLine(_crossPen, _cursorPos.X - 10, _cursorPos.Y, _cursorPos.X - 3, _cursorPos.Y);
+        g.DrawLine(_crossPen, _cursorPos.X + 3, _cursorPos.Y, _cursorPos.X + 10, _cursorPos.Y);
+        g.DrawLine(_crossPen, _cursorPos.X, _cursorPos.Y - 10, _cursorPos.X, _cursorPos.Y - 3);
+        g.DrawLine(_crossPen, _cursorPos.X, _cursorPos.Y + 3, _cursorPos.X, _cursorPos.Y + 10);
     }
 
     protected override void OnMouseClick(MouseEventArgs e)
@@ -231,7 +244,21 @@ public sealed class ColorPickerForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _trackTimer.Dispose(); _dimmed.Dispose(); }
+        if (disposing)
+        {
+            _trackTimer.Dispose();
+            _dimmed.Dispose();
+            _bgBrush.Dispose();
+            _borderPen.Dispose();
+            _gridPen.Dispose();
+            _centerPen.Dispose();
+            _crossPen.Dispose();
+            _whiteBrush.Dispose();
+            _mutedBrush.Dispose();
+            _pixelBrush.Dispose();
+            _hexFont.Dispose();
+            _rgbFont.Dispose();
+        }
         base.Dispose(disposing);
     }
 
