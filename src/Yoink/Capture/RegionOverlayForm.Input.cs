@@ -241,6 +241,10 @@ public sealed partial class RegionOverlayForm
         else
             { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
 
+        // Crosshair guides need full repaint on every move
+        if (ShowCrosshairGuides)
+            Invalidate();
+
         switch (_mode)
         {
             case CaptureMode.Rectangle when !_isSelecting:
@@ -257,27 +261,16 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
                 _autoDetectActive = false;
-                var prevRect = _selectionRect;
                 _selectionEnd = e.Location;
                 _selectionRect = NormRect(_selectionStart, _selectionEnd);
                 if (_selectionRect.Width > 3 || _selectionRect.Height > 3) _hasDragged = true;
                 _hasSelection = _selectionRect.Width > 2 && _selectionRect.Height > 2;
-                // Invalidate union of old and new selection rect (not full screen)
-                var union = Rectangle.Union(prevRect, _selectionRect);
-                union.Inflate(10, 40); // extra for labels and border thickness
-                Invalidate(union);
+                Invalidate();
                 break;
             case CaptureMode.Freeform when _isSelecting:
-                if (_freeformPoints.Count > 0)
-                {
-                    var prev = _freeformPoints[^1];
-                    var segRect = new Rectangle(
-                        Math.Min(prev.X, e.Location.X) - 4, Math.Min(prev.Y, e.Location.Y) - 4,
-                        Math.Abs(e.Location.X - prev.X) + 8, Math.Abs(e.Location.Y - prev.Y) + 8);
-                    Invalidate(segRect);
-                }
                 _freeformPoints.Add(e.Location);
                 _hasDragged = true;
+                Invalidate();
                 break;
             case CaptureMode.Highlight when _isHighlighting:
                 Invalidate();

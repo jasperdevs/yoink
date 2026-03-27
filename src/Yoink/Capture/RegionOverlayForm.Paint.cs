@@ -41,7 +41,7 @@ public sealed partial class RegionOverlayForm
         // Auto-detect: show detected window border when hovering
         if (isSelectionMode && !_isSelecting && _autoDetectActive && _autoDetectRect.Width > 0)
         {
-            using var adPen = MarchingPen(180);
+            using var adPen = DashedPen(180);
             g.DrawRectangle(adPen, _autoDetectRect);
         }
         // Show fullscreen border when in selection mode but not yet dragging
@@ -75,7 +75,7 @@ public sealed partial class RegionOverlayForm
                     g.DrawRectangle(shadowPen, sr);
                 }
                 // Animated marching ants
-                using (var marchPen = MarchingPen(255))
+                using (var marchPen = DashedPen(255))
                 {
                     g.DrawRectangle(marchPen, _selectionRect);
                 }
@@ -98,7 +98,7 @@ public sealed partial class RegionOverlayForm
         if (ShowCrosshairGuides && _mode != CaptureMode.ColorPicker)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
-            using var chPen = MarchingPen(70, 1f);
+            using var chPen = DashedPen(70, 1f);
             g.DrawLine(chPen, cur.X, 0, cur.X, ClientSize.Height);
             g.DrawLine(chPen, 0, cur.Y, ClientSize.Width, cur.Y);
         }
@@ -106,12 +106,11 @@ public sealed partial class RegionOverlayForm
         PaintToolbar(g);
     }
 
-    /// <summary>Create a unified marching ants pen. Every dashed border uses this.</summary>
-    private Pen MarchingPen(int alpha, float width = 2f) => new Pen(Color.FromArgb(alpha, 255, 255, 255), width)
+    /// <summary>Static dashed pen for all selection borders.</summary>
+    private static Pen DashedPen(int alpha, float width = 2f) => new Pen(Color.FromArgb(alpha, 255, 255, 255), width)
     {
         DashStyle = DashStyle.Dash,
-        DashPattern = new[] { 6f, 4f },
-        DashOffset = _dashOffset
+        DashPattern = new[] { 6f, 4f }
     };
 
     // All annotations rendered in creation order via undo stack (Excalidraw style)

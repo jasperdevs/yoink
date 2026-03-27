@@ -37,7 +37,6 @@ public sealed partial class RegionOverlayForm : Form
     private const int ToolbarTopMargin = 16;
 
     private float _toolbarAnim;
-    private float _dashOffset; // animated marching ants
     private readonly System.Windows.Forms.Timer _animTimer;
     private readonly DateTime _showTime;
 
@@ -290,44 +289,16 @@ public sealed partial class RegionOverlayForm : Form
         SetupForm();
         CalcToolbar();
 
-        _animTimer = new System.Windows.Forms.Timer { Interval = 32 }; // ~30fps for smooth animation
+        // Timer only for toolbar slide-in animation, then stops
+        _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _animTimer.Tick += (_, _) =>
         {
             float elapsed = (float)(DateTime.UtcNow - _showTime).TotalMilliseconds;
             _toolbarAnim = Math.Min(1f, elapsed / 120f);
-            _dashOffset += 0.6f;
-            if (_dashOffset > 1000f) _dashOffset -= 1000f;
-
-            if (_toolbarAnim < 1f)
-            {
-                // Toolbar still animating in - repaint toolbar area
-                Invalidate(new Rectangle(_toolbarRect.X - 10, _toolbarRect.Y - 40,
-                    _toolbarRect.Width + 20, _toolbarRect.Height + 80));
-            }
-            else if (_hasSelection)
-            {
-                // Only repaint selection border area (thin strip around selection)
-                int m = 6;
-                var s = _selectionRect;
-                Invalidate(new Rectangle(s.X - m, s.Y - m, s.Width + m * 2, m * 2)); // top
-                Invalidate(new Rectangle(s.X - m, s.Bottom - m, s.Width + m * 2, m * 2 + 30)); // bottom + label
-                Invalidate(new Rectangle(s.X - m, s.Y, m * 2, s.Height)); // left
-                Invalidate(new Rectangle(s.Right - m, s.Y, m * 2, s.Height)); // right
-            }
-            else if (_autoDetectActive)
-            {
-                int m = 4;
-                var s = _autoDetectRect;
-                Invalidate(new Rectangle(s.X - m, s.Y - m, s.Width + m * 2, m * 2));
-                Invalidate(new Rectangle(s.X - m, s.Bottom - m, s.Width + m * 2, m * 2));
-                Invalidate(new Rectangle(s.X - m, s.Y, m * 2, s.Height));
-                Invalidate(new Rectangle(s.Right - m, s.Y, m * 2, s.Height));
-            }
-            // Crosshair guides need cursor-area repaint but are lightweight
-            else if (ShowCrosshairGuides)
-            {
-                Invalidate(); // crosshairs span full screen, can't optimize easily
-            }
+            Invalidate(new Rectangle(_toolbarRect.X - 10, _toolbarRect.Y - 40,
+                _toolbarRect.Width + 20, _toolbarRect.Height + 80));
+            if (_toolbarAnim >= 1f)
+                _animTimer.Stop(); // done animating, stop timer completely
         };
         _animTimer.Start();
 
