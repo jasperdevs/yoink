@@ -807,9 +807,9 @@ public sealed partial class RegionOverlayForm
         ["highlight"]   = '\uE7E6', // Highlight
         ["line"]        = '\uEDC6', // Diagonal line
         ["arrow"]       = '\uE72A', // Forward arrow (→ clean diagonal)
-        ["curvedArrow"] = '\uE8EE', // InkingCurvature / bend
+        ["curvedArrow"] = '\uE806', // Pen workspace (curved stroke)
         ["text"]        = '\uE8D2', // Font / text
-        ["step"]        = '\uE91B', // Numbered list / step counter
+        ["step"]        = '\uEA3A', // List / numbered annotation
         ["blur"]        = '\uE80A', // Grid / mosaic
         ["eraser"]      = '\uE75C', // Eraser
         ["magnifier"]   = '\uE71E', // Zoom / search

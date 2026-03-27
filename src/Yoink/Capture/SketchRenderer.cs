@@ -10,23 +10,19 @@ namespace Yoink.Capture;
 /// </summary>
 public static class SketchRenderer
 {
-    // Soft shadow parameters
-    private const float ShadowOffX = 1.5f;
-    private const float ShadowOffY = 2.5f;
-    private const int ShadowPasses = 5;  // number of blur passes
-    private const float ShadowSpread = 4f; // total blur radius
+    // Subtle soft shadow: small offset, 3 passes, low alpha
+    private const float ShadowOffX = 1f;
+    private const float ShadowOffY = 1.5f;
+    private const int ShadowPasses = 3;
+    private const float ShadowSpread = 3f;
 
-    /// <summary>
-    /// Draw a soft blurred shadow for a line by rendering it multiple times
-    /// at expanding offsets with decreasing alpha (simulates gaussian blur).
-    /// </summary>
     private static void DrawSoftLineShadow(Graphics g, PointF from, PointF to, float thickness)
     {
         for (int i = ShadowPasses; i >= 1; i--)
         {
-            float t = i / (float)ShadowPasses; // 1.0 -> 0.2
+            float t = i / (float)ShadowPasses;
             float spread = ShadowSpread * t;
-            int alpha = (int)(30 * (1f - t * 0.6f)); // outer=12, inner=30
+            int alpha = (int)(12 * (1f - t * 0.5f));
             using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), thickness + spread * 2)
                 { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
             g.DrawLine(pen, from.X + ShadowOffX, from.Y + ShadowOffY,
@@ -34,9 +30,6 @@ public static class SketchRenderer
         }
     }
 
-    /// <summary>
-    /// Draw a soft blurred shadow for a curve/lines by rendering multiple passes.
-    /// </summary>
     private static void DrawSoftCurveShadow(Graphics g, Point[] points, float thickness, bool asCurve)
     {
         var shadowPts = points.Select(p => new Point((int)(p.X + ShadowOffX), (int)(p.Y + ShadowOffY))).ToArray();
@@ -44,7 +37,7 @@ public static class SketchRenderer
         {
             float t = i / (float)ShadowPasses;
             float spread = ShadowSpread * t;
-            int alpha = (int)(30 * (1f - t * 0.6f));
+            int alpha = (int)(12 * (1f - t * 0.5f));
             using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), thickness + spread * 2)
                 { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
             if (asCurve && shadowPts.Length >= 4)
@@ -54,37 +47,29 @@ public static class SketchRenderer
         }
     }
 
-    /// <summary>
-    /// Draw a soft blurred shadow for a filled path.
-    /// </summary>
     public static void DrawSoftPathShadow(Graphics g, GraphicsPath path, float extraSpread = 0f)
     {
         for (int i = ShadowPasses; i >= 1; i--)
         {
             float t = i / (float)ShadowPasses;
             float spread = (ShadowSpread + extraSpread) * t;
-            int alpha = (int)(25 * (1f - t * 0.6f));
-            using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), spread * 2) { LineJoin = LineJoin.Round };
+            int alpha = (int)(10 * (1f - t * 0.5f));
             using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
             var m = new System.Drawing.Drawing2D.Matrix();
             m.Translate(ShadowOffX, ShadowOffY);
             using var shadowPath = (GraphicsPath)path.Clone();
             shadowPath.Transform(m);
             g.FillPath(brush, shadowPath);
-            g.DrawPath(pen, shadowPath);
         }
     }
 
-    /// <summary>
-    /// Draw a soft blurred shadow for an ellipse.
-    /// </summary>
     public static void DrawSoftEllipseShadow(Graphics g, float x, float y, float w, float h)
     {
         for (int i = ShadowPasses; i >= 1; i--)
         {
             float t = i / (float)ShadowPasses;
             float spread = ShadowSpread * t;
-            int alpha = (int)(25 * (1f - t * 0.6f));
+            int alpha = (int)(10 * (1f - t * 0.5f));
             using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
             g.FillEllipse(brush,
                 x + ShadowOffX - spread, y + ShadowOffY - spread,
