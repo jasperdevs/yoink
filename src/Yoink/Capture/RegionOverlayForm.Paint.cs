@@ -103,15 +103,82 @@ public sealed partial class RegionOverlayForm
         PaintToolbar(g);
     }
 
-    // All annotations: draw strokes, arrows, eraser fills, blur, plus active previews
+    // All annotations rendered in creation order (newest on top)
     private void PaintAnnotations(Graphics g)
     {
-        // Eraser fills
-        foreach (var (rect, color) in _eraserFills)
+        // Use undo stack to determine paint order
+        int iDraw = 0, iBlur = 0, iArrow = 0, iCurved = 0;
+        int iEraser = 0, iText = 0, iStep = 0, iHighlight = 0, iMag = 0;
+
+        foreach (var entry in _undoStack)
         {
-            using var brush = new SolidBrush(color);
-            g.FillRectangle(brush, rect);
+            switch (entry)
+            {
+                case "eraser" when iEraser < _eraserFills.Count:
+                    var (er, ec) = _eraserFills[iEraser++];
+                    using (var brush = new SolidBrush(ec))
+                        g.FillRectangle(brush, er);
+                    break;
+
+                case "blur" when iBlur < _blurRects.Count:
+                    PaintBlurRect(g, _blurRects[iBlur++]);
+                    break;
+
+                case "draw" when iDraw < _drawStrokes.Count:
+                    var stroke = _drawStrokes[iDraw++];
+                    if (stroke.Count >= 2)
+                    {
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+                        using var dp = new Pen(_toolColor, 3f) { LineJoin = LineJoin.Round };
+                        g.DrawLines(dp, stroke.ToArray());
+                        g.SmoothingMode = SmoothingMode.Default;
+                    }
+                    break;
+
+                case "highlight" when iHighlight < _highlightRects.Count:
+                    var (hr, hc) = _highlightRects[iHighlight++];
+                    using (var hBrush = new SolidBrush(Color.FromArgb(90, hc.R, hc.G, hc.B)))
+                    {
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+                        using var hp = RRect(hr, 3);
+                        g.FillPath(hBrush, hp);
+                        g.SmoothingMode = SmoothingMode.Default;
+                    }
+                    break;
+
+                case "arrow" when iArrow < _arrows.Count:
+                    var a = _arrows[iArrow++];
+                    PaintArrow(g, a.from, a.to);
+                    break;
+
+                case "curvedArrow" when iCurved < _curvedArrows.Count:
+                    PaintCurvedArrow(g, _curvedArrows[iCurved++]);
+                    break;
+
+                case "step" when iStep < _stepNumbers.Count:
+                    var (sp, sn, sc) = _stepNumbers[iStep++];
+                    PaintStepNumber(g, sp, sn, sc);
+                    break;
+
+                case "text" when iText < _textAnnotations.Count:
+                    var (tp, tt, tf, tc) = _textAnnotations[iText++];
+                    using (var font = new Font("Segoe UI", tf, FontStyle.Bold))
+                    {
+                        using var shadow = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
+                        g.DrawString(tt, font, shadow, tp.X + 1, tp.Y + 1);
+                        using var brush = new SolidBrush(tc);
+                        g.DrawString(tt, font, brush, tp.X, tp.Y);
+                    }
+                    break;
+
+                case "magnifier" when iMag < _placedMagnifiers.Count:
+                    var (mp, ms) = _placedMagnifiers[iMag++];
+                    PaintPlacedMagnifier(g, mp, ms);
+                    break;
+            }
         }
+
+        // Active tool previews (always on top of committed annotations)
         if (_mode == CaptureMode.Eraser && _isEraserDragging)
         {
             var pr = NormRect(_eraserStart, PointToClient(System.Windows.Forms.Cursor.Position));
@@ -123,10 +190,6 @@ public sealed partial class RegionOverlayForm
                 g.DrawRectangle(pen, pr);
             }
         }
-
-        // Blur rects
-        foreach (var br in _blurRects)
-            PaintBlurRect(g, br);
         if (_mode == CaptureMode.Blur && _isBlurring)
         {
             var pr = NormRect(_blurStart, PointToClient(System.Windows.Forms.Cursor.Position));
@@ -136,69 +199,30 @@ public sealed partial class RegionOverlayForm
                 g.DrawRectangle(pen, pr);
             }
         }
-
-        // Draw strokes (use tool color)
-        if (_drawStrokes.Count > 0)
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var drawPen = new Pen(_toolColor, 3f) { LineJoin = LineJoin.Round };
-            foreach (var stroke in _drawStrokes)
-                if (stroke.Count >= 2)
-                    g.DrawLines(drawPen, stroke.ToArray());
-            g.SmoothingMode = SmoothingMode.Default;
-        }
-
-        // Highlight rectangles (like a real highlighter marker)
-        foreach (var (hr, hc) in _highlightRects)
-        {
-            using var hBrush = new SolidBrush(Color.FromArgb(90, hc.R, hc.G, hc.B));
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var path = RRect(hr, 3);
-            g.FillPath(hBrush, path);
-            g.SmoothingMode = SmoothingMode.Default;
-        }
         if (_mode == CaptureMode.Highlight && _isHighlighting)
         {
             var pr = NormRect(_highlightStart, PointToClient(System.Windows.Forms.Cursor.Position));
             if (pr.Width > 1 && pr.Height > 1)
             {
-                var hc = DefaultHighlightColor;
-                using var hBrush = new SolidBrush(Color.FromArgb(90, hc.R, hc.G, hc.B));
+                var hcl = DefaultHighlightColor;
+                using var hBrush = new SolidBrush(Color.FromArgb(90, hcl.R, hcl.G, hcl.B));
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 using var path = RRect(pr, 3);
                 g.FillPath(hBrush, path);
                 g.SmoothingMode = SmoothingMode.Default;
             }
         }
-
-        // Step numbers
-        foreach (var (pos, num, color) in _stepNumbers)
-            PaintStepNumber(g, pos, num, color);
-
-        // Straight arrows (use tool color, thickness scales with length)
-        foreach (var arrow in _arrows)
-            PaintArrow(g, arrow.from, arrow.to);
         if (_mode == CaptureMode.Arrow && _isArrowDragging)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
             PaintArrow(g, _arrowStart, cur);
         }
-
-        // Curved arrows
-        foreach (var ca in _curvedArrows)
-            PaintCurvedArrow(g, ca);
         if (_mode == CaptureMode.CurvedArrow && _isCurvedArrowDragging && _currentCurvedArrow is { Count: >= 2 })
             PaintCurvedArrow(g, _currentCurvedArrow);
 
-        // Committed text annotations
-        foreach (var (pos, text, fontSize, color) in _textAnnotations)
-        {
-            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold);
-            using var brush = new SolidBrush(color);
-            using var shadow = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
-            g.DrawString(text, font, shadow, pos.X + 1, pos.Y + 1);
-            g.DrawString(text, font, brush, pos.X, pos.Y);
-        }
+        // Magnifier preview
+        if (_mode == CaptureMode.Magnifier)
+            PaintMagnifierTool(g);
 
         // Active text input with selection box
         if (_isTyping)
@@ -244,14 +268,6 @@ public sealed partial class RegionOverlayForm
             using var sizeBrush = new SolidBrush(Color.FromArgb(120, 255, 255, 255));
             g.DrawString($"{(int)_textFontSize}px", sizeFont, sizeBrush, textRect.Right + 4, textRect.Y);
         }
-
-        // Placed magnifiers (always visible)
-        foreach (var (mpos, msrc) in _placedMagnifiers)
-            PaintPlacedMagnifier(g, mpos, msrc);
-
-        // Magnifier preview while in magnifier mode
-        if (_mode == CaptureMode.Magnifier)
-            PaintMagnifierTool(g);
 
         // Color picker popup
         if (_colorPickerOpen)
