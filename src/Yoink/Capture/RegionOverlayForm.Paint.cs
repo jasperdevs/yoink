@@ -118,24 +118,46 @@ public sealed partial class RegionOverlayForm
             }
         }
 
-        // Draw strokes
+        // Draw strokes (use tool color)
         if (_drawStrokes.Count > 0)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var drawPen = new Pen(Color.Red, 3f) { LineJoin = LineJoin.Round };
+            using var drawPen = new Pen(_toolColor, 3f) { LineJoin = LineJoin.Round };
             foreach (var stroke in _drawStrokes)
                 if (stroke.Count >= 2)
                     g.DrawLines(drawPen, stroke.ToArray());
             g.SmoothingMode = SmoothingMode.Default;
         }
 
-        // Arrows
+        // Arrows (use tool color)
         foreach (var arrow in _arrows)
             PaintArrow(g, arrow.from, arrow.to);
         if (_mode == CaptureMode.Arrow && _isArrowDragging)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
             PaintArrow(g, _arrowStart, cur);
+        }
+
+        // Text annotations
+        foreach (var (pos, text, fontSize, color) in _textAnnotations)
+        {
+            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold);
+            using var brush = new SolidBrush(color);
+            // Drop shadow
+            using var shadow = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            g.DrawString(text, font, shadow, pos.X + 1, pos.Y + 1);
+            g.DrawString(text, font, brush, pos.X, pos.Y);
+        }
+
+        // Active text input cursor
+        if (_isTyping)
+        {
+            using var font = new Font("Segoe UI", _textFontSize, FontStyle.Bold);
+            using var brush = new SolidBrush(_toolColor);
+            string display = _textBuffer + "|";
+            using var shadow = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            g.DrawString(display, font, shadow, _textPos.X + 1, _textPos.Y + 1);
+            g.DrawString(display, font, brush, _textPos.X, _textPos.Y);
         }
     }
 
@@ -174,14 +196,15 @@ public sealed partial class RegionOverlayForm
             g.DrawPath(bp, p);
         }
 
+        // Buttons: rect, free, ocr, picker, draw, arrow, text, blur, eraser, [color], gear, close
         string[] icons = { "rect", "free", "ocr", "picker",
-            "draw", "arrow", "blur", "eraser", "gear", "close" };
+            "draw", "arrow", "text", "blur", "eraser", "color", "gear", "close" };
         string[] labels = { "Rectangle (1)", "Freeform (2)",
-            "OCR (3)", "Color Picker (4)", "Draw (5)", "Arrow (6)", "Blur (7)", "Eraser (8)",
-            "Settings", "Close (Esc)" };
+            "OCR (3)", "Color Picker (4)", "Draw (5)", "Arrow (6)", "Text (7)",
+            "Blur (8)", "Eraser (9)", "Color", "Settings", "Close (Esc)" };
         CaptureMode[] modes = { CaptureMode.Rectangle, CaptureMode.Freeform,
             CaptureMode.Ocr, CaptureMode.ColorPicker,
-            CaptureMode.Draw, CaptureMode.Arrow,
+            CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.Text,
             CaptureMode.Blur, CaptureMode.Eraser };
 
         for (int i = 0; i < BtnCount; i++)
@@ -190,6 +213,23 @@ public sealed partial class RegionOverlayForm
                 ButtonSize, ButtonSize);
             bool active = i < modes.Length && _mode == modes[i];
             bool hover = _hoveredButton == i;
+
+            // Color dot button: draw filled circle with current tool color
+            if (icons[i] == "color")
+            {
+                int dotSize = 16;
+                int dx = btn.X + (btn.Width - dotSize) / 2;
+                int dy = btn.Y + (btn.Height - dotSize) / 2;
+                using var cBrush = new SolidBrush(Color.FromArgb((int)(t * 255), _toolColor.R, _toolColor.G, _toolColor.B));
+                g.FillEllipse(cBrush, dx, dy, dotSize, dotSize);
+                if (hover)
+                {
+                    using var cPen = new Pen(Color.FromArgb((int)(t * 120), 255, 255, 255), 1.5f);
+                    g.DrawEllipse(cPen, dx, dy, dotSize, dotSize);
+                }
+                continue;
+            }
+
             if (active || hover)
             {
                 using var p = RRect(btn, 8);
@@ -319,6 +359,17 @@ public sealed partial class RegionOverlayForm
                 g.DrawLine(pen, cx + 5, cy - 5, cx + 4, cy);
                 g.SmoothingMode = SmoothingMode.Default;
                 break;
+            case "text":
+            {
+                // "T" letter
+                using var tf = new Font("Segoe UI", 12f, FontStyle.Bold);
+                using var tBrush = new SolidBrush(c);
+                g.DrawString("T", tf, tBrush, cx - 7, cy - 9);
+                break;
+            }
+            case "color":
+                // Handled in PaintToolbar directly
+                break;
             case "blur":
                 // Grid dots for pixelate
                 for (int dy = -4; dy <= 4; dy += 4)
@@ -411,13 +462,13 @@ public sealed partial class RegionOverlayForm
         g.PixelOffsetMode = PixelOffsetMode.Default;
     }
 
-    private static void PaintArrow(Graphics g, Point from, Point to)
+    private void PaintArrow(Graphics g, Point from, Point to)
     {
         float dx = to.X - from.X, dy = to.Y - from.Y;
         float len = MathF.Sqrt(dx * dx + dy * dy);
         if (len < 3) return;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(Color.Red, 3f);
+        using var pen = new Pen(_toolColor, 3f);
         g.DrawLine(pen, from, to);
         float nx = dx / len, ny = dy / len;
         float bx = to.X - nx * 14, by = to.Y - ny * 14;
@@ -427,7 +478,7 @@ public sealed partial class RegionOverlayForm
             new(bx - ny * 7, by + nx * 7),
             new(bx + ny * 7, by - nx * 7)
         };
-        using var brush = new SolidBrush(Color.Red);
+        using var brush = new SolidBrush(_toolColor);
         g.FillPolygon(brush, pts);
         g.SmoothingMode = SmoothingMode.Default;
     }

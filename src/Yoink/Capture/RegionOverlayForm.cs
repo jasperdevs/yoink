@@ -26,8 +26,8 @@ public sealed partial class RegionOverlayForm : Form
     private readonly List<Point> _freeformPoints = new();
 
     // Toolbar
-    // rect, freeform, OCR, colorpicker, draw, arrow, blur, eraser, settings, close
-    private const int BtnCount = 10;
+    // rect, freeform, OCR, colorpicker, draw, arrow, text, blur, eraser, [color], settings, close
+    private const int BtnCount = 12;
     private readonly Rectangle[] _toolbarButtons = new Rectangle[BtnCount];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
@@ -81,7 +81,22 @@ public sealed partial class RegionOverlayForm : Form
     private Color _eraserColor;
     private bool _isEraserDragging;
 
-    // Undo stack: "draw", "blur", "arrow", "eraser"
+    // Text annotations: position, text, fontSize, color
+    private readonly List<(Point pos, string text, float fontSize, Color color)> _textAnnotations = new();
+    private bool _isTyping;
+    private Point _textPos;
+    private string _textBuffer = "";
+    private float _textFontSize = 20f;
+
+    // Tool color (shared across draw, arrow, text)
+    private Color _toolColor = Color.Red;
+    private static readonly Color[] ToolColors = {
+        Color.Red, Color.FromArgb(255, 136, 0), Color.FromArgb(255, 220, 0),
+        Color.FromArgb(0, 200, 0), Color.FromArgb(0, 136, 255), Color.White
+    };
+    private int _toolColorIndex = 0;
+
+    // Undo stack: "draw", "blur", "arrow", "eraser", "text"
     private readonly List<string> _undoStack = new();
 
     // Blank cursor for color picker (we draw our own crosshair)

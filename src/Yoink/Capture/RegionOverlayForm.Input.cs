@@ -14,13 +14,22 @@ public sealed partial class RegionOverlayForm
         int btn = GetToolbarButtonAt(e.Location);
         if (btn >= 0)
         {
-            if (btn == BtnCount - 1) { Cancel(); return; }
-            if (btn == BtnCount - 2) { SettingsRequested?.Invoke(); Cancel(); return; }
+            if (btn == BtnCount - 1) { Cancel(); return; }     // close
+            if (btn == BtnCount - 2) { SettingsRequested?.Invoke(); Cancel(); return; } // gear
+            if (btn == BtnCount - 3) { CycleColor(); return; } // color dot
             var modeMap = new[] {
                 CaptureMode.Rectangle, CaptureMode.Freeform,
                 CaptureMode.Ocr, CaptureMode.ColorPicker,
-                CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.Blur, CaptureMode.Eraser };
-            SetMode(modeMap[btn]);
+                CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.Text,
+                CaptureMode.Blur, CaptureMode.Eraser };
+            if (btn < modeMap.Length) SetMode(modeMap[btn]);
+            return;
+        }
+
+        // If typing text, commit current text on click elsewhere
+        if (_isTyping)
+        {
+            CommitText();
             return;
         }
 
@@ -54,6 +63,12 @@ public sealed partial class RegionOverlayForm
                 _isSelecting = true;
                 _freeformPoints.Clear();
                 _freeformPoints.Add(e.Location);
+                break;
+            case CaptureMode.Text:
+                _isTyping = true;
+                _textPos = e.Location;
+                _textBuffer = "";
+                Invalidate();
                 break;
             case CaptureMode.Draw:
                 _isSelecting = true;
@@ -185,6 +200,18 @@ public sealed partial class RegionOverlayForm
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        // Text input mode
+        if (_isTyping)
+        {
+            if (e.KeyCode == Keys.Escape) { _isTyping = false; _textBuffer = ""; Invalidate(); return; }
+            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return) { CommitText(); return; }
+            if (e.KeyCode == Keys.Back && _textBuffer.Length > 0)
+            {
+                _textBuffer = _textBuffer[..^1]; Invalidate(); return;
+            }
+            return; // Don't process other keys while typing
+        }
+
         if (e.KeyCode == Keys.Escape) Cancel();
         if (e.KeyCode == Keys.D1) SetMode(CaptureMode.Rectangle);
         if (e.KeyCode == Keys.D2) SetMode(CaptureMode.Freeform);
@@ -192,8 +219,9 @@ public sealed partial class RegionOverlayForm
         if (e.KeyCode == Keys.D4) SetMode(CaptureMode.ColorPicker);
         if (e.KeyCode == Keys.D5) SetMode(CaptureMode.Draw);
         if (e.KeyCode == Keys.D6) SetMode(CaptureMode.Arrow);
-        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.Blur);
-        if (e.KeyCode == Keys.D8) SetMode(CaptureMode.Eraser);
+        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.Text);
+        if (e.KeyCode == Keys.D8) SetMode(CaptureMode.Blur);
+        if (e.KeyCode == Keys.D9) SetMode(CaptureMode.Eraser);
 
         if (e.KeyCode == Keys.Z && e.Control && _undoStack.Count > 0)
         {
@@ -207,8 +235,40 @@ public sealed partial class RegionOverlayForm
                 _arrows.RemoveAt(_arrows.Count - 1);
             else if (last == "eraser" && _eraserFills.Count > 0)
                 _eraserFills.RemoveAt(_eraserFills.Count - 1);
+            else if (last == "text" && _textAnnotations.Count > 0)
+                _textAnnotations.RemoveAt(_textAnnotations.Count - 1);
             Invalidate();
         }
+    }
+
+    protected override void OnKeyPress(KeyPressEventArgs e)
+    {
+        if (_isTyping && !char.IsControl(e.KeyChar))
+        {
+            _textBuffer += e.KeyChar;
+            e.Handled = true;
+            Invalidate();
+        }
+        base.OnKeyPress(e);
+    }
+
+    private void CommitText()
+    {
+        if (_isTyping && _textBuffer.Length > 0)
+        {
+            _textAnnotations.Add((_textPos, _textBuffer, _textFontSize, _toolColor));
+            _undoStack.Add("text");
+        }
+        _isTyping = false;
+        _textBuffer = "";
+        Invalidate();
+    }
+
+    private void CycleColor()
+    {
+        _toolColorIndex = (_toolColorIndex + 1) % ToolColors.Length;
+        _toolColor = ToolColors[_toolColorIndex];
+        Invalidate();
     }
 
     private int GetToolbarButtonAt(Point p)
@@ -220,6 +280,7 @@ public sealed partial class RegionOverlayForm
 
     private void SetMode(CaptureMode m)
     {
+        if (_isTyping) CommitText();
         _mode = m;
         _hasSelection = false;
         _hasDragged = false;

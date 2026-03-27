@@ -53,7 +53,7 @@ public sealed partial class RegionOverlayForm
         if (_drawStrokes.Count > 0)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(Color.Red, 3f) { LineJoin = LineJoin.Round };
+            using var pen = new Pen(_toolColor, 3f) { LineJoin = LineJoin.Round };
             foreach (var stroke in _drawStrokes)
                 if (stroke.Count >= 2)
                     g.DrawLines(pen, stroke.ToArray());
@@ -62,6 +62,16 @@ public sealed partial class RegionOverlayForm
 
         foreach (var arrow in _arrows)
             PaintArrow(g, arrow.from, arrow.to);
+
+        // Text annotations
+        foreach (var (pos, text, fontSize, color) in _textAnnotations)
+        {
+            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold);
+            using var brush = new SolidBrush(color);
+            using var shadow = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            g.DrawString(text, font, shadow, pos.X + 1, pos.Y + 1);
+            g.DrawString(text, font, brush, pos.X, pos.Y);
+        }
 
         return result;
     }
