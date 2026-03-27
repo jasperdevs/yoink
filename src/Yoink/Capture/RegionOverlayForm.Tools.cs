@@ -77,8 +77,8 @@ public sealed partial class RegionOverlayForm
                     break;
 
                 case "text" when iText < _textAnnotations.Count:
-                    var (tp, tt, tf, tc) = _textAnnotations[iText++];
-                    PaintExcalidrawText(g, tp, tt, tf, tc);
+                    var (tp, tt, tf, tc, tb) = _textAnnotations[iText++];
+                    PaintExcalidrawText(g, tp, tt, tf, tc, tb);
                     break;
             }
         }

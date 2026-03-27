@@ -150,8 +150,8 @@ public sealed partial class RegionOverlayForm
                     break;
 
                 case "text" when iText < _textAnnotations.Count:
-                    var (tp, tt, tf, tc) = _textAnnotations[iText++];
-                    PaintExcalidrawText(g, tp, tt, tf, tc);
+                    var (tp, tt, tf, tc, tb) = _textAnnotations[iText++];
+                    PaintExcalidrawText(g, tp, tt, tf, tc, tb);
                     break;
 
                 case "magnifier" when iMag < _placedMagnifiers.Count:
@@ -205,8 +205,10 @@ public sealed partial class RegionOverlayForm
         // Active text input with selection box
         if (_isTyping)
         {
-            using var font = new Font("Segoe UI", _textFontSize, FontStyle.Bold);
+            var fontStyle = _textBold ? FontStyle.Bold : FontStyle.Regular;
+            using var font = new Font("Segoe UI", _textFontSize, fontStyle);
             string display = _textBuffer.Length > 0 ? _textBuffer : "Type here...";
+            string boldIndicator = _textBold ? "B" : "b";
             var textSize = g.MeasureString(display, font);
 
             // Dashed selection border
@@ -241,10 +243,10 @@ public sealed partial class RegionOverlayForm
                 g.DrawLine(cursorPen, cursorX, _textPos.Y + 2, cursorX, _textPos.Y + textSize.Height - 4);
             }
 
-            // Font size indicator
+            // Font size + bold indicator
             using var sizeFont = new Font("Segoe UI", 8f);
             using var sizeBrush = new SolidBrush(Color.FromArgb(120, 255, 255, 255));
-            g.DrawString($"{(int)_textFontSize}px", sizeFont, sizeBrush, textRect.Right + 4, textRect.Y);
+            g.DrawString($"{(int)_textFontSize}px {boldIndicator}  Ctrl+B", sizeFont, sizeBrush, textRect.Right + 4, textRect.Y);
         }
 
         // Color picker popup
@@ -253,12 +255,13 @@ public sealed partial class RegionOverlayForm
     }
 
     /// <summary>Excalidraw-style text: clean font, soft shadow, subtle stroke outline.</summary>
-    private static void PaintExcalidrawText(Graphics g, Point pos, string text, float fontSize, Color color)
+    private static void PaintExcalidrawText(Graphics g, Point pos, string text, float fontSize, Color color, bool bold = true)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-        using var font = new Font("Segoe UI", fontSize, FontStyle.Regular);
+        var style = bold ? FontStyle.Bold : FontStyle.Regular;
+        using var font = new Font("Segoe UI", fontSize, style);
         var sz = g.MeasureString(text, font);
 
         // Soft shadow (offset 2px, blurred via multiple passes)

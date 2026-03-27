@@ -67,15 +67,17 @@ public sealed partial class RegionOverlayForm
             int hitIdx = HitTestText(e.Location);
             if (hitIdx >= 0)
             {
-                // Re-edit: move back to typing state
-                var (pos, text, fontSize, color) = _textAnnotations[hitIdx];
+                var (pos, text, fontSize, color, bold) = _textAnnotations[hitIdx];
                 _textAnnotations.RemoveAt(hitIdx);
-                if (_undoStack.Contains("text")) _undoStack.Remove("text");
+                // Remove last matching "text" undo entry
+                for (int u = _undoStack.Count - 1; u >= 0; u--)
+                    if (_undoStack[u] == "text") { _undoStack.RemoveAt(u); break; }
                 _isTyping = true;
                 _textPos = pos;
                 _textBuffer = text;
                 _textFontSize = fontSize;
                 _toolColor = color;
+                _textBold = bold;
                 Invalidate();
                 return;
             }
@@ -158,6 +160,28 @@ public sealed partial class RegionOverlayForm
         }
     }
 
+    protected override void OnMouseDoubleClick(MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        // Double-click on any committed text to edit it (works in any mode)
+        int hitIdx = HitTestText(e.Location);
+        if (hitIdx >= 0)
+        {
+            var (pos, text, fontSize, color, bold) = _textAnnotations[hitIdx];
+            _textAnnotations.RemoveAt(hitIdx);
+            for (int u = _undoStack.Count - 1; u >= 0; u--)
+                if (_undoStack[u] == "text") { _undoStack.RemoveAt(u); break; }
+            _mode = CaptureMode.Text;
+            _isTyping = true;
+            _textPos = pos;
+            _textBuffer = text;
+            _textFontSize = fontSize;
+            _toolColor = color;
+            _textBold = bold;
+            Invalidate();
+        }
+    }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
         // Text move drag
@@ -181,11 +205,13 @@ public sealed partial class RegionOverlayForm
         int btn = GetToolbarButtonAt(e.Location);
         if (btn != _hoveredButton) { _hoveredButton = btn; Invalidate(); }
 
-        // Cursor: show appropriate cursor for text interaction
+        // Cursor: show appropriate cursor for context
         if (_isTyping && GetTextHandle(e.Location) >= 0)
             { if (!Cursor.Equals(Cursors.SizeNWSE)) Cursor = Cursors.SizeNWSE; }
         else if (_isTyping && GetActiveTextRect().Contains(e.Location))
             { if (!Cursor.Equals(Cursors.SizeAll)) Cursor = Cursors.SizeAll; }
+        else if (_mode == CaptureMode.Text && !_isTyping)
+            { if (!Cursor.Equals(Cursors.IBeam)) Cursor = Cursors.IBeam; }
         else if (btn >= 0)
             { if (!Cursor.Equals(Cursors.Hand)) Cursor = Cursors.Hand; }
         else if (_mode == CaptureMode.ColorPicker)
@@ -355,7 +381,12 @@ public sealed partial class RegionOverlayForm
             {
                 _textBuffer = _textBuffer[..^1]; Invalidate(); return;
             }
-            return; // Don't process other keys while typing
+            // Ctrl+B toggles bold
+            if (e.KeyCode == Keys.B && e.Control)
+            {
+                _textBold = !_textBold; Invalidate(); return;
+            }
+            return;
         }
 
         if (e.KeyCode == Keys.Escape) Cancel();
@@ -414,7 +445,7 @@ public sealed partial class RegionOverlayForm
     {
         if (_isTyping && _textBuffer.Length > 0)
         {
-            _textAnnotations.Add((_textPos, _textBuffer, _textFontSize, _toolColor));
+            _textAnnotations.Add((_textPos, _textBuffer, _textFontSize, _toolColor, _textBold));
             _undoStack.Add("text");
         }
         _isTyping = false;
@@ -452,11 +483,11 @@ public sealed partial class RegionOverlayForm
 
     private int HitTestText(Point p)
     {
-        // Check committed texts in reverse order (top-most first)
         for (int i = _textAnnotations.Count - 1; i >= 0; i--)
         {
-            var (pos, text, fontSize, _) = _textAnnotations[i];
-            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold);
+            var (pos, text, fontSize, _, bold) = _textAnnotations[i];
+            var style = bold ? FontStyle.Bold : FontStyle.Regular;
+            using var font = new Font("Segoe UI", fontSize, style);
             SizeF sz;
             using (var g = CreateGraphics())
                 sz = g.MeasureString(text, font);

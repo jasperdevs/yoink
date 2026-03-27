@@ -10,6 +10,10 @@ namespace Yoink.Capture;
 /// </summary>
 public static class SketchRenderer
 {
+    // Subtle drop shadow: offset 2px down-right, 35% black
+    private const int ShadowOff = 2;
+    private static readonly Color ShadowColor = Color.FromArgb(50, 0, 0, 0);
+
     /// <summary>Draw a wobbly line between two points (like rough.js).</summary>
     public static void DrawSketchyLine(Graphics g, Pen pen, PointF p1, PointF p2, int seed, float roughness = 1f)
     {
@@ -61,13 +65,16 @@ public static class SketchRenderer
         float thickness = Math.Clamp(2f + len / 80f, 2f, 4.5f);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(color, thickness)
-        {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round,
-            LineJoin = LineJoin.Round
-        };
 
+        // Shadow pass
+        using var shadowPen = new Pen(ShadowColor, thickness + 1f)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        g.DrawLine(shadowPen, from.X + ShadowOff, from.Y + ShadowOff,
+            to.X + ShadowOff, to.Y + ShadowOff);
+
+        // Main pass
+        using var pen = new Pen(color, thickness)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         g.DrawLine(pen, from, to);
 
         DrawArrowhead(g, new PointF(to.X, to.Y), dx / len, dy / len, len, color, thickness + 0.5f);
@@ -89,13 +96,19 @@ public static class SketchRenderer
         float thickness = Math.Clamp(2f + len / 80f, 2f, 4.5f);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(color, thickness)
-        {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round,
-            LineJoin = LineJoin.Round
-        };
 
+        // Shadow pass
+        var shadowPts = points.Select(p => new Point(p.X + ShadowOff, p.Y + ShadowOff)).ToArray();
+        using var shadowPen = new Pen(ShadowColor, thickness + 1f)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        if (shadowPts.Length >= 4)
+            g.DrawCurve(shadowPen, shadowPts, 0.5f);
+        else
+            g.DrawLines(shadowPen, shadowPts);
+
+        // Main pass
+        using var pen = new Pen(color, thickness)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         if (points.Count >= 4)
             g.DrawCurve(pen, points.ToArray(), 0.5f);
         else
@@ -143,6 +156,14 @@ public static class SketchRenderer
         if (outline.Length < 3) return;
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        // Shadow pass
+        var shadowOutline = outline.Select(p => new PointF(p.X + ShadowOff, p.Y + ShadowOff)).ToArray();
+        using var shadowPath = OutlineToPath(shadowOutline);
+        using var shadowBrush = new SolidBrush(ShadowColor);
+        g.FillPath(shadowBrush, shadowPath);
+
+        // Main pass
         using var brush = new SolidBrush(color);
         using var path = OutlineToPath(outline);
         g.FillPath(brush, path);

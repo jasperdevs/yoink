@@ -107,13 +107,14 @@ public sealed partial class RegionOverlayForm : Form
     private Color _eraserColor;
     private bool _isEraserDragging;
 
-    // Text annotations: position, text, fontSize, color
-    private readonly List<(Point pos, string text, float fontSize, Color color)> _textAnnotations = new();
+    // Text annotations: position, text, fontSize, color, bold
+    private readonly List<(Point pos, string text, float fontSize, Color color, bool bold)> _textAnnotations = new();
     private bool _isTyping;
     private Point _textPos;
     private string _textBuffer = "";
     private float _textFontSize = 24f;
-    private int _textResizeHandle = -1; // -1=none, 0-3=corners
+    private bool _textBold = true; // default bold
+    private int _textResizeHandle = -1;
     private bool _textResizing;
     private Point _textResizeStart;
     private bool _textDragging;
