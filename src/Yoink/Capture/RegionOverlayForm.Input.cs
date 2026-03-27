@@ -49,13 +49,11 @@ public sealed partial class RegionOverlayForm
                 _isSelecting = true;
                 _selectionStart = _selectionEnd = e.Location;
                 _hasSelection = false;
-                _animTimer.Start(); // trigger dock hide animation
                 break;
             case CaptureMode.Freeform:
                 _isSelecting = true;
                 _freeformPoints.Clear();
                 _freeformPoints.Add(e.Location);
-                _animTimer.Start();
                 break;
             case CaptureMode.Draw:
                 _isSelecting = true;
@@ -162,7 +160,6 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
                 _isSelecting = false;
-                _animTimer.Start(); // animate dock back in
                 bool isOcr = _mode == CaptureMode.Ocr;
                 if (!_hasDragged)
                 {

@@ -60,8 +60,6 @@ public partial class PreviewWindow : Window
     private void ApplyTheme()
     {
         Theme.Refresh();
-        RootBorder.BorderBrush = Theme.StrokeBrush();
-        RootBorder.BorderThickness = new Thickness(Theme.StrokeThickness);
     }
 
     private void FitToImage()

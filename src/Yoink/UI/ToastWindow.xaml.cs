@@ -41,13 +41,20 @@ public partial class ToastWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         var wa = SystemParameters.WorkArea;
-        Left = wa.Right - ActualWidth - 16;
+        double targetLeft = wa.Right - ActualWidth - 16;
         Top = wa.Bottom - ActualHeight - 16;
 
+        // Slide in from right
+        var dur = TimeSpan.FromMilliseconds(280);
+        var ease = new QuarticEase { EasingMode = EasingMode.EaseOut };
+        Left = wa.Right + 10; // start off-screen right
+        BeginAnimation(LeftProperty, new DoubleAnimation
+        {
+            To = targetLeft, Duration = dur, EasingFunction = ease
+        });
         BeginAnimation(OpacityProperty, new DoubleAnimation
         {
-            From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(200),
-            EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut }
+            From = 0.3, To = 1, Duration = TimeSpan.FromMilliseconds(150)
         });
 
         _timer.Start();

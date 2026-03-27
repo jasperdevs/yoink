@@ -20,9 +20,8 @@ public sealed partial class RegionOverlayForm
         // Annotations render first (they get baked under the darkening overlay)
         PaintAnnotations(g);
 
-        // Frosted glass top bar (fades with dock)
-        if (_toolbarHide < 0.98f)
-            g.DrawImageUnscaled(_topBar, 0, 0);
+        // Frosted glass top bar
+        g.DrawImageUnscaled(_topBar, 0, 0);
 
         if (_mode == CaptureMode.ColorPicker)
         {
@@ -32,9 +31,17 @@ public sealed partial class RegionOverlayForm
         }
 
         bool isOcr = _mode == CaptureMode.Ocr;
+        bool isSelectionMode = _mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr;
+
+        // Show fullscreen border when in selection mode but not yet dragging
+        if (isSelectionMode && !_hasSelection && !_isSelecting)
+        {
+            using var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 2f);
+            g.DrawRectangle(pen, 1, 1, ClientSize.Width - 3, ClientSize.Height - 3);
+        }
 
         // Darken outside selection (rect/OCR)
-        if (_hasSelection && (_mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr))
+        if (_hasSelection && isSelectionMode)
         {
             using var overlay = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
             var sel = _selectionRect;
@@ -134,12 +141,7 @@ public sealed partial class RegionOverlayForm
     private void PaintToolbar(Graphics g)
     {
         float t = 1f - MathF.Pow(1f - _toolbarAnim, 3f);
-        // Combine entrance animation with hide-during-selection
-        float hideOffset = _toolbarHide * -70; // slide 70px up
-        float hideAlpha = 1f - _toolbarHide;
-        int oy = (int)((1f - t) * -30 + hideOffset);
-        if (hideAlpha < 0.02f) return; // fully hidden, skip painting
-        t *= hideAlpha;
+        int oy = (int)((1f - t) * -30);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y + oy,

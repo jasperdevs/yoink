@@ -37,7 +37,6 @@ public sealed partial class RegionOverlayForm : Form
     private const int ToolbarTopMargin = 16;
 
     private float _toolbarAnim;
-    private float _toolbarHide;  // 0=visible, 1=hidden (slides up)
     private readonly System.Windows.Forms.Timer _animTimer;
     private readonly DateTime _showTime;
 
@@ -129,22 +128,8 @@ public sealed partial class RegionOverlayForm : Form
         _animTimer = new System.Windows.Forms.Timer { Interval = 12 };
         _animTimer.Tick += (_, _) =>
         {
-            bool changed = false;
-            if (_toolbarAnim < 1f)
-            {
-                _toolbarAnim = Math.Min(1f, (float)(DateTime.UtcNow - _showTime).TotalMilliseconds / 180f);
-                changed = true;
-            }
-            // Animate dock hiding when selecting
-            bool shouldHide = _isSelecting && (_mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr || _mode == CaptureMode.Freeform);
-            float target = shouldHide ? 1f : 0f;
-            if (MathF.Abs(_toolbarHide - target) > 0.01f)
-            {
-                _toolbarHide += (target - _toolbarHide) * 0.2f;
-                if (MathF.Abs(_toolbarHide - target) < 0.02f) _toolbarHide = target;
-                changed = true;
-            }
-            if (!changed) { _animTimer.Stop(); return; }
+            if (_toolbarAnim >= 1f) { _animTimer.Stop(); return; }
+            _toolbarAnim = Math.Min(1f, (float)(DateTime.UtcNow - _showTime).TotalMilliseconds / 120f);
             Invalidate();
         };
         _animTimer.Start();
