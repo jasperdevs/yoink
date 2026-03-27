@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <Resource Include="yoink.ico" />
+    <Content Include="Phosphor.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

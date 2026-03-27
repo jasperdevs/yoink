@@ -629,29 +629,14 @@ public sealed partial class RegionOverlayForm
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y + oy,
             _toolbarRect.Width, _toolbarRect.Height);
 
-        using (var p = RRect(r, 14))
+        using (var p = RRect(r, 12))
         {
-            // Dark base fill first (so no bleed from behind)
-            using var baseFill = new SolidBrush(Color.FromArgb((int)(t * 200), 15, 15, 15));
+            // Solid dark fill
+            using var baseFill = new SolidBrush(Color.FromArgb((int)(t * 230), 32, 32, 32));
             g.FillPath(baseFill, p);
 
-            // Mica-style: draw blurred screenshot clipped to pill, low opacity for glass effect
-            var oldClip = g.Clip;
-            g.SetClip(p);
-            using var blurAttr = new System.Drawing.Imaging.ImageAttributes();
-            float[][] matrix = {
-                new[] { 1f, 0, 0, 0, 0 },
-                new[] { 0, 1f, 0, 0, 0 },
-                new[] { 0, 0, 1f, 0, 0 },
-                new[] { 0, 0, 0, t * 0.15f, 0 },  // low alpha = subtle glass
-                new[] { 0, 0, 0, 0, 1f }
-            };
-            blurAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(matrix));
-            g.DrawImage(_blurred, r, r.X, r.Y, r.Width, r.Height, GraphicsUnit.Pixel, blurAttr);
-            g.Clip = oldClip;
-
-            // Border
-            using var bp = new Pen(Color.FromArgb((int)(t * 45), 255, 255, 255), 1f);
+            // Subtle border
+            using var bp = new Pen(Color.FromArgb((int)(t * 35), 255, 255, 255), 1f);
             g.DrawPath(bp, p);
         }
 
@@ -732,26 +717,11 @@ public sealed partial class RegionOverlayForm
             float tx = btnRect.X + btnRect.Width / 2f - sz.Width / 2f;
             float ty = r.Bottom + 8 + oy;
             var tipRect = new RectangleF(tx - 8, ty - 3, sz.Width + 16, sz.Height + 6);
-            using (var tipPath = RRect(tipRect, 10))
+            using (var tipPath = RRect(tipRect, 8))
             {
-                // Dark base (match dock)
-                using var tipBg = new SolidBrush(Color.FromArgb((int)(t * 200), 15, 15, 15));
+                using var tipBg = new SolidBrush(Color.FromArgb((int)(t * 230), 32, 32, 32));
                 g.FillPath(tipBg, tipPath);
-                // Frosted glass overlay (same as dock)
-                var oldClip2 = g.Clip;
-                g.SetClip(tipPath);
-                using var tipAttr = new System.Drawing.Imaging.ImageAttributes();
-                float[][] tipMatrix = {
-                    new[] { 1f, 0, 0, 0, 0 }, new[] { 0, 1f, 0, 0, 0 },
-                    new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, t * 0.15f, 0 },
-                    new[] { 0, 0, 0, 0, 1f }
-                };
-                tipAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(tipMatrix));
-                var tipRI = Rectangle.Round(tipRect);
-                g.DrawImage(_blurred, tipRI, tipRI.X, tipRI.Y, tipRI.Width, tipRI.Height, GraphicsUnit.Pixel, tipAttr);
-                g.Clip = oldClip2;
-                // Border (match dock)
-                using var tipBorder = new Pen(Color.FromArgb((int)(t * 45), 255, 255, 255), 1f);
+                using var tipBorder = new Pen(Color.FromArgb((int)(t * 35), 255, 255, 255), 1f);
                 g.DrawPath(tipBorder, tipPath);
             }
             using var tipBrush = new SolidBrush(Color.FromArgb((int)(t * 220), 255, 255, 255));
@@ -764,81 +734,65 @@ public sealed partial class RegionOverlayForm
 
     private void PaintTopFade(Graphics g)
     {
-        // Height of the fade zone: from top of screen down past the toolbar
-        int fadeH = _toolbarRect.Bottom + 30;
+        // Subtle dark gradient behind toolbar for readability
+        int fadeH = _toolbarRect.Bottom + 20;
         if (fadeH <= 0) return;
-
-        // Draw the blurred image in the top strip
         var topRect = new Rectangle(0, 0, ClientSize.Width, fadeH);
-
-        // Use a gradient brush to mask: fully opaque at top, transparent at bottom
-        // We can't directly alpha-mask a DrawImage in GDI+, so we draw the blur
-        // then overlay a gradient that fades FROM the screenshot (restoring it at bottom)
-        
-        // Step 1: Draw blurred version in the top strip at low opacity
-        using var blurAttr = new System.Drawing.Imaging.ImageAttributes();
-        float[][] m = {
-            new[] { 1f, 0, 0, 0, 0 },
-            new[] { 0, 1f, 0, 0, 0 },
-            new[] { 0, 0, 1f, 0, 0 },
-            new[] { 0, 0, 0, 0.35f, 0 },
-            new[] { 0, 0, 0, 0, 1f }
-        };
-        blurAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(m));
-        g.DrawImage(_blurred, topRect, 0, 0, ClientSize.Width, fadeH, GraphicsUnit.Pixel, blurAttr);
-
-        // Step 2: Dark gradient overlay that fades from dark at top to transparent at bottom
-        using var gradBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+        using var gradBrush = new LinearGradientBrush(
             topRect,
-            Color.FromArgb(90, 0, 0, 0),   // dark at top
-            Color.FromArgb(0, 0, 0, 0),     // transparent at bottom
-            System.Drawing.Drawing2D.LinearGradientMode.Vertical);
+            Color.FromArgb(60, 0, 0, 0),
+            Color.FromArgb(0, 0, 0, 0),
+            LinearGradientMode.Vertical);
         g.FillRectangle(gradBrush, topRect);
     }
 
-    // Segoe Fluent Icons / Segoe MDL2 Assets glyph map for toolbar icons
+    // Phosphor Icons glyph map (regular weight)
     private static readonly Dictionary<string, char> IconGlyphs = new()
     {
-        ["rect"]        = '\uE003', // Checkbox outline (selection rectangle)
-        ["free"]        = '\uEE56', // Lasso / freeform select
-        ["ocr"]         = '\uE890', // Scan (document with magnifier)
-        ["picker"]      = '\uEF3C', // Eyedropper / color picker
-        ["draw"]        = '\uE70F', // Edit / pencil
-        ["highlight"]   = '\uE7E6', // Highlight
-        ["line"]        = '\uEDC6', // Diagonal line
-        ["arrow"]       = '\uE72A', // Forward arrow (→ clean diagonal)
-        ["curvedArrow"] = '\uE14C', // Curved forward arrow
-        ["text"]        = '\uE8D2', // Font / text
-        ["step"]        = '\uE7F4', // Number hash (#)
-        ["blur"]        = '\uE80A', // Grid / mosaic
-        ["eraser"]      = '\uE75C', // Eraser
-        ["magnifier"]   = '\uE71E', // Zoom / search
-        ["emoji"]       = '\uE76E', // Emoji / smiley
-        ["gear"]        = '\uE713', // Settings
-        ["close"]       = '\uE711', // Close / X
+        ["rect"]        = '\uF551', // Rectangle
+        ["free"]        = '\uF564', // Scribble loop (freeform)
+        ["ocr"]         = '\uF561', // Scan
+        ["picker"]      = '\uF3C9', // Eyedropper
+        ["draw"]        = '\uF513', // Pencil
+        ["highlight"]   = '\uF466', // Highlighter circle
+        ["line"]        = '\uF48D', // Line segment
+        ["arrow"]       = '\uF2A0', // Arrow up-right
+        ["curvedArrow"] = '\uF2DB', // Bezier curve
+        ["text"]        = '\uF5E8', // Text T
+        ["step"]        = '\uF4DC', // Number circle one ①
+        ["blur"]        = '\uF44B', // Grid four
+        ["eraser"]      = '\uF3C3', // Eraser
+        ["magnifier"]   = '\uF4A8', // Magnifying glass
+        ["emoji"]       = '\uF58E', // Smiley
+        ["gear"]        = '\uF42B', // Gear six
+        ["close"]       = '\uF642', // X
     };
 
-    private static Font? _iconFont;
-    private static Font GetIconFont(float size)
+    private static System.Drawing.Text.PrivateFontCollection? _phosphorFonts;
+    private static FontFamily? _phosphorFamily;
+
+    private static FontFamily GetPhosphorFamily()
     {
-        // Prefer Segoe Fluent Icons (Win11), fall back to Segoe MDL2 Assets (Win10)
-        _iconFont?.Dispose();
-        try { _iconFont = new Font("Segoe Fluent Icons", size); }
-        catch { _iconFont = new Font("Segoe MDL2 Assets", size); }
-        return _iconFont;
+        if (_phosphorFamily != null) return _phosphorFamily;
+        _phosphorFonts = new System.Drawing.Text.PrivateFontCollection();
+        // Look for Phosphor.ttf next to the exe
+        string dir = AppContext.BaseDirectory;
+        string path = System.IO.Path.Combine(dir, "Phosphor.ttf");
+        if (System.IO.File.Exists(path))
+            _phosphorFonts.AddFontFile(path);
+        _phosphorFamily = _phosphorFonts.Families.Length > 0
+            ? _phosphorFonts.Families[0]
+            : new FontFamily("Segoe UI"); // fallback
+        return _phosphorFamily;
     }
 
     private static void DrawIcon(Graphics g, string icon, Rectangle b, Color c)
     {
-        if (icon == "color") return; // handled separately
-
+        if (icon == "color") return; // handled separately in PaintToolbar
         if (!IconGlyphs.TryGetValue(icon, out char glyph)) return;
 
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-        using var font = new Font(
-            System.Drawing.FontFamily.Families.Any(f => f.Name == "Segoe Fluent Icons")
-                ? "Segoe Fluent Icons" : "Segoe MDL2 Assets",
-            13f, FontStyle.Regular);
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        using var font = new Font(GetPhosphorFamily(), 14f, FontStyle.Regular, GraphicsUnit.Point);
         using var brush = new SolidBrush(c);
 
         string text = glyph.ToString();
@@ -846,7 +800,7 @@ public sealed partial class RegionOverlayForm
         float x = b.X + (b.Width - sz.Width) / 2f;
         float y = b.Y + (b.Height - sz.Height) / 2f;
         g.DrawString(text, font, brush, x, y);
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SystemDefault;
+        g.TextRenderingHint = TextRenderingHint.SystemDefault;
     }
 
     private void DrawLabel(Graphics g, Rectangle rect, bool isOcr)
@@ -859,24 +813,11 @@ public sealed partial class RegionOverlayForm
         if (ly + sz.Height > ClientSize.Height) ly = rect.Y - sz.Height - 8;
         var lr = new RectangleF(lx - 8, ly - 3, sz.Width + 16, sz.Height + 6);
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var p = RRect(lr, 10))
+        using (var p = RRect(lr, 8))
         {
-            // Match dock: dark base + frosted glass + border
-            using var lblBg = new SolidBrush(Color.FromArgb(200, 15, 15, 15));
+            using var lblBg = new SolidBrush(Color.FromArgb(230, 32, 32, 32));
             g.FillPath(lblBg, p);
-            var oldClip3 = g.Clip;
-            g.SetClip(p);
-            using var lblAttr = new System.Drawing.Imaging.ImageAttributes();
-            float[][] lblM = {
-                new[] { 1f, 0, 0, 0, 0 }, new[] { 0, 1f, 0, 0, 0 },
-                new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, 0.15f, 0 },
-                new[] { 0, 0, 0, 0, 1f }
-            };
-            lblAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(lblM));
-            var lrI = Rectangle.Round(lr);
-            g.DrawImage(_blurred, lrI, lrI.X, lrI.Y, lrI.Width, lrI.Height, GraphicsUnit.Pixel, lblAttr);
-            g.Clip = oldClip3;
-            using var border = new Pen(Color.FromArgb(45, 255, 255, 255), 1f);
+            using var border = new Pen(Color.FromArgb(35, 255, 255, 255), 1f);
             g.DrawPath(border, p);
         }
         g.SmoothingMode = SmoothingMode.Default;
