@@ -16,14 +16,23 @@ public sealed partial class RegionOverlayForm
         {
             if (btn == BtnCount - 1) { Cancel(); return; }     // close
             if (btn == BtnCount - 2) { SettingsRequested?.Invoke(); Cancel(); return; } // gear
-            if (btn == BtnCount - 3) { CycleColor(); return; } // color dot
+            if (btn == BtnCount - 3) { ToggleColorPicker(); return; } // color dot
             var modeMap = new[] {
                 CaptureMode.Rectangle, CaptureMode.Freeform,
                 CaptureMode.Ocr, CaptureMode.ColorPicker,
-                CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.Text,
-                CaptureMode.Blur, CaptureMode.Eraser };
+                CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.CurvedArrow,
+                CaptureMode.Text, CaptureMode.Blur, CaptureMode.Eraser };
             if (btn < modeMap.Length) SetMode(modeMap[btn]);
             return;
+        }
+
+        // Color picker popup: check if clicked a swatch
+        if (_colorPickerOpen)
+        {
+            if (HandleColorPickerClick(e.Location))
+                return;
+            _colorPickerOpen = false;
+            Invalidate();
         }
 
         // If typing text, commit current text on click elsewhere
@@ -79,6 +88,11 @@ public sealed partial class RegionOverlayForm
                 _isArrowDragging = true;
                 _arrowStart = e.Location;
                 break;
+            case CaptureMode.CurvedArrow:
+                _isCurvedArrowDragging = true;
+                _currentCurvedArrow = new List<Point> { e.Location };
+                _curvedArrows.Add(_currentCurvedArrow);
+                break;
             case CaptureMode.Blur:
                 _isBlurring = true;
                 _blurStart = e.Location;
@@ -120,6 +134,10 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Arrow when _isArrowDragging:
                 Invalidate();
                 break;
+            case CaptureMode.CurvedArrow when _isCurvedArrowDragging:
+                _currentCurvedArrow?.Add(e.Location);
+                Invalidate();
+                break;
             case CaptureMode.Blur when _isBlurring:
                 Invalidate();
                 break;
@@ -150,6 +168,15 @@ public sealed partial class RegionOverlayForm
                     _arrows.Add((_arrowStart, end));
                     _undoStack.Add("arrow");
                 }
+                Invalidate();
+                break;
+            case CaptureMode.CurvedArrow when _isCurvedArrowDragging:
+                _isCurvedArrowDragging = false;
+                if (_currentCurvedArrow is { Count: >= 2 })
+                    _undoStack.Add("curvedArrow");
+                else if (_currentCurvedArrow != null)
+                    _curvedArrows.Remove(_currentCurvedArrow);
+                _currentCurvedArrow = null;
                 Invalidate();
                 break;
             case CaptureMode.Blur when _isBlurring:
@@ -219,9 +246,10 @@ public sealed partial class RegionOverlayForm
         if (e.KeyCode == Keys.D4) SetMode(CaptureMode.ColorPicker);
         if (e.KeyCode == Keys.D5) SetMode(CaptureMode.Draw);
         if (e.KeyCode == Keys.D6) SetMode(CaptureMode.Arrow);
-        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.Text);
-        if (e.KeyCode == Keys.D8) SetMode(CaptureMode.Blur);
-        if (e.KeyCode == Keys.D9) SetMode(CaptureMode.Eraser);
+        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.CurvedArrow);
+        if (e.KeyCode == Keys.D8) SetMode(CaptureMode.Text);
+        if (e.KeyCode == Keys.D9) SetMode(CaptureMode.Blur);
+        if (e.KeyCode == Keys.D0) SetMode(CaptureMode.Eraser);
 
         if (e.KeyCode == Keys.Z && e.Control && _undoStack.Count > 0)
         {
@@ -233,6 +261,8 @@ public sealed partial class RegionOverlayForm
                 _blurRects.RemoveAt(_blurRects.Count - 1);
             else if (last == "arrow" && _arrows.Count > 0)
                 _arrows.RemoveAt(_arrows.Count - 1);
+            else if (last == "curvedArrow" && _curvedArrows.Count > 0)
+                _curvedArrows.RemoveAt(_curvedArrows.Count - 1);
             else if (last == "eraser" && _eraserFills.Count > 0)
                 _eraserFills.RemoveAt(_eraserFills.Count - 1);
             else if (last == "text" && _textAnnotations.Count > 0)
@@ -264,11 +294,29 @@ public sealed partial class RegionOverlayForm
         Invalidate();
     }
 
-    private void CycleColor()
+    private void ToggleColorPicker()
     {
-        _toolColorIndex = (_toolColorIndex + 1) % ToolColors.Length;
-        _toolColor = ToolColors[_toolColorIndex];
+        _colorPickerOpen = !_colorPickerOpen;
         Invalidate();
+    }
+
+    private bool HandleColorPickerClick(Point p)
+    {
+        if (!_colorPickerRect.Contains(p)) return false;
+
+        int cols = 6, swatchSize = 28, pad = 4;
+        int relX = p.X - _colorPickerRect.X - pad;
+        int relY = p.Y - _colorPickerRect.Y - pad;
+        int col = relX / (swatchSize + pad);
+        if (col >= 0 && col < ToolColors.Length && relY >= 0 && relY < swatchSize + pad)
+        {
+            _toolColor = ToolColors[col];
+            _toolColorIndex = col;
+            _colorPickerOpen = false;
+            Invalidate();
+            return true;
+        }
+        return false;
     }
 
     private int GetToolbarButtonAt(Point p)
@@ -281,6 +329,7 @@ public sealed partial class RegionOverlayForm
     private void SetMode(CaptureMode m)
     {
         if (_isTyping) CommitText();
+        _colorPickerOpen = false;
         _mode = m;
         _hasSelection = false;
         _hasDragged = false;
@@ -288,6 +337,7 @@ public sealed partial class RegionOverlayForm
         _isSelecting = false;
         _isBlurring = false;
         _isArrowDragging = false;
+        _isCurvedArrowDragging = false;
         _isEraserDragging = false;
 
         if (m == CaptureMode.ColorPicker)

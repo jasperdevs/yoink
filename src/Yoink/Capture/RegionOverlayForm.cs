@@ -25,9 +25,8 @@ public sealed partial class RegionOverlayForm : Form
 
     private readonly List<Point> _freeformPoints = new();
 
-    // Toolbar
-    // rect, freeform, OCR, colorpicker, draw, arrow, text, blur, eraser, [color], settings, close
-    private const int BtnCount = 12;
+    // Toolbar: rect, free, OCR, picker, draw, arrow, curvedArrow, text, blur, eraser, [color], gear, close
+    private const int BtnCount = 13;
     private readonly Rectangle[] _toolbarButtons = new Rectangle[BtnCount];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
@@ -75,6 +74,15 @@ public sealed partial class RegionOverlayForm : Form
     private Point _arrowStart;
     private bool _isArrowDragging;
 
+    // Curved arrows: freehand path with arrowhead at end
+    private readonly List<List<Point>> _curvedArrows = new();
+    private List<Point>? _currentCurvedArrow;
+    private bool _isCurvedArrowDragging;
+
+    // Color picker popup state
+    private bool _colorPickerOpen;
+    private Rectangle _colorPickerRect;
+
     // Smart eraser: filled rects sampled from the screenshot
     private readonly List<(Rectangle rect, Color color)> _eraserFills = new();
     private Point _eraserStart;
@@ -86,7 +94,10 @@ public sealed partial class RegionOverlayForm : Form
     private bool _isTyping;
     private Point _textPos;
     private string _textBuffer = "";
-    private float _textFontSize = 20f;
+    private float _textFontSize = 24f;
+    private int _textResizeHandle = -1; // -1=none, 0-3=corners
+    private bool _textResizing;
+    private Point _textResizeStart;
 
     // Tool color (shared across draw, arrow, text)
     private Color _toolColor = Color.Red;

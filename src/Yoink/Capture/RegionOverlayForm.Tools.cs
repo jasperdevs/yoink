@@ -63,6 +63,9 @@ public sealed partial class RegionOverlayForm
         foreach (var arrow in _arrows)
             PaintArrow(g, arrow.from, arrow.to);
 
+        foreach (var ca in _curvedArrows)
+            PaintCurvedArrow(g, ca);
+
         // Text annotations
         foreach (var (pos, text, fontSize, color) in _textAnnotations)
         {

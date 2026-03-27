@@ -8,6 +8,7 @@ public enum CaptureMode
     Ocr,
     Draw,
     Arrow,
+    CurvedArrow,
     Text,
     Blur,
     Eraser

@@ -129,7 +129,7 @@ public sealed partial class RegionOverlayForm
             g.SmoothingMode = SmoothingMode.Default;
         }
 
-        // Arrows (use tool color)
+        // Straight arrows (use tool color, thickness scales with length)
         foreach (var arrow in _arrows)
             PaintArrow(g, arrow.from, arrow.to);
         if (_mode == CaptureMode.Arrow && _isArrowDragging)
@@ -138,27 +138,151 @@ public sealed partial class RegionOverlayForm
             PaintArrow(g, _arrowStart, cur);
         }
 
-        // Text annotations
+        // Curved arrows
+        foreach (var ca in _curvedArrows)
+            PaintCurvedArrow(g, ca);
+        if (_mode == CaptureMode.CurvedArrow && _isCurvedArrowDragging && _currentCurvedArrow is { Count: >= 2 })
+            PaintCurvedArrow(g, _currentCurvedArrow);
+
+        // Committed text annotations
         foreach (var (pos, text, fontSize, color) in _textAnnotations)
         {
             using var font = new Font("Segoe UI", fontSize, FontStyle.Bold);
             using var brush = new SolidBrush(color);
-            // Drop shadow
-            using var shadow = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            using var shadow = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
             g.DrawString(text, font, shadow, pos.X + 1, pos.Y + 1);
             g.DrawString(text, font, brush, pos.X, pos.Y);
         }
 
-        // Active text input cursor
+        // Active text input with selection box
         if (_isTyping)
         {
             using var font = new Font("Segoe UI", _textFontSize, FontStyle.Bold);
-            using var brush = new SolidBrush(_toolColor);
-            string display = _textBuffer + "|";
-            using var shadow = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            string display = _textBuffer.Length > 0 ? _textBuffer : "Type here...";
+            var textSize = g.MeasureString(display, font);
+
+            // Dashed selection border
+            var textRect = new RectangleF(_textPos.X - 6, _textPos.Y - 4,
+                Math.Max(textSize.Width + 12, 100), textSize.Height + 8);
+            using var dashPen = new Pen(Color.FromArgb(180, 255, 255, 255), 1.2f) { DashStyle = DashStyle.Dash };
+            g.DrawRectangle(dashPen, textRect.X, textRect.Y, textRect.Width, textRect.Height);
+
+            // Corner resize handles (small white squares)
+            int hs = 6;
+            var handles = new RectangleF[] {
+                new(textRect.X - hs/2, textRect.Y - hs/2, hs, hs),
+                new(textRect.Right - hs/2, textRect.Y - hs/2, hs, hs),
+                new(textRect.X - hs/2, textRect.Bottom - hs/2, hs, hs),
+                new(textRect.Right - hs/2, textRect.Bottom - hs/2, hs, hs),
+            };
+            using var handleBrush = new SolidBrush(Color.White);
+            foreach (var h in handles)
+                g.FillRectangle(handleBrush, h);
+
+            // Text
+            using var brush = new SolidBrush(_textBuffer.Length > 0 ? _toolColor : Color.FromArgb(80, 255, 255, 255));
+            using var shadow = new SolidBrush(Color.FromArgb(60, 0, 0, 0));
             g.DrawString(display, font, shadow, _textPos.X + 1, _textPos.Y + 1);
             g.DrawString(display, font, brush, _textPos.X, _textPos.Y);
+
+            // Blinking cursor after text
+            if (_textBuffer.Length > 0)
+            {
+                var cursorX = _textPos.X + g.MeasureString(_textBuffer, font).Width - 2;
+                using var cursorPen = new Pen(_toolColor, 2f);
+                g.DrawLine(cursorPen, cursorX, _textPos.Y + 2, cursorX, _textPos.Y + textSize.Height - 4);
+            }
+
+            // Font size indicator
+            using var sizeFont = new Font("Segoe UI", 8f);
+            using var sizeBrush = new SolidBrush(Color.FromArgb(120, 255, 255, 255));
+            g.DrawString($"{(int)_textFontSize}px", sizeFont, sizeBrush, textRect.Right + 4, textRect.Y);
         }
+
+        // Color picker popup
+        if (_colorPickerOpen)
+            PaintColorPicker(g);
+    }
+
+    private void PaintCurvedArrow(Graphics g, List<Point> points)
+    {
+        if (points.Count < 2) return;
+        float len = 0;
+        for (int i = 1; i < points.Count; i++)
+        {
+            float dx = points[i].X - points[i-1].X, dy = points[i].Y - points[i-1].Y;
+            len += MathF.Sqrt(dx * dx + dy * dy);
+        }
+        // Thickness grows from 1.5 to 4 based on length
+        float thickness = Math.Clamp(1.5f + len / 80f, 1.5f, 4f);
+
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = new Pen(_toolColor, thickness) { LineJoin = LineJoin.Round };
+        g.DrawLines(pen, points.ToArray());
+
+        // Arrowhead at end
+        if (points.Count >= 2)
+        {
+            var last = points[^1];
+            var prev = points[Math.Max(0, points.Count - 6)]; // look back a few points for direction
+            float dx = last.X - prev.X, dy = last.Y - prev.Y;
+            float l = MathF.Sqrt(dx * dx + dy * dy);
+            if (l > 2)
+            {
+                float nx = dx / l, ny = dy / l;
+                float headLen = Math.Clamp(8 + len / 30f, 8, 16);
+                float bx = last.X - nx * headLen, by = last.Y - ny * headLen;
+                float spread = headLen * 0.5f;
+                var pts = new PointF[] {
+                    new(last.X, last.Y),
+                    new(bx - ny * spread, by + nx * spread),
+                    new(bx + ny * spread, by - nx * spread)
+                };
+                using var brush = new SolidBrush(_toolColor);
+                g.FillPolygon(brush, pts);
+            }
+        }
+        g.SmoothingMode = SmoothingMode.Default;
+    }
+
+    private void PaintColorPicker(Graphics g)
+    {
+        // Small popup grid of color swatches
+        int cols = 6, rows = 1, swatchSize = 28, pad = 4;
+        int pw = cols * (swatchSize + pad) + pad;
+        int ph = rows * (swatchSize + pad) + pad;
+
+        // Position below the color button
+        int colorBtnIdx = BtnCount - 3;
+        var colorBtn = _toolbarButtons[colorBtnIdx];
+        int px = colorBtn.X + colorBtn.Width / 2 - pw / 2;
+        int py = colorBtn.Y + colorBtn.Height + 8;
+
+        _colorPickerRect = new Rectangle(px, py, pw, ph);
+
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var bgPath = RRect(_colorPickerRect, 8))
+        {
+            using var bg = new SolidBrush(Color.FromArgb(220, 20, 20, 20));
+            g.FillPath(bg, bgPath);
+            using var border = new Pen(Color.FromArgb(40, 255, 255, 255));
+            g.DrawPath(border, bgPath);
+        }
+
+        for (int i = 0; i < ToolColors.Length && i < cols * rows; i++)
+        {
+            int col = i % cols, row = i / cols;
+            int sx = px + pad + col * (swatchSize + pad);
+            int sy = py + pad + row * (swatchSize + pad);
+            using var brush = new SolidBrush(ToolColors[i]);
+            g.FillEllipse(brush, sx, sy, swatchSize, swatchSize);
+            if (ToolColors[i] == _toolColor)
+            {
+                using var selPen = new Pen(Color.White, 2f);
+                g.DrawEllipse(selPen, sx, sy, swatchSize, swatchSize);
+            }
+        }
+        g.SmoothingMode = SmoothingMode.Default;
     }
 
     private void PaintToolbar(Graphics g)
@@ -198,14 +322,14 @@ public sealed partial class RegionOverlayForm
 
         // Buttons: rect, free, ocr, picker, draw, arrow, text, blur, eraser, [color], gear, close
         string[] icons = { "rect", "free", "ocr", "picker",
-            "draw", "arrow", "text", "blur", "eraser", "color", "gear", "close" };
+            "draw", "arrow", "curvedArrow", "text", "blur", "eraser", "color", "gear", "close" };
         string[] labels = { "Rectangle (1)", "Freeform (2)",
-            "OCR (3)", "Color Picker (4)", "Draw (5)", "Arrow (6)", "Text (7)",
-            "Blur (8)", "Eraser (9)", "Color", "Settings", "Close (Esc)" };
+            "OCR (3)", "Color Picker (4)", "Draw (5)", "Arrow (6)", "Curved Arrow (7)",
+            "Text (8)", "Blur (9)", "Eraser (0)", "Color", "Settings", "Close (Esc)" };
         CaptureMode[] modes = { CaptureMode.Rectangle, CaptureMode.Freeform,
             CaptureMode.Ocr, CaptureMode.ColorPicker,
-            CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.Text,
-            CaptureMode.Blur, CaptureMode.Eraser };
+            CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.CurvedArrow,
+            CaptureMode.Text, CaptureMode.Blur, CaptureMode.Eraser };
 
         for (int i = 0; i < BtnCount; i++)
         {
@@ -333,9 +457,18 @@ public sealed partial class RegionOverlayForm
                 break;
 
             case "ocr":
-                // Brackets with T
-                g.DrawLine(pen, cx - 5, cy - 5, cx + 5, cy - 5);
-                g.DrawLine(pen, cx, cy - 5, cx, cy + 5);
+                // Scan brackets (like a document scanner)
+                g.DrawLine(pen, cx - 6, cy - 5, cx - 3, cy - 5); // top-left bracket
+                g.DrawLine(pen, cx - 6, cy - 5, cx - 6, cy - 2);
+                g.DrawLine(pen, cx + 3, cy - 5, cx + 6, cy - 5); // top-right bracket
+                g.DrawLine(pen, cx + 6, cy - 5, cx + 6, cy - 2);
+                g.DrawLine(pen, cx - 6, cy + 2, cx - 6, cy + 5); // bottom-left bracket
+                g.DrawLine(pen, cx - 6, cy + 5, cx - 3, cy + 5);
+                g.DrawLine(pen, cx + 6, cy + 2, cx + 6, cy + 5); // bottom-right bracket
+                g.DrawLine(pen, cx + 3, cy + 5, cx + 6, cy + 5);
+                // Scan lines inside
+                g.DrawLine(pen, cx - 3, cy - 1, cx + 3, cy - 1);
+                g.DrawLine(pen, cx - 3, cy + 2, cx + 2, cy + 2);
                 break;
             case "picker":
                 // Eyedropper
@@ -357,6 +490,14 @@ public sealed partial class RegionOverlayForm
                 g.DrawLine(pen, cx - 5, cy + 5, cx + 5, cy - 5);
                 g.DrawLine(pen, cx + 5, cy - 5, cx, cy - 4);
                 g.DrawLine(pen, cx + 5, cy - 5, cx + 4, cy);
+                g.SmoothingMode = SmoothingMode.Default;
+                break;
+            case "curvedArrow":
+                // Curved line with arrowhead
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawBezier(pen, cx - 6, cy + 4, cx - 2, cy - 6, cx + 2, cy + 2, cx + 6, cy - 4);
+                g.DrawLine(pen, cx + 6, cy - 4, cx + 2, cy - 5);
+                g.DrawLine(pen, cx + 6, cy - 4, cx + 5, cy);
                 g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "text":
@@ -467,16 +608,21 @@ public sealed partial class RegionOverlayForm
         float dx = to.X - from.X, dy = to.Y - from.Y;
         float len = MathF.Sqrt(dx * dx + dy * dy);
         if (len < 3) return;
+        // Thickness grows with length: 1.5 -> 4
+        float thickness = Math.Clamp(1.5f + len / 100f, 1.5f, 4f);
+        float headLen = Math.Clamp(8 + len / 25f, 8, 18);
+        float headSpread = headLen * 0.5f;
+
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(_toolColor, 3f);
+        using var pen = new Pen(_toolColor, thickness);
         g.DrawLine(pen, from, to);
         float nx = dx / len, ny = dy / len;
-        float bx = to.X - nx * 14, by = to.Y - ny * 14;
+        float bx = to.X - nx * headLen, by = to.Y - ny * headLen;
         var pts = new PointF[]
         {
             new(to.X, to.Y),
-            new(bx - ny * 7, by + nx * 7),
-            new(bx + ny * 7, by - nx * 7)
+            new(bx - ny * headSpread, by + nx * headSpread),
+            new(bx + ny * headSpread, by - nx * headSpread)
         };
         using var brush = new SolidBrush(_toolColor);
         g.FillPolygon(brush, pts);

@@ -8,8 +8,7 @@
         Foreground="White"
         Background="Transparent"
         WindowStyle="None"
-        AllowsTransparency="True"
-        ThemeMode="Dark">
+        AllowsTransparency="True">
 
     <Window.Resources>
         <Style x:Key="TabPill" TargetType="RadioButton">
