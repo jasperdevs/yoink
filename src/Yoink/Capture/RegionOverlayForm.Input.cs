@@ -434,9 +434,25 @@ public sealed partial class RegionOverlayForm
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        // ESC always closes everything
+        // ESC: close popups first, then exit tool to Rectangle, then close overlay
         if (e.KeyCode == Keys.Escape)
         {
+            // Close any open popup first
+            if (_emojiPickerOpen) { _emojiPickerOpen = false; Invalidate(); return; }
+            if (_fontPickerOpen) { _fontPickerOpen = false; Invalidate(); return; }
+            if (_colorPickerOpen) { _colorPickerOpen = false; Invalidate(); return; }
+            // Cancel emoji placing
+            if (_isPlacingEmoji) { _isPlacingEmoji = false; _selectedEmoji = null; Invalidate(); return; }
+            // Cancel text typing
+            if (_isTyping) { _isTyping = false; _textBuffer = ""; Invalidate(); return; }
+            // If in an annotation tool, go back to Rectangle
+            if (_mode != CaptureMode.Rectangle && _mode != CaptureMode.Freeform
+                && _mode != CaptureMode.Ocr)
+            {
+                SetMode(CaptureMode.Rectangle);
+                return;
+            }
+            // Already in capture mode - close overlay
             Cancel();
             return;
         }

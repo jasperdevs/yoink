@@ -10,71 +10,43 @@ namespace Yoink.Capture;
 /// </summary>
 public static class SketchRenderer
 {
-    // Subtle soft shadow: small offset, 3 passes, low alpha
-    private const float ShadowOffX = 1f;
-    private const float ShadowOffY = 1.5f;
-    private const int ShadowPasses = 3;
-    private const float ShadowSpread = 3f;
+    // Simple drop shadow: single pass, offset down-right
+    private const int ShadowOff = 2;
+    private static readonly Color ShadowColor = Color.FromArgb(50, 0, 0, 0);
 
     private static void DrawSoftLineShadow(Graphics g, PointF from, PointF to, float thickness)
     {
-        for (int i = ShadowPasses; i >= 1; i--)
-        {
-            float t = i / (float)ShadowPasses;
-            float spread = ShadowSpread * t;
-            int alpha = (int)(12 * (1f - t * 0.5f));
-            using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), thickness + spread * 2)
-                { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-            g.DrawLine(pen, from.X + ShadowOffX, from.Y + ShadowOffY,
-                to.X + ShadowOffX, to.Y + ShadowOffY);
-        }
+        using var pen = new Pen(ShadowColor, thickness + 1f)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        g.DrawLine(pen, from.X + ShadowOff, from.Y + ShadowOff,
+            to.X + ShadowOff, to.Y + ShadowOff);
     }
 
     private static void DrawSoftCurveShadow(Graphics g, Point[] points, float thickness, bool asCurve)
     {
-        var shadowPts = points.Select(p => new Point((int)(p.X + ShadowOffX), (int)(p.Y + ShadowOffY))).ToArray();
-        for (int i = ShadowPasses; i >= 1; i--)
-        {
-            float t = i / (float)ShadowPasses;
-            float spread = ShadowSpread * t;
-            int alpha = (int)(12 * (1f - t * 0.5f));
-            using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), thickness + spread * 2)
-                { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-            if (asCurve && shadowPts.Length >= 4)
-                g.DrawCurve(pen, shadowPts, 0.5f);
-            else
-                g.DrawLines(pen, shadowPts);
-        }
+        var shadowPts = points.Select(p => new Point(p.X + ShadowOff, p.Y + ShadowOff)).ToArray();
+        using var pen = new Pen(ShadowColor, thickness + 1f)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        if (asCurve && shadowPts.Length >= 4)
+            g.DrawCurve(pen, shadowPts, 0.5f);
+        else
+            g.DrawLines(pen, shadowPts);
     }
 
     public static void DrawSoftPathShadow(Graphics g, GraphicsPath path, float extraSpread = 0f)
     {
-        for (int i = ShadowPasses; i >= 1; i--)
-        {
-            float t = i / (float)ShadowPasses;
-            float spread = (ShadowSpread + extraSpread) * t;
-            int alpha = (int)(10 * (1f - t * 0.5f));
-            using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
-            var m = new System.Drawing.Drawing2D.Matrix();
-            m.Translate(ShadowOffX, ShadowOffY);
-            using var shadowPath = (GraphicsPath)path.Clone();
-            shadowPath.Transform(m);
-            g.FillPath(brush, shadowPath);
-        }
+        using var brush = new SolidBrush(ShadowColor);
+        var m = new System.Drawing.Drawing2D.Matrix();
+        m.Translate(ShadowOff, ShadowOff);
+        using var shadowPath = (GraphicsPath)path.Clone();
+        shadowPath.Transform(m);
+        g.FillPath(brush, shadowPath);
     }
 
     public static void DrawSoftEllipseShadow(Graphics g, float x, float y, float w, float h)
     {
-        for (int i = ShadowPasses; i >= 1; i--)
-        {
-            float t = i / (float)ShadowPasses;
-            float spread = ShadowSpread * t;
-            int alpha = (int)(10 * (1f - t * 0.5f));
-            using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
-            g.FillEllipse(brush,
-                x + ShadowOffX - spread, y + ShadowOffY - spread,
-                w + spread * 2, h + spread * 2);
-        }
+        using var brush = new SolidBrush(ShadowColor);
+        g.FillEllipse(brush, x + ShadowOff, y + ShadowOff, w, h);
     }
 
     /// <summary>Draw a wobbly line between two points (like rough.js).</summary>

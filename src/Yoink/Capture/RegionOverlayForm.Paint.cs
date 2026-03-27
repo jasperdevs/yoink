@@ -448,27 +448,39 @@ public sealed partial class RegionOverlayForm
         _emojiPickerRect = new Rectangle(px, py, pw, ph);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var bgPath = RRect(_emojiPickerRect, 10))
+        using (var bgPath = RRect(_emojiPickerRect, 12))
         {
-            using var bg = new SolidBrush(Color.FromArgb(235, 18, 18, 18));
+            using var bg = new SolidBrush(Color.FromArgb(230, 32, 32, 32));
             g.FillPath(bg, bgPath);
-            using var border = new Pen(Color.FromArgb(40, 255, 255, 255));
+            using var border = new Pen(Color.FromArgb(35, 255, 255, 255), 1f);
             g.DrawPath(border, bgPath);
         }
 
-        // Search bar
+        // Search bar with focus indicator
         var searchRect = new Rectangle(px + pad, py + pad, pw - pad * 2, searchBarH);
         using (var searchPath = RRect(searchRect, 6))
         {
-            using var searchBg = new SolidBrush(Color.FromArgb(30, 255, 255, 255));
+            using var searchBg = new SolidBrush(Color.FromArgb(40, 255, 255, 255));
             g.FillPath(searchBg, searchPath);
+            // Focus border
+            using var focusBorder = new Pen(Color.FromArgb(100, 255, 255, 255), 1f);
+            g.DrawPath(focusBorder, searchPath);
         }
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         using var searchFont = new Font("Segoe UI", 10f);
         string searchDisplay = _emojiSearch.Length > 0 ? _emojiSearch : "Search emoji...";
         using var searchBrush = new SolidBrush(_emojiSearch.Length > 0
-            ? Color.FromArgb(220, 255, 255, 255)
-            : Color.FromArgb(80, 255, 255, 255));
-        g.DrawString(searchDisplay, searchFont, searchBrush, searchRect.X + 6, searchRect.Y + 5);
+            ? Color.FromArgb(230, 255, 255, 255)
+            : Color.FromArgb(70, 255, 255, 255));
+        g.DrawString(searchDisplay, searchFont, searchBrush, searchRect.X + 8, searchRect.Y + 5);
+        // Blinking text cursor
+        if (_emojiSearch.Length > 0)
+        {
+            var cursorX = searchRect.X + 8 + g.MeasureString(_emojiSearch, searchFont).Width - 2;
+            using var cursorPen = new Pen(Color.FromArgb(180, 255, 255, 255), 1.5f);
+            g.DrawLine(cursorPen, cursorX, searchRect.Y + 6, cursorX, searchRect.Bottom - 6);
+        }
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SystemDefault;
 
         // Emoji grid (render via screen DC for real color emoji)
         int gridY = py + pad + searchBarH + pad;
