@@ -21,9 +21,6 @@ public sealed partial class RegionOverlayForm
         // Annotations render first (they get baked under the darkening overlay)
         PaintAnnotations(g);
 
-        // Frosted glass top bar
-        g.DrawImageUnscaled(_topBar, 0, 0);
-
         if (_mode == CaptureMode.ColorPicker)
         {
             PaintToolbar(g);
@@ -147,6 +144,26 @@ public sealed partial class RegionOverlayForm
         g.SmoothingMode = SmoothingMode.AntiAlias;
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y + oy,
             _toolbarRect.Width, _toolbarRect.Height);
+
+        // Localized fade/blur behind the dock only, not a full-width strip.
+        var haloRect = new Rectangle(r.X - 40, Math.Max(0, r.Y - 36), r.Width + 80, r.Height + 44);
+        using (var haloPath = RRect(haloRect, 22))
+        {
+            var oldClip = g.Clip;
+            using (var haloRegion = new Region(haloPath))
+            {
+                g.Clip = haloRegion;
+                g.DrawImage(_blurred, haloRect, haloRect, GraphicsUnit.Pixel);
+            }
+            g.Clip = oldClip;
+
+            using var haloFade = new LinearGradientBrush(
+                new Point(haloRect.X, haloRect.Y),
+                new Point(haloRect.X, haloRect.Bottom),
+                Color.FromArgb((int)(t * 95), 15, 15, 15),
+                Color.FromArgb(0, 15, 15, 15));
+            g.FillPath(haloFade, haloPath);
+        }
 
         using (var p = RRect(r, 14))
         {
