@@ -127,6 +127,9 @@ public sealed partial class RegionOverlayForm : Form
         "Cascadia Code", "Segoe UI Semibold"
     };
 
+    // Emoji rendering (Direct2D for color emoji)
+    private readonly EmojiRenderer _emojiRenderer = new();
+
     // Emoji tool state
     private bool _emojiPickerOpen;
     private Rectangle _emojiPickerRect;

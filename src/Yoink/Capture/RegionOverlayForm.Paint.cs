@@ -405,78 +405,9 @@ public sealed partial class RegionOverlayForm
         g.SmoothingMode = SmoothingMode.Default;
     }
 
-    /// <summary>
-    /// Render emoji to a GDI+ Bitmap using WPF's DirectWrite pipeline,
-    /// which is the only way to get real color emoji on Windows.
-    /// </summary>
-    private static readonly Dictionary<(string emoji, int sizeKey), Bitmap> _emojiCache = new();
-
-    private static Bitmap GetEmojiBitmap(string emoji, float size)
+    private void PaintEmojiAnnotation(Graphics g, Point pos, string emoji, float size, float opacity = 1f)
     {
-        int sizeKey = (int)(size * 10);
-        if (_emojiCache.TryGetValue((emoji, sizeKey), out var cached))
-            return cached;
-
-        var bmp = RenderEmojiViaWpf(emoji, size);
-        _emojiCache[(emoji, sizeKey)] = bmp;
-        return bmp;
-    }
-
-    private static Bitmap RenderEmojiViaWpf(string emoji, float size)
-    {
-        // Must run on the WPF dispatcher thread for full color emoji support
-        Bitmap? result = null;
-        var wpfDispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (wpfDispatcher != null && !wpfDispatcher.CheckAccess())
-        {
-            wpfDispatcher.Invoke(() => result = RenderEmojiCore(emoji, size));
-        }
-        else
-        {
-            result = RenderEmojiCore(emoji, size);
-        }
-        return result ?? new Bitmap(1, 1);
-    }
-
-    private static Bitmap RenderEmojiCore(string emoji, float size)
-    {
-        // Use a WPF TextBlock which goes through the full WPF rendering
-        // pipeline with DirectWrite color font support enabled
-        var tb = new System.Windows.Controls.TextBlock
-        {
-            Text = emoji,
-            FontFamily = new System.Windows.Media.FontFamily("Segoe UI Emoji"),
-            FontSize = size * 1.1,
-            Foreground = System.Windows.Media.Brushes.Black, // color emoji ignores foreground
-        };
-
-        tb.Measure(new System.Windows.Size(size * 3, size * 3));
-        tb.Arrange(new System.Windows.Rect(tb.DesiredSize));
-        tb.UpdateLayout();
-
-        int w = (int)Math.Ceiling(tb.ActualWidth) + 4;
-        int h = (int)Math.Ceiling(tb.ActualHeight) + 4;
-        if (w < 4) w = (int)size + 4;
-        if (h < 4) h = (int)size + 4;
-
-        var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(
-            w, h, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
-        rtb.Render(tb);
-
-        // Convert WPF bitmap to GDI+ Bitmap
-        var result = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        var bits = result.LockBits(new Rectangle(0, 0, w, h),
-            System.Drawing.Imaging.ImageLockMode.WriteOnly,
-            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        rtb.CopyPixels(new System.Windows.Int32Rect(0, 0, w, h),
-            bits.Scan0, bits.Stride * h, bits.Stride);
-        result.UnlockBits(bits);
-        return result;
-    }
-
-    private static void PaintEmojiAnnotation(Graphics g, Point pos, string emoji, float size, float opacity = 1f)
-    {
-        var emojiBmp = GetEmojiBitmap(emoji, size);
+        var emojiBmp = _emojiRenderer.GetEmoji(emoji, size);
 
         if (opacity < 1f)
         {
@@ -559,7 +490,7 @@ public sealed partial class RegionOverlayForm
                 g.FillPath(hoverBg, hoverPath);
             }
 
-            var emojiBmp = GetEmojiBitmap(filtered[idx].emoji, 22f);
+            var emojiBmp = _emojiRenderer.GetEmoji(filtered[idx].emoji, 22f);
             g.DrawImage(emojiBmp, ex + 2, ey + 2);
         }
 
