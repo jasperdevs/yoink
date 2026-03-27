@@ -40,7 +40,8 @@ public sealed partial class RegionOverlayForm : Form
     private readonly System.Windows.Forms.Timer _animTimer;
     private readonly DateTime _showTime;
 
-    // Pre-rendered top bar: frosted blur + gradient fade
+    // Pre-rendered blurred screenshot used for all glass effects
+    private readonly Bitmap _blurred;
     private readonly Bitmap _topBar;
     private const int TopBarHeight = 110;
 
@@ -121,7 +122,8 @@ public sealed partial class RegionOverlayForm : Form
 
         SetupForm();
         CalcToolbar();
-        _topBar = BuildTopBar(screenshot);
+        _blurred = BuildBlurred(screenshot);
+        _topBar = BuildTopBar();
 
         _animTimer = new System.Windows.Forms.Timer { Interval = 12 };
         _animTimer.Tick += (_, _) =>
@@ -175,47 +177,50 @@ public sealed partial class RegionOverlayForm : Form
                 ButtonSize, ButtonSize);
     }
 
-    // Builds a frosted-glass strip for the top of the overlay.
-    // Downsamples then upsamples the top region for a soft blur,
-    // then overlays a dark-to-transparent gradient.
-    private Bitmap BuildTopBar(Bitmap src)
+    // Builds a heavily blurred copy of the entire screenshot (reused for all glass effects).
+    private static Bitmap BuildBlurred(Bitmap src)
     {
-        int w = src.Width;
-        int h = TopBarHeight;
+        int w = src.Width, h = src.Height;
+        // 3-pass downsample/upsample at 1/32 for extreme blur
+        Bitmap cur = src;
+        for (int pass = 0; pass < 3; pass++)
+        {
+            int tw = Math.Max(2, w / 32);
+            int th = Math.Max(2, h / 32);
+            var tiny = new Bitmap(tw, th, PixelFormat.Format32bppArgb);
+            using (var tg = Graphics.FromImage(tiny))
+            {
+                tg.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                tg.DrawImage(cur, new Rectangle(0, 0, tw, th),
+                    new Rectangle(0, 0, cur.Width, cur.Height), GraphicsUnit.Pixel);
+            }
+            var up = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+            using (var ug = Graphics.FromImage(up))
+            {
+                ug.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                ug.DrawImage(tiny, new Rectangle(0, 0, w, h));
+            }
+            tiny.Dispose();
+            if (pass > 0) cur.Dispose();
+            cur = up;
+        }
+        return cur;
+    }
+
+    // Builds the faded top bar strip from the pre-blurred bitmap.
+    private Bitmap BuildTopBar()
+    {
+        int w = _bmpW, h = TopBarHeight;
         var bar = new Bitmap(w, h, PixelFormat.Format32bppArgb);
-
-        // Heavy blur: two-pass downsample for very soft result
-        int smallW = Math.Max(1, w / 16);
-        int smallH = Math.Max(1, h / 16);
-        using var small = new Bitmap(smallW, smallH, PixelFormat.Format32bppArgb);
-        using (var sg = Graphics.FromImage(small))
-        {
-            sg.InterpolationMode = InterpolationMode.HighQualityBilinear;
-            sg.DrawImage(src, new Rectangle(0, 0, smallW, smallH),
-                new Rectangle(0, 0, w, h), GraphicsUnit.Pixel);
-        }
-
-        // Second pass: upsample to medium, then downsample again for extra blur
-        int medW = Math.Max(1, w / 4);
-        int medH = Math.Max(1, h / 4);
-        using var med = new Bitmap(medW, medH, PixelFormat.Format32bppArgb);
-        using (var mg = Graphics.FromImage(med))
-        {
-            mg.InterpolationMode = InterpolationMode.HighQualityBilinear;
-            mg.DrawImage(small, new Rectangle(0, 0, medW, medH));
-        }
 
         using (var bg = Graphics.FromImage(bar))
         {
-            bg.InterpolationMode = InterpolationMode.HighQualityBilinear;
-            bg.DrawImage(med, new Rectangle(0, 0, w, h));
-
-            // Heavy dark tint
+            bg.DrawImage(_blurred, new Rectangle(0, 0, w, h), new Rectangle(0, 0, w, h), GraphicsUnit.Pixel);
             using var tint = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
             bg.FillRectangle(tint, 0, 0, w, h);
         }
 
-        // Now apply per-row alpha fade: full opacity at top, zero at bottom
+        // Per-row alpha fade: opaque at top, transparent at bottom
         var bits = bar.LockBits(new Rectangle(0, 0, w, h),
             System.Drawing.Imaging.ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
         unsafe
@@ -223,24 +228,19 @@ public sealed partial class RegionOverlayForm : Form
             byte* scan0 = (byte*)bits.Scan0;
             for (int y = 0; y < h; y++)
             {
-                // Smooth ease-out curve for the fade
                 float t = 1f - (float)y / h;
-                t = t * t * t * t; // quartic falloff - very aggressive
+                t = t * t * t * t;
                 byte alpha = (byte)(t * 255);
-
                 byte* row = scan0 + y * bits.Stride;
                 for (int x = 0; x < w; x++)
                 {
                     int off = x * 4;
-                    // Pre-multiply alpha into the existing pixel
                     int a = row[off + 3];
-                    a = a * alpha / 255;
-                    row[off + 3] = (byte)a;
+                    row[off + 3] = (byte)(a * alpha / 255);
                 }
             }
         }
         bar.UnlockBits(bits);
-
         return bar;
     }
 
@@ -265,6 +265,7 @@ public sealed partial class RegionOverlayForm : Form
     {
         if (disposing)
         {
+            _blurred.Dispose();
             _topBar.Dispose();
             _animTimer.Dispose();
             _pickerTimer.Dispose();

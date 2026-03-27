@@ -138,12 +138,21 @@ public sealed partial class RegionOverlayForm
 
         using (var p = RRect(r, 14))
         {
-            // Solid dark glass fill
-            using var fill = new SolidBrush(Color.FromArgb((int)(t * 160), 12, 12, 12));
+            // Clip blurred screenshot to dock shape for glass backdrop
+            var oldClip = g.Clip;
+            using (var dockRegion = new Region(p))
+            {
+                g.Clip = dockRegion;
+                g.DrawImage(_blurred, r, r, GraphicsUnit.Pixel);
+            }
+            g.Clip = oldClip;
+
+            // Dark tint over the blur
+            using var fill = new SolidBrush(Color.FromArgb((int)(t * 130), 0, 0, 0));
             g.FillPath(fill, p);
 
             // White hairline border
-            using var bp = new Pen(Color.FromArgb((int)(t * 55), 255, 255, 255), 1f);
+            using var bp = new Pen(Color.FromArgb((int)(t * 60), 255, 255, 255), 1f);
             g.DrawPath(bp, p);
         }
 

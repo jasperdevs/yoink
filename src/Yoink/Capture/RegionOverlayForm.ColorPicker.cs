@@ -31,8 +31,8 @@ public sealed partial class RegionOverlayForm
         _hexStr = $"{_pickedColor.R:X2}{_pickedColor.G:X2}{_pickedColor.B:X2}";
         _rgbStr = $"{_pickedColor.R}, {_pickedColor.G}, {_pickedColor.B}";
 
-        const int bg = unchecked((int)0xF5161616);
-        Array.Fill(_magPixels, bg);
+        // Transparent background so glass shows through in info area
+        Array.Fill(_magPixels, 0);
 
         int half = Grid / 2;
         for (int gy = 0; gy < Grid; gy++)
@@ -92,12 +92,30 @@ public sealed partial class RegionOverlayForm
     private void PaintMagnifier(Graphics g)
     {
         var (px, py) = MagPos(_pickerCursorPos);
+        var magRect = new Rectangle(px, py, PW, PH);
+
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var path = RRect(magRect, 14);
+
+        // Glass backdrop: blurred screenshot clipped to panel shape
+        var oldClip = g.Clip;
+        using (var magRegion = new Region(path))
+        {
+            g.Clip = magRegion;
+            g.DrawImage(_blurred, magRect, magRect, GraphicsUnit.Pixel);
+        }
+        g.Clip = oldClip;
+
+        // Dark tint
+        using (var tint = new SolidBrush(Color.FromArgb(140, 0, 0, 0)))
+            g.FillPath(tint, path);
+
+        // Magnifier pixels on top
         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
         g.DrawImageUnscaled(_magBitmap, px, py);
 
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = RRect(new Rectangle(px, py, PW, PH), 10);
-        using var pen = new Pen(Color.FromArgb(45, 255, 255, 255));
+        // Border
+        using var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 1f);
         g.DrawPath(pen, path);
         g.SmoothingMode = SmoothingMode.Default;
 
