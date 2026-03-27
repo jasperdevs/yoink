@@ -145,33 +145,8 @@ public sealed partial class RegionOverlayForm
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y + oy,
             _toolbarRect.Width, _toolbarRect.Height);
 
-        // Localized fade/blur behind the dock only, not a full-width strip.
-        var haloRect = new Rectangle(r.X - 40, Math.Max(0, r.Y - 36), r.Width + 80, r.Height + 44);
-        using (var haloPath = RRect(haloRect, 22))
-        {
-            var oldClip = g.Clip;
-            using (var haloRegion = new Region(haloPath))
-            {
-                g.Clip = haloRegion;
-                g.DrawImage(_blurred, haloRect, haloRect, GraphicsUnit.Pixel);
-            }
-            g.Clip = oldClip;
-
-            using var haloFade = new LinearGradientBrush(
-                new Point(haloRect.X, haloRect.Y),
-                new Point(haloRect.X, haloRect.Bottom),
-                Color.FromArgb((int)(t * 95), 15, 15, 15),
-                Color.FromArgb(0, 15, 15, 15));
-            g.FillPath(haloFade, haloPath);
-        }
-
         using (var p = RRect(r, 14))
         {
-            // Soft light shadow so the dock lifts off the screenshot cleanly.
-            using (var shadowPath = RRect(new Rectangle(r.X, r.Y + 2, r.Width, r.Height), 14))
-            using (var shadow = new SolidBrush(Color.FromArgb((int)(t * 18), 255, 255, 255)))
-                g.FillPath(shadow, shadowPath);
-
             var oldClip = g.Clip;
             using (var dockRegion = new Region(p))
             {

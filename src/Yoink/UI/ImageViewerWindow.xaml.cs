@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Threading.Tasks;
+using System.Windows.Shell;
 using Yoink.Services;
 
 namespace Yoink.UI;
@@ -23,6 +24,14 @@ public partial class ImageViewerWindow : Window
         _historyService = historyService;
         _entry = entry;
         InitializeComponent();
+        WindowChrome.SetWindowChrome(this, new WindowChrome
+        {
+            CaptionHeight = 0,
+            CornerRadius = new CornerRadius(16),
+            GlassFrameThickness = new Thickness(0),
+            ResizeBorderThickness = new Thickness(6),
+            UseAeroCaptionButtons = false
+        });
 
         var bmp = new BitmapImage();
         bmp.BeginInit();

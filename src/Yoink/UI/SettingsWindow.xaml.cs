@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shell;
 using Yoink.Helpers;
 using Yoink.Models;
 using Yoink.Services;
@@ -28,6 +29,14 @@ public partial class SettingsWindow : Window
         _settingsService = settingsService;
         _historyService = historyService;
         InitializeComponent();
+        WindowChrome.SetWindowChrome(this, new WindowChrome
+        {
+            CaptionHeight = 0,
+            CornerRadius = new CornerRadius(16),
+            GlassFrameThickness = new Thickness(0),
+            ResizeBorderThickness = new Thickness(6),
+            UseAeroCaptionButtons = false
+        });
         WireHotkeyBoxes();
         LoadSettings();
         Loaded += (_, _) => ApplyMicaBackdrop();
