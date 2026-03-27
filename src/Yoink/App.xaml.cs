@@ -71,6 +71,7 @@ public partial class App : Application
         if (_isCapturing) return;
         _isCapturing = true;
         PreviewWindow.DismissCurrent();
+        ToastWindow.DismissCurrent();
         Dispatcher.BeginInvoke(() => LaunchOverlay(CaptureMode.Rectangle));
     }
 
@@ -79,6 +80,7 @@ public partial class App : Application
         if (_isCapturing) return;
         _isCapturing = true;
         PreviewWindow.DismissCurrent();
+        ToastWindow.DismissCurrent();
         Dispatcher.BeginInvoke(() => LaunchOverlay(CaptureMode.Ocr));
     }
 
@@ -87,6 +89,7 @@ public partial class App : Application
         if (_isCapturing) return;
         _isCapturing = true;
         PreviewWindow.DismissCurrent();
+        ToastWindow.DismissCurrent();
         Dispatcher.BeginInvoke(() => LaunchOverlay(CaptureMode.ColorPicker));
     }
 

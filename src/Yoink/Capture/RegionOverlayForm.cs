@@ -42,7 +42,7 @@ public sealed partial class RegionOverlayForm : Form
 
     // Pre-rendered top bar: frosted blur + gradient fade
     private readonly Bitmap _topBar;
-    private const int TopBarHeight = 90;
+    private const int TopBarHeight = 110;
 
     // Color picker state
     private readonly Bitmap _magBitmap;
@@ -184,9 +184,9 @@ public sealed partial class RegionOverlayForm : Form
         int h = TopBarHeight;
         var bar = new Bitmap(w, h, PixelFormat.Format32bppArgb);
 
-        // Blur via downsample/upsample (factor 8 = soft mica-like look)
-        int smallW = Math.Max(1, w / 8);
-        int smallH = Math.Max(1, h / 8);
+        // Heavy blur: two-pass downsample for very soft result
+        int smallW = Math.Max(1, w / 16);
+        int smallH = Math.Max(1, h / 16);
         using var small = new Bitmap(smallW, smallH, PixelFormat.Format32bppArgb);
         using (var sg = Graphics.FromImage(small))
         {
@@ -195,13 +195,23 @@ public sealed partial class RegionOverlayForm : Form
                 new Rectangle(0, 0, w, h), GraphicsUnit.Pixel);
         }
 
+        // Second pass: upsample to medium, then downsample again for extra blur
+        int medW = Math.Max(1, w / 4);
+        int medH = Math.Max(1, h / 4);
+        using var med = new Bitmap(medW, medH, PixelFormat.Format32bppArgb);
+        using (var mg = Graphics.FromImage(med))
+        {
+            mg.InterpolationMode = InterpolationMode.HighQualityBilinear;
+            mg.DrawImage(small, new Rectangle(0, 0, medW, medH));
+        }
+
         using (var bg = Graphics.FromImage(bar))
         {
             bg.InterpolationMode = InterpolationMode.HighQualityBilinear;
-            bg.DrawImage(small, new Rectangle(0, 0, w, h));
+            bg.DrawImage(med, new Rectangle(0, 0, w, h));
 
-            // Dark tint over the blur
-            using var tint = new SolidBrush(Color.FromArgb(160, 0, 0, 0));
+            // Heavy dark tint
+            using var tint = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
             bg.FillRectangle(tint, 0, 0, w, h);
         }
 
@@ -215,8 +225,8 @@ public sealed partial class RegionOverlayForm : Form
             {
                 // Smooth ease-out curve for the fade
                 float t = 1f - (float)y / h;
-                t = t * t * t; // cubic falloff - harsher
-                byte alpha = (byte)(t * 240);
+                t = t * t * t * t; // quartic falloff - very aggressive
+                byte alpha = (byte)(t * 255);
 
                 byte* row = scan0 + y * bits.Stride;
                 for (int x = 0; x < w; x++)

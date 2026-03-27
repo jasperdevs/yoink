@@ -38,11 +38,16 @@
                 IsHitTestVisible="False"/>
 
         <!-- X close -->
-        <Border x:Name="CloseBtn" Width="20" Height="20" CornerRadius="10"
-                Background="#90000000" Cursor="Hand"
+        <Border x:Name="CloseBtn" Width="22" Height="22" CornerRadius="11"
+                Background="#80000000" Cursor="Hand"
                 MouseLeftButtonDown="CloseClick"
                 HorizontalAlignment="Right" VerticalAlignment="Top"
-                Margin="0,3,3,0" Opacity="0"/>
+                Margin="0,4,4,0" Opacity="0">
+            <Canvas Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Line X1="0" Y1="0" X2="8" Y2="8" Stroke="White" StrokeThickness="1.5"/>
+                <Line X1="8" Y1="0" X2="0" Y2="8" Stroke="White" StrokeThickness="1.5"/>
+            </Canvas>
+        </Border>
 
         <!-- Save button -->
         <Border x:Name="SaveBtn" Width="36" Height="36" CornerRadius="8"

@@ -89,6 +89,8 @@ public partial class ToastWindow : Window
         base.OnClosed(e);
     }
 
+    public static void DismissCurrent() => _current?.ForceClose();
+
     public static void Show(string title, string body = "")
     {
         _current?.ForceClose();

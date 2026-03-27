@@ -33,6 +33,11 @@ public sealed partial class RegionOverlayForm
         {
             case CaptureMode.Rectangle when _hasSelection:
             case CaptureMode.Ocr when _hasSelection:
+                // Shadow behind selection
+                var shadow = _selectionRect;
+                shadow.Inflate(3, 3);
+                using (var shadowPen = new Pen(Color.FromArgb(80, 0, 0, 0), 6f))
+                    g.DrawRectangle(shadowPen, shadow);
                 using (var pen = new Pen(isOcr ? Color.FromArgb(100, 180, 255) : Color.White, 2f))
                     g.DrawRectangle(pen, _selectionRect);
                 DrawLabel(g, _selectionRect, isOcr);
@@ -52,6 +57,10 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Window:
                 if (!_hoveredWindowRect.IsEmpty)
                 {
+                    var ws = _hoveredWindowRect;
+                    ws.Inflate(3, 3);
+                    using (var sp = new Pen(Color.FromArgb(80, 0, 0, 0), 6f))
+                        g.DrawRectangle(sp, ws);
                     using var pen = new Pen(Color.White, 2f);
                     g.DrawRectangle(pen, _hoveredWindowRect);
                 }
@@ -127,26 +136,14 @@ public sealed partial class RegionOverlayForm
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y + oy,
             _toolbarRect.Width, _toolbarRect.Height);
 
-        // Liquid glass: layered translucent fills with a bright inner border
         using (var p = RRect(r, 14))
         {
-            // Base: dark translucent fill
-            using var baseFill = new SolidBrush(Color.FromArgb((int)(t * 140), 18, 18, 18));
-            g.FillPath(baseFill, p);
+            // Solid dark glass fill
+            using var fill = new SolidBrush(Color.FromArgb((int)(t * 160), 12, 12, 12));
+            g.FillPath(fill, p);
 
-            // Inner glow: subtle white gradient at top edge
-            var glowRect = new Rectangle(r.X, r.Y, r.Width, r.Height / 2);
-            if (glowRect.Height > 0 && glowRect.Width > 0)
-            {
-                using var glow = new LinearGradientBrush(
-                    new Point(r.X, r.Y), new Point(r.X, r.Y + r.Height / 2),
-                    Color.FromArgb((int)(t * 25), 255, 255, 255),
-                    Color.FromArgb(0, 255, 255, 255));
-                g.FillPath(glow, p);
-            }
-
-            // Border: bright white hairline
-            using var bp = new Pen(Color.FromArgb((int)(t * 70), 255, 255, 255), 1f);
+            // White hairline border
+            using var bp = new Pen(Color.FromArgb((int)(t * 55), 255, 255, 255), 1f);
             g.DrawPath(bp, p);
         }
 
