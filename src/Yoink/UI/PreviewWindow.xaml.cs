@@ -60,8 +60,6 @@ public partial class PreviewWindow : Window
     private void ApplyTheme()
     {
         Theme.Refresh();
-        // White stroke set in XAML, background transparent so image fills to edges
-        ImageBorder.Background = Theme.Brush(Theme.BgElevated);
     }
 
     private void FitToImage()
@@ -71,14 +69,18 @@ public partial class PreviewWindow : Window
         double maxW = 280, maxH = 180;
         double imgW = src.PixelWidth, imgH = src.PixelHeight;
 
-        // Scale to fit within max bounds
         double scale = Math.Min(maxW / imgW, maxH / imgH);
-        scale = Math.Min(scale, 1.0); // don't upscale
+        scale = Math.Min(scale, 1.0);
         double fitW = Math.Max(100, imgW * scale);
         double fitH = imgH * scale;
 
         ImageBorder.Width = fitW;
         ImageBorder.Height = fitH;
+        RootBorder.Width = fitW;
+        RootBorder.Height = fitH;
+
+        // Set the rounded clip geometry to match the actual size
+        ImageClip.Rect = new System.Windows.Rect(0, 0, fitW, fitH);
     }
 
     private void SetThumbnail()

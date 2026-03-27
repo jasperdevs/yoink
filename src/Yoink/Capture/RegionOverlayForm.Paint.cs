@@ -122,17 +122,31 @@ public sealed partial class RegionOverlayForm
     {
         float t = 1f - MathF.Pow(1f - _toolbarAnim, 3f);
         int oy = (int)((1f - t) * -30);
-        int a = (int)(t * 200);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y + oy,
             _toolbarRect.Width, _toolbarRect.Height);
 
-        using (var p = RRect(r, 10))
+        // Liquid glass: layered translucent fills with a bright inner border
+        using (var p = RRect(r, 14))
         {
-            using var b = new SolidBrush(Color.FromArgb(a, 32, 32, 32));
-            g.FillPath(b, p);
-            using var bp = new Pen(Color.FromArgb((int)(t * 50), 255, 255, 255));
+            // Base: dark translucent fill
+            using var baseFill = new SolidBrush(Color.FromArgb((int)(t * 140), 18, 18, 18));
+            g.FillPath(baseFill, p);
+
+            // Inner glow: subtle white gradient at top edge
+            var glowRect = new Rectangle(r.X, r.Y, r.Width, r.Height / 2);
+            if (glowRect.Height > 0 && glowRect.Width > 0)
+            {
+                using var glow = new LinearGradientBrush(
+                    new Point(r.X, r.Y), new Point(r.X, r.Y + r.Height / 2),
+                    Color.FromArgb((int)(t * 25), 255, 255, 255),
+                    Color.FromArgb(0, 255, 255, 255));
+                g.FillPath(glow, p);
+            }
+
+            // Border: bright white hairline
+            using var bp = new Pen(Color.FromArgb((int)(t * 70), 255, 255, 255), 1f);
             g.DrawPath(bp, p);
         }
 
@@ -153,9 +167,17 @@ public sealed partial class RegionOverlayForm
             bool active = i < modes.Length && _mode == modes[i];
             bool hover = _hoveredButton == i;
             if (active || hover)
-                using (var p = RRect(btn, 6))
-                using (var b = new SolidBrush(Color.FromArgb((int)(t * (active ? 80 : 40)), 255, 255, 255)))
-                    g.FillPath(b, p);
+            {
+                using var p = RRect(btn, 8);
+                int alpha = (int)(t * (active ? 60 : 30));
+                using var fill = new SolidBrush(Color.FromArgb(alpha, 255, 255, 255));
+                g.FillPath(fill, p);
+                if (active)
+                {
+                    using var border = new Pen(Color.FromArgb((int)(t * 50), 255, 255, 255), 0.5f);
+                    g.DrawPath(border, p);
+                }
+            }
             int ia = (int)(t * (i >= BtnCount - 2 ? 200 : 255));
             DrawIcon(g, icons[i], btn, Color.FromArgb(ia, 255, 255, 255));
         }
@@ -170,11 +192,11 @@ public sealed partial class RegionOverlayForm
             float tx = btnRect.X + btnRect.Width / 2f - sz.Width / 2f;
             float ty = r.Bottom + 6 + oy;
             var tipRect = new RectangleF(tx - 6, ty - 2, sz.Width + 12, sz.Height + 4);
-            using (var tipPath = RRect(tipRect, 5))
+            using (var tipPath = RRect(tipRect, 8))
             {
-                using var tipBg = new SolidBrush(Color.FromArgb(220, 24, 24, 24));
+                using var tipBg = new SolidBrush(Color.FromArgb(200, 15, 15, 15));
                 g.FillPath(tipBg, tipPath);
-                using var tipBorder = new Pen(Color.FromArgb(40, 255, 255, 255));
+                using var tipBorder = new Pen(Color.FromArgb(50, 255, 255, 255), 0.5f);
                 g.DrawPath(tipBorder, tipPath);
             }
             using var tipBrush = new SolidBrush(Color.FromArgb(210, 255, 255, 255));
@@ -252,17 +274,21 @@ public sealed partial class RegionOverlayForm
     private void DrawLabel(Graphics g, Rectangle rect, bool isOcr)
     {
         string text = isOcr ? $"OCR  {rect.Width} x {rect.Height}" : $"{rect.Width} x {rect.Height}";
-        using var font = new Font("Segoe UI", 11f);
+        using var font = new Font("Segoe UI", 10f);
         var sz = g.MeasureString(text, font);
         float lx = rect.X, ly = rect.Bottom + 8;
         if (ly + sz.Height > ClientSize.Height) ly = rect.Y - sz.Height - 8;
         var lr = new RectangleF(lx - 6, ly - 3, sz.Width + 12, sz.Height + 6);
-        using var bg = new SolidBrush(Color.FromArgb(210, 24, 24, 24));
-        using var fg = new SolidBrush(Color.White);
-        using var p = RRect(lr, 6);
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.FillPath(bg, p);
+        using (var p = RRect(lr, 8))
+        {
+            using var bg = new SolidBrush(Color.FromArgb(180, 15, 15, 15));
+            g.FillPath(bg, p);
+            using var border = new Pen(Color.FromArgb(45, 255, 255, 255), 0.5f);
+            g.DrawPath(border, p);
+        }
         g.SmoothingMode = SmoothingMode.Default;
+        using var fg = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
         g.DrawString(text, font, fg, lx, ly);
     }
 
