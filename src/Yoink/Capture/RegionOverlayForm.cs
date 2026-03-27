@@ -25,8 +25,8 @@ public sealed partial class RegionOverlayForm : Form
 
     private readonly List<Point> _freeformPoints = new();
 
-    // Toolbar: rect, free, OCR, picker, draw, highlight, arrow, curvedArrow, text, step, blur, eraser, magnifier, emoji, [color], gear, close
-    private const int BtnCount = 17;
+    // Toolbar: rect, free, OCR, picker, draw, highlight, line, arrow, curvedArrow, text, step, blur, eraser, magnifier, emoji, [color], gear, close
+    private const int BtnCount = 18;
     private readonly Rectangle[] _toolbarButtons = new Rectangle[BtnCount];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
@@ -74,6 +74,10 @@ public sealed partial class RegionOverlayForm : Form
 
     private Point _arrowStart;
     private bool _isArrowDragging;
+
+    // Straight line
+    private Point _lineStart;
+    private bool _isLineDragging;
 
     // Curved arrows: freehand path with arrowhead at end
     private List<Point>? _currentCurvedArrow;
@@ -321,8 +325,8 @@ public sealed partial class RegionOverlayForm : Form
         Invalidate();
     }
 
-    // Group separators: after index 3 (capture modes), 12 (annotation tools), 13 (emoji)
-    private static readonly int[] SepAfter = { 3, 13 };
+    // Group separators: after index 3 (capture modes), after 14 (annotation tools incl emoji)
+    private static readonly int[] SepAfter = { 3, 14 };
     private const int SepWidth = 8;
 
     private void CalcToolbar()

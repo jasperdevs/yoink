@@ -62,6 +62,9 @@ public sealed partial class RegionOverlayForm
                 case HighlightAnnotation h:
                     SketchRenderer.DrawHighlightRect(g, h.Rect, h.Color);
                     break;
+                case LineAnnotation ln:
+                    SketchRenderer.DrawLine(g, ln.From, ln.To, _toolColor, ln.From.GetHashCode());
+                    break;
                 case ArrowAnnotation a:
                     SketchRenderer.DrawArrow(g, a.From, a.To, _toolColor, a.From.GetHashCode());
                     break;

@@ -21,7 +21,7 @@ public sealed partial class RegionOverlayForm
                 CaptureMode.Rectangle, CaptureMode.Freeform,
                 CaptureMode.Ocr, CaptureMode.ColorPicker,
                 CaptureMode.Draw, CaptureMode.Highlight,
-                CaptureMode.Arrow, CaptureMode.CurvedArrow,
+                CaptureMode.Line, CaptureMode.Arrow, CaptureMode.CurvedArrow,
                 CaptureMode.Text, CaptureMode.StepNumber,
                 CaptureMode.Blur, CaptureMode.Eraser, CaptureMode.Magnifier,
                 CaptureMode.Emoji };
@@ -168,6 +168,10 @@ public sealed partial class RegionOverlayForm
                 _isSelecting = true;
                 _currentStroke = new List<Point> { e.Location };
                 break;
+            case CaptureMode.Line:
+                _isLineDragging = true;
+                _lineStart = e.Location;
+                break;
             case CaptureMode.Arrow:
                 _isArrowDragging = true;
                 _arrowStart = e.Location;
@@ -278,6 +282,9 @@ public sealed partial class RegionOverlayForm
                 _currentStroke?.Add(e.Location);
                 Invalidate();
                 break;
+            case CaptureMode.Line when _isLineDragging:
+                Invalidate();
+                break;
             case CaptureMode.Arrow when _isArrowDragging:
                 Invalidate();
                 break;
@@ -349,6 +356,15 @@ public sealed partial class RegionOverlayForm
                 if (_currentStroke is { Count: >= 2 })
                     _undoStack.Add(new DrawStroke(_currentStroke));
                 _currentStroke = null;
+                break;
+            case CaptureMode.Line when _isLineDragging:
+                _isLineDragging = false;
+                var lineEnd = e.Location;
+                float ldx = lineEnd.X - _lineStart.X;
+                float ldy = lineEnd.Y - _lineStart.Y;
+                if (MathF.Sqrt(ldx * ldx + ldy * ldy) > 5)
+                    _undoStack.Add(new LineAnnotation(_lineStart, lineEnd));
+                Invalidate();
                 break;
             case CaptureMode.Arrow when _isArrowDragging:
                 _isArrowDragging = false;
@@ -685,6 +701,7 @@ public sealed partial class RegionOverlayForm
         _isBlurring = false;
         _isHighlighting = false;
         _isArrowDragging = false;
+        _isLineDragging = false;
         _isCurvedArrowDragging = false;
         _isEraserDragging = false;
         _autoDetectActive = false;

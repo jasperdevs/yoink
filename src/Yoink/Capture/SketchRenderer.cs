@@ -133,6 +133,28 @@ public static class SketchRenderer
             DrawSketchyLine(g, pen, corners[i], corners[(i + 1) % 4], seed + i * 1000, roughness);
     }
 
+    /// <summary>Draw a straight line (no arrowhead).</summary>
+    public static void DrawLine(Graphics g, PointF from, PointF to, Color color, int seed)
+    {
+        float dx = to.X - from.X, dy = to.Y - from.Y;
+        float len = MathF.Sqrt(dx * dx + dy * dy);
+        if (len < 2) return;
+
+        float thickness = Math.Clamp(2f + len / 100f, 2f, 4f);
+
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        // Soft shadow
+        DrawSoftLineShadow(g, from, to, thickness);
+
+        // Main pass
+        using var pen = new Pen(color, thickness)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        g.DrawLine(pen, from, to);
+
+        g.SmoothingMode = SmoothingMode.Default;
+    }
+
     /// <summary>Draw a clean arrow with proportional arrowhead (Excalidraw style).</summary>
     public static void DrawArrow(Graphics g, PointF from, PointF to, Color color, int seed, float roughness = 0.5f)
     {

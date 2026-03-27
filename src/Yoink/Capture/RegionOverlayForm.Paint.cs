@@ -149,6 +149,11 @@ public sealed partial class RegionOverlayForm
             if (pr.Width > 1 && pr.Height > 1)
                 SketchRenderer.DrawHighlightRect(g, pr, DefaultHighlightColor);
         }
+        if (_mode == CaptureMode.Line && _isLineDragging)
+        {
+            var cur = PointToClient(System.Windows.Forms.Cursor.Position);
+            SketchRenderer.DrawLine(g, _lineStart, cur, _toolColor, _lineStart.GetHashCode());
+        }
         if (_mode == CaptureMode.Arrow && _isArrowDragging)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
@@ -653,18 +658,17 @@ public sealed partial class RegionOverlayForm
             g.DrawPath(bp, p);
         }
 
-        // Buttons: rect, free, ocr, picker, draw, arrow, text, blur, eraser, emoji, [color], gear, close
         string[] icons = { "rect", "free", "ocr", "picker",
-            "draw", "highlight", "arrow", "curvedArrow", "text", "step",
+            "draw", "highlight", "line", "arrow", "curvedArrow", "text", "step",
             "blur", "eraser", "magnifier", "emoji", "color", "gear", "close" };
         string[] labels = { "Rectangle", "Freeform",
             "OCR", "Color Picker", "Draw", "Highlight",
-            "Arrow", "Curved Arrow", "Text", "Step Number",
+            "Line", "Arrow", "Curved Arrow", "Text", "Step Number",
             "Blur", "Eraser", "Magnifier", "Emoji", "Color", "Settings", "Close (Esc)" };
         CaptureMode[] modes = { CaptureMode.Rectangle, CaptureMode.Freeform,
             CaptureMode.Ocr, CaptureMode.ColorPicker,
             CaptureMode.Draw, CaptureMode.Highlight,
-            CaptureMode.Arrow, CaptureMode.CurvedArrow,
+            CaptureMode.Line, CaptureMode.Arrow, CaptureMode.CurvedArrow,
             CaptureMode.Text, CaptureMode.StepNumber,
             CaptureMode.Blur, CaptureMode.Eraser, CaptureMode.Magnifier,
             CaptureMode.Emoji };
@@ -800,8 +804,9 @@ public sealed partial class RegionOverlayForm
         ["picker"]      = '\uEF3C', // Eyedropper / color picker
         ["draw"]        = '\uE70F', // Edit / pencil
         ["highlight"]   = '\uE7E6', // Highlight
+        ["line"]        = '\uEDC6', // Diagonal line
         ["arrow"]       = '\uE72A', // Forward arrow (→ clean diagonal)
-        ["curvedArrow"] = '\uE7EA', // Undo-style curved arrow
+        ["curvedArrow"] = '\uE10D', // Redo (curved arrow)
         ["text"]        = '\uE8D2', // Font / text
         ["step"]        = '\uF146', // Number annotation (circled info)
         ["blur"]        = '\uE80A', // Grid / mosaic
@@ -825,6 +830,21 @@ public sealed partial class RegionOverlayForm
     private static void DrawIcon(Graphics g, string icon, Rectangle b, Color c)
     {
         if (icon == "color") return; // handled separately
+
+        // Step number: custom drawn circled "1" (no good icon font glyph for this)
+        if (icon == "step")
+        {
+            float cx = b.X + b.Width / 2f, cy = b.Y + b.Height / 2f;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(c, 1.5f);
+            g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14);
+            using var numFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+            using var brush2 = new SolidBrush(c);
+            var ns = g.MeasureString("1", numFont);
+            g.DrawString("1", numFont, brush2, cx - ns.Width / 2f + 0.5f, cy - ns.Height / 2f);
+            g.SmoothingMode = SmoothingMode.Default;
+            return;
+        }
 
         if (!IconGlyphs.TryGetValue(icon, out char glyph)) return;
 

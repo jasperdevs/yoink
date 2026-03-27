@@ -15,5 +15,6 @@ public enum CaptureMode
     Blur,
     Eraser,
     Magnifier,
-    Emoji
+    Emoji,
+    Line
 }
