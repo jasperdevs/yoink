@@ -10,9 +10,87 @@ namespace Yoink.Capture;
 /// </summary>
 public static class SketchRenderer
 {
-    // Normal drop shadow: offset down-right, visible on any background
-    private const int ShadowOff = 2;
-    private static readonly Color ShadowColor = Color.FromArgb(80, 0, 0, 0);
+    // Soft shadow parameters
+    private const float ShadowOffX = 1.5f;
+    private const float ShadowOffY = 2.5f;
+    private const int ShadowPasses = 5;  // number of blur passes
+    private const float ShadowSpread = 4f; // total blur radius
+
+    /// <summary>
+    /// Draw a soft blurred shadow for a line by rendering it multiple times
+    /// at expanding offsets with decreasing alpha (simulates gaussian blur).
+    /// </summary>
+    private static void DrawSoftLineShadow(Graphics g, PointF from, PointF to, float thickness)
+    {
+        for (int i = ShadowPasses; i >= 1; i--)
+        {
+            float t = i / (float)ShadowPasses; // 1.0 -> 0.2
+            float spread = ShadowSpread * t;
+            int alpha = (int)(30 * (1f - t * 0.6f)); // outer=12, inner=30
+            using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), thickness + spread * 2)
+                { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+            g.DrawLine(pen, from.X + ShadowOffX, from.Y + ShadowOffY,
+                to.X + ShadowOffX, to.Y + ShadowOffY);
+        }
+    }
+
+    /// <summary>
+    /// Draw a soft blurred shadow for a curve/lines by rendering multiple passes.
+    /// </summary>
+    private static void DrawSoftCurveShadow(Graphics g, Point[] points, float thickness, bool asCurve)
+    {
+        var shadowPts = points.Select(p => new Point((int)(p.X + ShadowOffX), (int)(p.Y + ShadowOffY))).ToArray();
+        for (int i = ShadowPasses; i >= 1; i--)
+        {
+            float t = i / (float)ShadowPasses;
+            float spread = ShadowSpread * t;
+            int alpha = (int)(30 * (1f - t * 0.6f));
+            using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), thickness + spread * 2)
+                { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+            if (asCurve && shadowPts.Length >= 4)
+                g.DrawCurve(pen, shadowPts, 0.5f);
+            else
+                g.DrawLines(pen, shadowPts);
+        }
+    }
+
+    /// <summary>
+    /// Draw a soft blurred shadow for a filled path.
+    /// </summary>
+    public static void DrawSoftPathShadow(Graphics g, GraphicsPath path, float extraSpread = 0f)
+    {
+        for (int i = ShadowPasses; i >= 1; i--)
+        {
+            float t = i / (float)ShadowPasses;
+            float spread = (ShadowSpread + extraSpread) * t;
+            int alpha = (int)(25 * (1f - t * 0.6f));
+            using var pen = new Pen(Color.FromArgb(alpha, 0, 0, 0), spread * 2) { LineJoin = LineJoin.Round };
+            using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
+            var m = new System.Drawing.Drawing2D.Matrix();
+            m.Translate(ShadowOffX, ShadowOffY);
+            using var shadowPath = (GraphicsPath)path.Clone();
+            shadowPath.Transform(m);
+            g.FillPath(brush, shadowPath);
+            g.DrawPath(pen, shadowPath);
+        }
+    }
+
+    /// <summary>
+    /// Draw a soft blurred shadow for an ellipse.
+    /// </summary>
+    public static void DrawSoftEllipseShadow(Graphics g, float x, float y, float w, float h)
+    {
+        for (int i = ShadowPasses; i >= 1; i--)
+        {
+            float t = i / (float)ShadowPasses;
+            float spread = ShadowSpread * t;
+            int alpha = (int)(25 * (1f - t * 0.6f));
+            using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
+            g.FillEllipse(brush,
+                x + ShadowOffX - spread, y + ShadowOffY - spread,
+                w + spread * 2, h + spread * 2);
+        }
+    }
 
     /// <summary>Draw a wobbly line between two points (like rough.js).</summary>
     public static void DrawSketchyLine(Graphics g, Pen pen, PointF p1, PointF p2, int seed, float roughness = 1f)
@@ -66,11 +144,8 @@ public static class SketchRenderer
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Shadow pass
-        using var shadowPen = new Pen(ShadowColor, thickness + 1f)
-            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-        g.DrawLine(shadowPen, from.X + ShadowOff, from.Y + ShadowOff,
-            to.X + ShadowOff, to.Y + ShadowOff);
+        // Soft shadow
+        DrawSoftLineShadow(g, from, to, thickness);
 
         // Main pass
         using var pen = new Pen(color, thickness)
@@ -97,14 +172,8 @@ public static class SketchRenderer
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Shadow pass
-        var shadowPts = points.Select(p => new Point(p.X + ShadowOff, p.Y + ShadowOff)).ToArray();
-        using var shadowPen = new Pen(ShadowColor, thickness + 1f)
-            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-        if (shadowPts.Length >= 4)
-            g.DrawCurve(shadowPen, shadowPts, 0.5f);
-        else
-            g.DrawLines(shadowPen, shadowPts);
+        // Soft shadow
+        DrawSoftCurveShadow(g, points.ToArray(), thickness, points.Count >= 4);
 
         // Main pass
         using var pen = new Pen(color, thickness)
@@ -157,15 +226,12 @@ public static class SketchRenderer
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Shadow pass
-        var shadowOutline = outline.Select(p => new PointF(p.X + ShadowOff, p.Y + ShadowOff)).ToArray();
-        using var shadowPath = OutlineToPath(shadowOutline);
-        using var shadowBrush = new SolidBrush(ShadowColor);
-        g.FillPath(shadowBrush, shadowPath);
+        // Soft shadow
+        using var path = OutlineToPath(outline);
+        DrawSoftPathShadow(g, path);
 
         // Main pass
         using var brush = new SolidBrush(color);
-        using var path = OutlineToPath(outline);
         g.FillPath(brush, path);
         g.SmoothingMode = SmoothingMode.Default;
     }

@@ -241,21 +241,17 @@ public sealed partial class RegionOverlayForm
         var style = bold ? FontStyle.Bold : FontStyle.Regular;
         using var font = new Font(fontFamily, fontSize, style);
 
-        // Soft drop shadow
-        using var shadowBrush = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
-        g.DrawString(text, font, shadowBrush, pos.X + 2, pos.Y + 2);
-        g.DrawString(text, font, shadowBrush, pos.X + 1, pos.Y + 1);
-
-        // Thin stroke outline for readability on any background
-        using var outlinePath = new GraphicsPath();
-        outlinePath.AddString(text, font.FontFamily, (int)font.Style, g.DpiY * fontSize / 72f,
+        // Build text path for shadow + fill
+        using var textPath = new GraphicsPath();
+        textPath.AddString(text, font.FontFamily, (int)font.Style, g.DpiY * fontSize / 72f,
             new PointF(pos.X, pos.Y), StringFormat.GenericDefault);
-        using var outlinePen = new Pen(Color.FromArgb(60, 0, 0, 0), 2.5f) { LineJoin = LineJoin.Round };
-        g.DrawPath(outlinePen, outlinePath);
+
+        // Soft blurred shadow
+        SketchRenderer.DrawSoftPathShadow(g, textPath, 1f);
 
         // Main text fill
         using var fillBrush = new SolidBrush(color);
-        g.FillPath(fillBrush, outlinePath);
+        g.FillPath(fillBrush, textPath);
 
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SystemDefault;
         g.SmoothingMode = SmoothingMode.Default;
@@ -265,9 +261,8 @@ public sealed partial class RegionOverlayForm
     {
         int radius = 16;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        // Drop shadow
-        using var shadowBrush = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
-        g.FillEllipse(shadowBrush, pos.X - radius + 2, pos.Y - radius + 2, radius * 2, radius * 2);
+        // Soft shadow
+        SketchRenderer.DrawSoftEllipseShadow(g, pos.X - radius, pos.Y - radius, radius * 2, radius * 2);
         // Filled circle
         using var brush = new SolidBrush(color);
         g.FillEllipse(brush, pos.X - radius, pos.Y - radius, radius * 2, radius * 2);
