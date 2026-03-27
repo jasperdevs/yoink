@@ -232,6 +232,8 @@ public sealed partial class RegionOverlayForm
             { if (!Cursor.Equals(Cursors.SizeAll)) Cursor = Cursors.SizeAll; }
         else if (_mode == CaptureMode.Text && !_isTyping)
             { if (!Cursor.Equals(Cursors.IBeam)) Cursor = Cursors.IBeam; }
+        else if (_emojiPickerOpen || _fontPickerOpen || _colorPickerOpen)
+            { if (!Cursor.Equals(Cursors.Default)) Cursor = Cursors.Default; }
         else if (btn >= 0)
             { if (!Cursor.Equals(Cursors.Hand)) Cursor = Cursors.Hand; }
         else if (_mode == CaptureMode.ColorPicker)
@@ -711,6 +713,14 @@ public sealed partial class RegionOverlayForm
             _emojiPickerOpen = true;
             _emojiSearch = "";
             _emojiScrollOffset = 0;
+            // Pre-calculate picker rect so first click works
+            int cols = 8, emojiSize = 32, pad = 6, visibleRows = 4;
+            int searchBarH = 28;
+            int pw = cols * (emojiSize + pad) + pad;
+            int ph = searchBarH + pad + visibleRows * (emojiSize + pad) + pad;
+            int px = _toolbarRect.X + _toolbarRect.Width / 2 - pw / 2;
+            int py = _toolbarRect.Bottom + 8;
+            _emojiPickerRect = new Rectangle(px, py, pw, ph);
         }
         else if (m != CaptureMode.Emoji)
         {
