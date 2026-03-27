@@ -795,16 +795,16 @@ public sealed partial class RegionOverlayForm
     private static readonly Dictionary<string, char> IconGlyphs = new()
     {
         ["rect"]        = '\uE003', // Checkbox outline (selection rectangle)
-        ["free"]        = '\uEE56', // Lasso
-        ["ocr"]         = '\uE8FD', // Scan / text recognition
+        ["free"]        = '\uEE56', // Lasso / freeform select
+        ["ocr"]         = '\uE890', // Scan (document with magnifier)
         ["picker"]      = '\uEF3C', // Eyedropper / color picker
         ["draw"]        = '\uE70F', // Edit / pencil
         ["highlight"]   = '\uE7E6', // Highlight
-        ["arrow"]       = '\uE8A1', // Up-right arrow
-        ["curvedArrow"] = '\uE8AB', // Redo arrow (curved)
+        ["arrow"]       = '\uE72A', // Forward arrow (→ clean diagonal)
+        ["curvedArrow"] = '\uE7EA', // Undo-style curved arrow
         ["text"]        = '\uE8D2', // Font / text
-        ["step"]        = '\uEA37', // Numbered list
-        ["blur"]        = '\uF0E2', // Grid view / blur
+        ["step"]        = '\uF146', // Number annotation (circled info)
+        ["blur"]        = '\uE80A', // Grid / mosaic
         ["eraser"]      = '\uE75C', // Eraser
         ["magnifier"]   = '\uE71E', // Zoom / search
         ["emoji"]       = '\uE76E', // Emoji / smiley
