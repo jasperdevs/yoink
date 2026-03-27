@@ -462,18 +462,32 @@ public sealed partial class RegionOverlayForm
 
     private static void PaintEmojiAnnotation(Graphics g, Point pos, string emoji, float size, float opacity = 1f)
     {
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-        using var font = new Font("Segoe UI Emoji", size, FontStyle.Regular);
-        using var brush = new SolidBrush(Color.FromArgb((int)(255 * opacity), 0, 0, 0));
+        // Use TextRenderer (GDI) which supports color emoji on Windows 10+
+        using var font = new Font("Segoe UI Emoji", size * 0.75f, FontStyle.Regular);
+        var textSize = TextRenderer.MeasureText(emoji, font);
 
-        // Soft shadow
-        using var shadowBrush = new SolidBrush(Color.FromArgb((int)(40 * opacity), 0, 0, 0));
-        g.DrawString(emoji, font, shadowBrush, pos.X + 2, pos.Y + 2);
-
-        // Draw emoji (color emoji rendered natively by Segoe UI Emoji)
-        using var whiteBrush = new SolidBrush(Color.FromArgb((int)(255 * opacity), 255, 255, 255));
-        g.DrawString(emoji, font, whiteBrush, pos.X, pos.Y);
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SystemDefault;
+        if (opacity < 1f)
+        {
+            // For preview opacity, draw to a temp bitmap then composite
+            using var tmp = new Bitmap(textSize.Width + 4, textSize.Height + 4, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using var tg = Graphics.FromImage(tmp);
+            TextRenderer.DrawText(tg, emoji, font, new Point(2, 2), Color.White, Color.Empty,
+                TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
+            using var attr = new System.Drawing.Imaging.ImageAttributes();
+            float[][] matrix = {
+                new[] { 1f, 0, 0, 0, 0 }, new[] { 0, 1f, 0, 0, 0 },
+                new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, opacity, 0 },
+                new[] { 0, 0, 0, 0, 1f }
+            };
+            attr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(matrix));
+            g.DrawImage(tmp, new Rectangle(pos.X, pos.Y, tmp.Width, tmp.Height),
+                0, 0, tmp.Width, tmp.Height, GraphicsUnit.Pixel, attr);
+        }
+        else
+        {
+            TextRenderer.DrawText(g, emoji, font, pos, Color.White, Color.Empty,
+                TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
+        }
     }
 
     private void PaintEmojiPicker(Graphics g)
@@ -519,9 +533,9 @@ public sealed partial class RegionOverlayForm
             : Color.FromArgb(80, 255, 255, 255));
         g.DrawString(searchDisplay, searchFont, searchBrush, searchRect.X + 6, searchRect.Y + 5);
 
-        // Emoji grid
+        // Emoji grid (use TextRenderer for real color emoji)
         int gridY = py + pad + searchBarH + pad;
-        using var emojiFont = new Font("Segoe UI Emoji", 18f);
+        using var emojiFont = new Font("Segoe UI Emoji", 16f);
         int scrollRow = _emojiScrollOffset;
         int startIdx = scrollRow * cols;
 
@@ -540,8 +554,9 @@ public sealed partial class RegionOverlayForm
                 g.FillPath(hoverBg, hoverPath);
             }
 
-            using var eb = new SolidBrush(Color.White);
-            g.DrawString(filtered[idx].emoji, emojiFont, eb, ex, ey);
+            TextRenderer.DrawText(g, filtered[idx].emoji, emojiFont,
+                new Point(ex + 2, ey + 2), Color.White, Color.Empty,
+                TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
         }
 
         // Scroll indicator

@@ -229,10 +229,11 @@ public sealed partial class RegionOverlayForm : Form
         {
             float elapsed = (float)(DateTime.UtcNow - _showTime).TotalMilliseconds;
             _toolbarAnim = Math.Min(1f, elapsed / 120f);
-            // Time-based smooth dash offset: 20 pixels/second
-            _dashOffset = (elapsed * 0.02f) % 10f;
+            // Steady accumulator for smooth dash crawl (no modulo discontinuity)
+            _dashOffset += 0.35f;
+            if (_dashOffset > 1000f) _dashOffset -= 1000f;
             if (_hasSelection || _autoDetectActive || ShowCrosshairGuides)
-                Invalidate(); // need full repaint for animated border
+                Invalidate();
             else if (_toolbarAnim < 1f)
                 Invalidate(_toolbarRect);
         };
