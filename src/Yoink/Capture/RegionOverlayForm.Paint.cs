@@ -150,6 +150,11 @@ public sealed partial class RegionOverlayForm
 
         using (var p = RRect(r, 14))
         {
+            // Soft light shadow so the dock lifts off the screenshot cleanly.
+            using (var shadowPath = RRect(new Rectangle(r.X, r.Y + 2, r.Width, r.Height), 14))
+            using (var shadow = new SolidBrush(Color.FromArgb((int)(t * 18), 255, 255, 255)))
+                g.FillPath(shadow, shadowPath);
+
             var oldClip = g.Clip;
             using (var dockRegion = new Region(p))
             {
@@ -158,7 +163,7 @@ public sealed partial class RegionOverlayForm
             }
             g.Clip = oldClip;
 
-            using var fill = new SolidBrush(Color.FromArgb((int)(t * 130), 0, 0, 0));
+            using var fill = new SolidBrush(Color.FromArgb((int)(t * 130), 15, 15, 15));
             g.FillPath(fill, p);
             using var bp = new Pen(Color.FromArgb((int)(t * 60), 255, 255, 255), 1f);
             g.DrawPath(bp, p);

@@ -11,10 +11,10 @@
         KeyDown="OnKeyDown"
         ResizeMode="CanResizeWithGrip">
 
-    <Border CornerRadius="10" ClipToBounds="True" Background="#1C1C1C"
+    <Border CornerRadius="16" ClipToBounds="True" Background="#1C1C1C"
             BorderBrush="#40000000" BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.5" Color="Black"/>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="8" Opacity="0.6" Color="Black"/>
         </Border.Effect>
         <Grid>
             <Grid.RowDefinitions>
