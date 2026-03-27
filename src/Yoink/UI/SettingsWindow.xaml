@@ -242,9 +242,14 @@
                                   Checked="StartWithWindowsCheck_Changed" Unchecked="StartWithWindowsCheck_Changed"/>
                     </Border>
 
-                    <!-- Version -->
-                    <TextBlock Text="Yoink v0.1.0" FontSize="10.5" Opacity="0.15"
-                               HorizontalAlignment="Center" Margin="0,16,0,4"/>
+                    <!-- About -->
+                    <TextBlock FontSize="10.5" Opacity="0.2" HorizontalAlignment="Center" Margin="0,16,0,2">
+                        <Run Text="Yoink v0.1.0"/>
+                    </TextBlock>
+                    <TextBlock HorizontalAlignment="Center" Margin="0,0,0,4">
+                        <Hyperlink NavigateUri="https://github.com/jasperdevs/yoink" RequestNavigate="Hyperlink_Navigate"
+                                   Foreground="#1962F4" FontSize="10.5">GitHub</Hyperlink>
+                    </TextBlock>
                 </StackPanel>
             </ScrollViewer>
 

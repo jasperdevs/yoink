@@ -324,6 +324,16 @@ public partial class SettingsWindow : Window
         _historyService.CompressHistory = _settingsService.Settings.CompressHistory;
     }
 
+    private void Hyperlink_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = e.Uri.AbsoluteUri,
+            UseShellExecute = true
+        });
+        e.Handled = true;
+    }
+
     private void CrosshairGuidesCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
