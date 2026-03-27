@@ -17,7 +17,7 @@ public sealed partial class RegionOverlayForm
             if (btn == BtnCount - 1) { Cancel(); return; }
             if (btn == BtnCount - 2) { SettingsRequested?.Invoke(); Cancel(); return; }
             var modeMap = new[] {
-                CaptureMode.Rectangle, CaptureMode.Freeform, CaptureMode.Window,
+                CaptureMode.Rectangle, CaptureMode.Freeform,
                 CaptureMode.Fullscreen, CaptureMode.Ocr, CaptureMode.ColorPicker,
                 CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.Blur, CaptureMode.Eraser };
             SetMode(modeMap[btn]);
@@ -38,13 +38,6 @@ public sealed partial class RegionOverlayForm
             _eraserColor = Color.FromArgb(_pixelData[cy * _bmpW + cx]);
             _eraserStart = e.Location;
             _isEraserDragging = true;
-            return;
-        }
-
-        if (_mode == CaptureMode.Window)
-        {
-            if (!_hoveredWindowRect.IsEmpty)
-                RegionSelected?.Invoke(_hoveredWindowRect);
             return;
         }
 
@@ -121,14 +114,7 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Eraser when _isEraserDragging:
                 Invalidate();
                 break;
-            case CaptureMode.Window:
-                var wr = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
-                if (wr != _hoveredWindowRect)
-                {
-                    _hoveredWindowRect = wr;
-                    Invalidate();
-                }
-                break;
+
         }
     }
 
@@ -205,14 +191,13 @@ public sealed partial class RegionOverlayForm
         if (e.KeyCode == Keys.Escape) Cancel();
         if (e.KeyCode == Keys.D1) SetMode(CaptureMode.Rectangle);
         if (e.KeyCode == Keys.D2) SetMode(CaptureMode.Freeform);
-        if (e.KeyCode == Keys.D3) SetMode(CaptureMode.Window);
-        if (e.KeyCode == Keys.D4) SetMode(CaptureMode.Fullscreen);
-        if (e.KeyCode == Keys.D5) SetMode(CaptureMode.Ocr);
-        if (e.KeyCode == Keys.D6) SetMode(CaptureMode.ColorPicker);
-        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.Draw);
-        if (e.KeyCode == Keys.D8) SetMode(CaptureMode.Arrow);
-        if (e.KeyCode == Keys.D9) SetMode(CaptureMode.Blur);
-        if (e.KeyCode == Keys.D0) SetMode(CaptureMode.Eraser);
+        if (e.KeyCode == Keys.D3) SetMode(CaptureMode.Fullscreen);
+        if (e.KeyCode == Keys.D4) SetMode(CaptureMode.Ocr);
+        if (e.KeyCode == Keys.D5) SetMode(CaptureMode.ColorPicker);
+        if (e.KeyCode == Keys.D6) SetMode(CaptureMode.Draw);
+        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.Arrow);
+        if (e.KeyCode == Keys.D8) SetMode(CaptureMode.Blur);
+        if (e.KeyCode == Keys.D9) SetMode(CaptureMode.Eraser);
 
         if (e.KeyCode == Keys.Z && e.Control && _undoStack.Count > 0)
         {
@@ -247,7 +232,6 @@ public sealed partial class RegionOverlayForm
         _isBlurring = false;
         _isArrowDragging = false;
         _isEraserDragging = false;
-        _hoveredWindowRect = Rectangle.Empty;
 
         if (m == CaptureMode.ColorPicker)
             _pickerTimer.Start();

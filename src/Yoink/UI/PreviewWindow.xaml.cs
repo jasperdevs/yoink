@@ -68,20 +68,16 @@ public partial class PreviewWindow : Window
     {
         if (ThumbnailImage.Source is not BitmapSource src) return;
 
-        double maxW = 280, maxH = 180;
+        double maxW = 280, maxH = 180, minW = 120, minH = 80;
         double imgW = src.PixelWidth, imgH = src.PixelHeight;
 
         double scale = Math.Min(maxW / imgW, maxH / imgH);
         scale = Math.Min(scale, 1.0);
-        double fitW = Math.Max(100, imgW * scale);
-        double fitH = imgH * scale;
+        double fitW = Math.Clamp(imgW * scale, minW, maxW);
+        double fitH = Math.Clamp(imgH * scale, minH, maxH);
 
         ImageBorder.Width = fitW;
         ImageBorder.Height = fitH;
-        RootBorder.Width = fitW;
-        RootBorder.Height = fitH;
-
-        // Set the rounded clip geometry to match the actual size
         ImageClip.Rect = new System.Windows.Rect(0, 0, fitW, fitH);
     }
 

@@ -12,12 +12,15 @@ public sealed partial class RegionOverlayForm
         var g = e.Graphics;
         g.InterpolationMode = InterpolationMode.NearestNeighbor;
 
-        // Always draw raw screenshot as background
+        // Raw screenshot background
         g.CompositingMode = CompositingMode.SourceCopy;
         g.DrawImage(_screenshot, 0, 0);
         g.CompositingMode = CompositingMode.SourceOver;
 
-        // Frosted glass fade at the top behind the dock
+        // Annotations render first (they get baked under the darkening overlay)
+        PaintAnnotations(g);
+
+        // Frosted glass top bar
         g.DrawImageUnscaled(_topBar, 0, 0);
 
         if (_mode == CaptureMode.ColorPicker)
@@ -29,26 +32,29 @@ public sealed partial class RegionOverlayForm
 
         bool isOcr = _mode == CaptureMode.Ocr;
 
-        // Darken outside selection while dragging (rect/OCR modes)
+        // Fullscreen mode: show selection border around entire screen
+        if (_mode == CaptureMode.Fullscreen)
+        {
+            using var pen = new Pen(Color.White, 2f);
+            g.DrawRectangle(pen, 1, 1, ClientSize.Width - 3, ClientSize.Height - 3);
+        }
+
+        // Darken outside selection (rect/OCR)
         if (_hasSelection && (_mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr))
         {
             using var overlay = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
             var sel = _selectionRect;
-            // Top
             g.FillRectangle(overlay, 0, 0, ClientSize.Width, sel.Top);
-            // Bottom
             g.FillRectangle(overlay, 0, sel.Bottom, ClientSize.Width, ClientSize.Height - sel.Bottom);
-            // Left
             g.FillRectangle(overlay, 0, sel.Top, sel.Left, sel.Height);
-            // Right
             g.FillRectangle(overlay, sel.Right, sel.Top, ClientSize.Width - sel.Right, sel.Height);
         }
 
+        // Selection borders (on top of everything)
         switch (_mode)
         {
             case CaptureMode.Rectangle when _hasSelection:
             case CaptureMode.Ocr when _hasSelection:
-                // Soft layered shadow
                 for (int i = 3; i >= 1; i--)
                 {
                     var s = _selectionRect;
@@ -71,21 +77,43 @@ public sealed partial class RegionOverlayForm
                     g.SmoothingMode = SmoothingMode.Default;
                 }
                 break;
+        }
 
-            case CaptureMode.Window:
-                if (!_hoveredWindowRect.IsEmpty)
-                {
-                    for (int i = 3; i >= 1; i--)
-                    {
-                        var ws = _hoveredWindowRect;
-                        ws.Inflate(i * 2, i * 2);
-                        using var sp = new Pen(Color.FromArgb(25, 0, 0, 0), 2f);
-                        g.DrawRectangle(sp, ws);
-                    }
-                    using var pen = new Pen(Color.White, 2f);
-                    g.DrawRectangle(pen, _hoveredWindowRect);
-                }
-                break;
+        PaintToolbar(g);
+    }
+
+    // All annotations: draw strokes, arrows, eraser fills, blur, plus active previews
+    private void PaintAnnotations(Graphics g)
+    {
+        // Eraser fills
+        foreach (var (rect, color) in _eraserFills)
+        {
+            using var brush = new SolidBrush(color);
+            g.FillRectangle(brush, rect);
+        }
+        if (_mode == CaptureMode.Eraser && _isEraserDragging)
+        {
+            var pr = NormRect(_eraserStart, PointToClient(System.Windows.Forms.Cursor.Position));
+            if (pr.Width > 0 && pr.Height > 0)
+            {
+                using var brush = new SolidBrush(Color.FromArgb(180, _eraserColor));
+                g.FillRectangle(brush, pr);
+                using var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash };
+                g.DrawRectangle(pen, pr);
+            }
+        }
+
+        // Blur rects
+        foreach (var br in _blurRects)
+            PaintBlurRect(g, br);
+        if (_mode == CaptureMode.Blur && _isBlurring)
+        {
+            var pr = NormRect(_blurStart, PointToClient(System.Windows.Forms.Cursor.Position));
+            if (pr.Width > 2 && pr.Height > 2)
+            {
+                using var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash };
+                g.DrawRectangle(pen, pr);
+            }
         }
 
         // Draw strokes
@@ -102,50 +130,11 @@ public sealed partial class RegionOverlayForm
         // Arrows
         foreach (var arrow in _arrows)
             PaintArrow(g, arrow.from, arrow.to);
-
-        // Arrow preview while dragging
         if (_mode == CaptureMode.Arrow && _isArrowDragging)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
             PaintArrow(g, _arrowStart, cur);
         }
-
-        // Smart eraser fills
-        foreach (var (rect, color) in _eraserFills)
-        {
-            using var brush = new SolidBrush(color);
-            g.FillRectangle(brush, rect);
-        }
-
-        // Active eraser preview
-        if (_mode == CaptureMode.Eraser && _isEraserDragging)
-        {
-            var previewRect = NormRect(_eraserStart, PointToClient(System.Windows.Forms.Cursor.Position));
-            if (previewRect.Width > 0 && previewRect.Height > 0)
-            {
-                using var brush = new SolidBrush(Color.FromArgb(180, _eraserColor));
-                g.FillRectangle(brush, previewRect);
-                using var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash };
-                g.DrawRectangle(pen, previewRect);
-            }
-        }
-
-        // Blur rects
-        foreach (var br in _blurRects)
-            PaintBlurRect(g, br);
-
-        // Active blur preview
-        if (_mode == CaptureMode.Blur && _isBlurring)
-        {
-            var previewRect = NormRect(_blurStart, PointToClient(System.Windows.Forms.Cursor.Position));
-            if (previewRect.Width > 2 && previewRect.Height > 2)
-            {
-                using var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash };
-                g.DrawRectangle(pen, previewRect);
-            }
-        }
-
-        PaintToolbar(g);
     }
 
     private void PaintToolbar(Graphics g)
@@ -159,7 +148,6 @@ public sealed partial class RegionOverlayForm
 
         using (var p = RRect(r, 14))
         {
-            // Clip blurred screenshot to dock shape for glass backdrop
             var oldClip = g.Clip;
             using (var dockRegion = new Region(p))
             {
@@ -168,22 +156,19 @@ public sealed partial class RegionOverlayForm
             }
             g.Clip = oldClip;
 
-            // Dark tint over the blur
             using var fill = new SolidBrush(Color.FromArgb((int)(t * 130), 0, 0, 0));
             g.FillPath(fill, p);
-
-            // White hairline border
             using var bp = new Pen(Color.FromArgb((int)(t * 60), 255, 255, 255), 1f);
             g.DrawPath(bp, p);
         }
 
-        string[] icons = { "rect", "free", "window", "full", "ocr", "picker",
+        string[] icons = { "rect", "free", "full", "ocr", "picker",
             "draw", "arrow", "blur", "eraser", "gear", "close" };
-        string[] labels = { "Rectangle (1)", "Freeform (2)", "Window (3)", "Fullscreen (4)",
-            "OCR (5)", "Color Picker (6)", "Draw (7)", "Arrow (8)", "Blur (9)", "Eraser (0)",
-            "Settings", "Close" };
+        string[] labels = { "Rectangle (1)", "Freeform (2)", "Fullscreen (3)",
+            "OCR (4)", "Color Picker (5)", "Draw (6)", "Arrow (7)", "Blur (8)", "Eraser (9)",
+            "Settings", "Close (Esc)" };
         CaptureMode[] modes = { CaptureMode.Rectangle, CaptureMode.Freeform,
-            CaptureMode.Window, CaptureMode.Fullscreen, CaptureMode.Ocr,
+            CaptureMode.Fullscreen, CaptureMode.Ocr,
             CaptureMode.ColorPicker, CaptureMode.Draw, CaptureMode.Arrow,
             CaptureMode.Blur, CaptureMode.Eraser };
 
@@ -197,8 +182,8 @@ public sealed partial class RegionOverlayForm
             {
                 using var p = RRect(btn, 8);
                 int alpha = (int)(t * (active ? 60 : 30));
-                using var fill = new SolidBrush(Color.FromArgb(alpha, 255, 255, 255));
-                g.FillPath(fill, p);
+                using var bfill = new SolidBrush(Color.FromArgb(alpha, 255, 255, 255));
+                g.FillPath(bfill, p);
                 if (active)
                 {
                     using var border = new Pen(Color.FromArgb((int)(t * 50), 255, 255, 255), 0.5f);
@@ -209,7 +194,6 @@ public sealed partial class RegionOverlayForm
             DrawIcon(g, icons[i], btn, Color.FromArgb(ia, 255, 255, 255));
         }
 
-        // Tooltip
         if (_hoveredButton >= 0 && _hoveredButton < labels.Length && t > 0.5f)
         {
             string label = labels[_hoveredButton];
@@ -236,64 +220,90 @@ public sealed partial class RegionOverlayForm
     private static void DrawIcon(Graphics g, string icon, Rectangle b, Color c)
     {
         using var pen = new Pen(c, 1.6f);
-        int cx = b.X + b.Width / 2, cy = b.Y + b.Height / 2, s = 8;
+        int cx = b.X + b.Width / 2, cy = b.Y + b.Height / 2;
         switch (icon)
         {
             case "rect":
-                g.DrawRectangle(pen, cx - s, cy - s + 2, s * 2, s * 2 - 4);
+                // Dashed rectangle
+                g.DrawRectangle(pen, cx - 7, cy - 5, 14, 10);
                 break;
             case "free":
-                g.DrawBezier(pen, cx - s, cy + s - 4, cx - s + 4, cy - s,
-                    cx + s - 4, cy + s - 2, cx + s, cy - s + 4);
-                break;
-            case "window":
-                // Small rect inside bigger rect
-                g.DrawRectangle(pen, cx - s, cy - s + 1, s * 2, s * 2 - 2);
-                g.DrawRectangle(pen, cx - 4, cy - 2, 8, 6);
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawBezier(pen, cx - 7, cy + 4, cx - 3, cy - 7, cx + 3, cy + 6, cx + 7, cy - 4);
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "full":
-                g.DrawRectangle(pen, cx - s, cy - s + 1, s * 2, s * 2 - 5);
-                g.DrawLine(pen, cx - 4, cy + s - 2, cx + 4, cy + s - 2);
+                // Four corner brackets
+                g.DrawLine(pen, cx - 7, cy - 5, cx - 3, cy - 5);
+                g.DrawLine(pen, cx - 7, cy - 5, cx - 7, cy - 1);
+                g.DrawLine(pen, cx + 7, cy - 5, cx + 3, cy - 5);
+                g.DrawLine(pen, cx + 7, cy - 5, cx + 7, cy - 1);
+                g.DrawLine(pen, cx - 7, cy + 5, cx - 3, cy + 5);
+                g.DrawLine(pen, cx - 7, cy + 5, cx - 7, cy + 1);
+                g.DrawLine(pen, cx + 7, cy + 5, cx + 3, cy + 5);
+                g.DrawLine(pen, cx + 7, cy + 5, cx + 7, cy + 1);
                 break;
             case "ocr":
-                g.DrawLine(pen, cx - 6, cy - 6, cx + 6, cy - 6);
-                g.DrawLine(pen, cx, cy - 6, cx, cy + 7);
+                // Brackets with T
+                g.DrawLine(pen, cx - 5, cy - 5, cx + 5, cy - 5);
+                g.DrawLine(pen, cx, cy - 5, cx, cy + 5);
                 break;
             case "picker":
-                g.DrawEllipse(pen, cx - 4, cy - 7, 8, 8);
-                g.DrawLine(pen, cx, cy + 1, cx, cy + 7);
+                // Eyedropper
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawEllipse(pen, cx - 3, cy - 7, 6, 6);
+                g.DrawLine(pen, cx, cy - 1, cx, cy + 7);
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "draw":
-                g.DrawLine(pen, cx - 6, cy + 6, cx + 5, cy - 5);
-                g.DrawLine(pen, cx + 5, cy - 5, cx + 7, cy - 7);
+                // Pencil line
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawLine(pen, cx - 6, cy + 5, cx + 4, cy - 5);
+                g.DrawLine(pen, cx - 6, cy + 5, cx - 7, cy + 7);
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "arrow":
-                // Diagonal arrow line with head
-                g.DrawLine(pen, cx - 6, cy + 6, cx + 6, cy - 6);
-                g.DrawLine(pen, cx + 6, cy - 6, cx + 1, cy - 5);
-                g.DrawLine(pen, cx + 6, cy - 6, cx + 5, cy - 1);
+                // Arrow pointing top-right
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawLine(pen, cx - 5, cy + 5, cx + 5, cy - 5);
+                g.DrawLine(pen, cx + 5, cy - 5, cx, cy - 4);
+                g.DrawLine(pen, cx + 5, cy - 5, cx + 4, cy);
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "blur":
-                g.DrawLine(pen, cx - 6, cy - 4, cx + 6, cy - 4);
-                g.DrawLine(pen, cx - 6, cy, cx + 6, cy);
-                g.DrawLine(pen, cx - 6, cy + 4, cx + 6, cy + 4);
+                // Grid dots for pixelate
+                for (int dy = -4; dy <= 4; dy += 4)
+                    for (int dx = -4; dx <= 4; dx += 4)
+                        g.FillRectangle(new SolidBrush(c), cx + dx - 1, cy + dy - 1, 2, 2);
                 break;
             case "eraser":
-                // Small rectangle with X inside
-                g.DrawRectangle(pen, cx - 5, cy - 5, 10, 10);
-                g.DrawLine(pen, cx - 3, cy - 3, cx + 3, cy + 3);
-                g.DrawLine(pen, cx + 3, cy - 3, cx - 3, cy + 3);
+                // Eraser shape
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawRectangle(pen, cx - 6, cy - 3, 12, 8);
+                g.DrawLine(pen, cx - 2, cy - 3, cx - 2, cy + 5);
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "gear":
-                g.DrawEllipse(pen, cx - 5, cy - 5, 10, 10);
+                // Gear: circle with 4 notch lines
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawEllipse(pen, cx - 4, cy - 4, 8, 8);
                 g.DrawLine(pen, cx, cy - 7, cx, cy - 4);
                 g.DrawLine(pen, cx, cy + 4, cx, cy + 7);
                 g.DrawLine(pen, cx - 7, cy, cx - 4, cy);
                 g.DrawLine(pen, cx + 4, cy, cx + 7, cy);
+                // Diagonal notches
+                int d = 2;
+                g.DrawLine(pen, cx - 5, cy - 5, cx - 5 + d, cy - 5 + d);
+                g.DrawLine(pen, cx + 5, cy - 5, cx + 5 - d, cy - 5 + d);
+                g.DrawLine(pen, cx - 5, cy + 5, cx - 5 + d, cy + 5 - d);
+                g.DrawLine(pen, cx + 5, cy + 5, cx + 5 - d, cy + 5 - d);
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "close":
+                g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.DrawLine(pen, cx - 5, cy - 5, cx + 5, cy + 5);
                 g.DrawLine(pen, cx + 5, cy - 5, cx - 5, cy + 5);
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
         }
     }
@@ -323,47 +333,38 @@ public sealed partial class RegionOverlayForm
     {
         int blockSize = Math.Max(6, Math.Min(rect.Width, rect.Height) / 8);
         if (rect.Width < 3 || rect.Height < 3) return;
-
         var clamped = Rectangle.Intersect(rect, new Rectangle(0, 0, _bmpW, _bmpH));
         if (clamped.Width < 1 || clamped.Height < 1) return;
-
-        int smallW = Math.Max(1, clamped.Width / blockSize);
-        int smallH = Math.Max(1, clamped.Height / blockSize);
-
-        using var small = new Bitmap(smallW, smallH, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        int sw = Math.Max(1, clamped.Width / blockSize);
+        int sh = Math.Max(1, clamped.Height / blockSize);
+        using var small = new Bitmap(sw, sh, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var sg = Graphics.FromImage(small))
         {
             sg.InterpolationMode = InterpolationMode.Bilinear;
-            sg.DrawImage(_screenshot, new Rectangle(0, 0, smallW, smallH), clamped, GraphicsUnit.Pixel);
+            sg.DrawImage(_screenshot, new Rectangle(0, 0, sw, sh), clamped, GraphicsUnit.Pixel);
         }
         g.InterpolationMode = InterpolationMode.NearestNeighbor;
-        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+        g.PixelOffsetMode = PixelOffsetMode.Half;
         g.DrawImage(small, clamped);
         g.InterpolationMode = InterpolationMode.Default;
-        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Default;
+        g.PixelOffsetMode = PixelOffsetMode.Default;
     }
 
     private static void PaintArrow(Graphics g, Point from, Point to)
     {
-        float dx = to.X - from.X;
-        float dy = to.Y - from.Y;
+        float dx = to.X - from.X, dy = to.Y - from.Y;
         float len = MathF.Sqrt(dx * dx + dy * dy);
         if (len < 3) return;
-
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using var pen = new Pen(Color.Red, 3f);
         g.DrawLine(pen, from, to);
-
-        // Filled triangle arrowhead
         float nx = dx / len, ny = dy / len;
-        float headLen = 14f;
-        float headWidth = 7f;
-        float bx = to.X - nx * headLen, by = to.Y - ny * headLen;
+        float bx = to.X - nx * 14, by = to.Y - ny * 14;
         var pts = new PointF[]
         {
             new(to.X, to.Y),
-            new(bx - ny * headWidth, by + nx * headWidth),
-            new(bx + ny * headWidth, by - nx * headWidth)
+            new(bx - ny * 7, by + nx * 7),
+            new(bx + ny * 7, by - nx * 7)
         };
         using var brush = new SolidBrush(Color.Red);
         g.FillPolygon(brush, pts);

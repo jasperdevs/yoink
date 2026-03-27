@@ -26,8 +26,8 @@ public sealed partial class RegionOverlayForm : Form
     private readonly List<Point> _freeformPoints = new();
 
     // Toolbar
-    // rect, freeform, window, fullscreen, OCR, colorpicker, draw, arrow, blur, eraser, settings, close
-    private const int BtnCount = 12;
+    // rect, freeform, fullscreen, OCR, colorpicker, draw, arrow, blur, eraser, settings, close
+    private const int BtnCount = 11;
     private readonly Rectangle[] _toolbarButtons = new Rectangle[BtnCount];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
@@ -81,9 +81,6 @@ public sealed partial class RegionOverlayForm : Form
     private Point _eraserStart;
     private Color _eraserColor;
     private bool _isEraserDragging;
-
-    // Window capture state
-    private Rectangle _hoveredWindowRect;
 
     // Undo stack: "draw", "blur", "arrow", "eraser"
     private readonly List<string> _undoStack = new();

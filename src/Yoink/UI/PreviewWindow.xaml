@@ -11,55 +11,51 @@
         MouseEnter="OnMouseEnter"
         MouseLeave="OnMouseLeave">
 
-    <Grid>
-        <Grid.RenderTransform>
+    <Border x:Name="ImageBorder" MinWidth="120" MinHeight="80"
+            CornerRadius="12" Background="#2C2C2C" ClipToBounds="True">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.5" Color="Black"/>
+        </Border.Effect>
+        <Border.Clip>
+            <RectangleGeometry x:Name="ImageClip" RadiusX="12" RadiusY="12"/>
+        </Border.Clip>
+        <Border.RenderTransform>
             <TransformGroup>
                 <ScaleTransform x:Name="DragScale" ScaleX="1" ScaleY="1"/>
                 <TranslateTransform x:Name="SlideX" X="0"/>
             </TransformGroup>
-        </Grid.RenderTransform>
+        </Border.RenderTransform>
 
-        <Border x:Name="ImageBorder" MaxWidth="280" MaxHeight="180" MinWidth="100"
-                CornerRadius="12" Background="#2C2C2C">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.5" Color="Black"/>
-            </Border.Effect>
-            <Border.Clip>
-                <RectangleGeometry x:Name="ImageClip" RadiusX="12" RadiusY="12"/>
-            </Border.Clip>
+        <Grid>
             <Image x:Name="ThumbnailImage" Stretch="Uniform"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
-        </Border>
 
-        <!-- Stroke overlay -->
-        <Border x:Name="RootBorder" CornerRadius="12"
-                Background="Transparent"
-                MaxWidth="280" MaxHeight="180" MinWidth="100"
-                IsHitTestVisible="False"/>
+            <!-- White stroke overlay -->
+            <Border x:Name="RootBorder" CornerRadius="12" Background="Transparent"
+                    IsHitTestVisible="False"/>
 
-        <!-- X close -->
-        <Border x:Name="CloseBtn" Width="22" Height="22" CornerRadius="11"
-                Background="#80000000" Cursor="Hand"
-                MouseLeftButtonDown="CloseClick"
-                HorizontalAlignment="Right" VerticalAlignment="Top"
-                Margin="0,4,4,0" Opacity="0">
-            <Canvas Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Line X1="0" Y1="0" X2="8" Y2="8" Stroke="White" StrokeThickness="1.5"/>
-                <Line X1="8" Y1="0" X2="0" Y2="8" Stroke="White" StrokeThickness="1.5"/>
-            </Canvas>
-        </Border>
-
-        <!-- Save button -->
-        <Border x:Name="SaveBtn" Width="36" Height="36" CornerRadius="8"
-                Background="Transparent" Cursor="Hand"
-                MouseLeftButtonDown="SaveClick"
-                HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                Margin="0,0,0,0" Opacity="0">
-            <Border Background="#70000000" CornerRadius="6" Width="26" Height="26"
-                    HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Path Data="M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"
-                      Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"/>
+            <!-- X close (inside, top-right of image) -->
+            <Border x:Name="CloseBtn" Width="22" Height="22" CornerRadius="11"
+                    Background="#80000000" Cursor="Hand"
+                    MouseLeftButtonDown="CloseClick"
+                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Margin="0,5,5,0" Opacity="0">
+                <Canvas Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Line X1="0" Y1="0" X2="8" Y2="8" Stroke="White" StrokeThickness="1.5"/>
+                    <Line X1="8" Y1="0" X2="0" Y2="8" Stroke="White" StrokeThickness="1.5"/>
+                </Canvas>
             </Border>
-        </Border>
-    </Grid>
+
+            <!-- Save button (inside, bottom-right of image) -->
+            <Border x:Name="SaveBtn" Width="28" Height="28" CornerRadius="6"
+                    Background="#70000000" Cursor="Hand"
+                    MouseLeftButtonDown="SaveClick"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    Margin="0,0,5,5" Opacity="0">
+                <Path Data="M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"
+                      Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+    </Border>
 </Window>
