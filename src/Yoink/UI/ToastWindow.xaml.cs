@@ -15,7 +15,7 @@ public partial class ToastWindow : Window
         InitializeComponent();
 
         Theme.Refresh();
-        Root.Background = Theme.Brush(Theme.BgElevated);
+        Root.Background = Theme.Brush(Theme.BgCard);
         Root.BorderBrush = Theme.StrokeBrush();
         Root.BorderThickness = new Thickness(Theme.StrokeThickness);
         TitleText.Foreground = Theme.Brush(Theme.TextPrimary);

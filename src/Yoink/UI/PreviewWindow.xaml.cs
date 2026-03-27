@@ -96,7 +96,11 @@ public partial class PreviewWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         var wa = SystemParameters.WorkArea;
-        Left = wa.Right - ActualWidth - 16;
+        // Defer one tick so ActualWidth reflects the final sized image.
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            Left = wa.Right - ActualWidth - 16;
+        }), DispatcherPriority.Loaded);
         double targetTop = wa.Bottom - ActualHeight - 16;
 
         // Smooth slide up from below

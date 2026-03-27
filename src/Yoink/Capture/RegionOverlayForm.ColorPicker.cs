@@ -110,7 +110,7 @@ public sealed partial class RegionOverlayForm
         g.Clip = oldClip;
 
         // Dark tint
-        using (var tint = new SolidBrush(Color.FromArgb(140, 0, 0, 0)))
+        using (var tint = new SolidBrush(Color.FromArgb(140, 15, 15, 15)))
             g.FillPath(tint, path);
 
         // Magnifier pixels on top
@@ -118,7 +118,7 @@ public sealed partial class RegionOverlayForm
         g.DrawImageUnscaled(_magBitmap, px, py);
 
         // Border
-        using var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 1f);
+        using var pen = new Pen(Color.FromArgb(50, 255, 255, 255), 1f);
         g.DrawPath(pen, path);
         g.SmoothingMode = SmoothingMode.Default;
 

@@ -6,6 +6,9 @@ namespace Yoink.Services;
 
 public static class ClipboardService
 {
+    private static readonly ImageCodecInfo? PngEncoder =
+        ImageCodecInfo.GetImageEncoders().FirstOrDefault(e => e.MimeType == "image/png");
+
     public static void CopyToClipboard(Bitmap bitmap)
     {
         // Use WinForms clipboard since we may be called from a WinForms context.
@@ -18,7 +21,16 @@ public static class ClipboardService
 
         // Add as PNG stream for better compatibility
         using var pngStream = new MemoryStream();
-        bitmap.Save(pngStream, ImageFormat.Png);
+        if (PngEncoder is not null)
+        {
+            using var enc = new EncoderParameters(1);
+            enc.Param[0] = new EncoderParameter(Encoder.Compression, 6L);
+            bitmap.Save(pngStream, PngEncoder, enc);
+        }
+        else
+        {
+            bitmap.Save(pngStream, ImageFormat.Png);
+        }
         dataObject.SetData("PNG", false, new MemoryStream(pngStream.ToArray()));
 
         System.Windows.Forms.Clipboard.SetDataObject(dataObject, true);

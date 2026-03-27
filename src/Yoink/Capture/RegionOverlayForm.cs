@@ -63,7 +63,7 @@ public sealed partial class RegionOverlayForm : Form
     private const int Grid = 9, Cell = 14, Mag = Grid * Cell;
     private const int InfoH = 48, PPad = 10;
     private const int PW = Mag + PPad * 2, PH = Mag + InfoH + PPad * 2;
-    private const int MagOff = 22, MagMargin = 4;
+    private const int MagOff = 12, MagMargin = 4;
 
     // Draw / Blur / Arrow state
     private readonly List<List<Point>> _drawStrokes = new();
