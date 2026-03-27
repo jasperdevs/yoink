@@ -185,6 +185,7 @@ public partial class PreviewWindow : Window
     {
         var dur = TimeSpan.FromMilliseconds(120);
         CloseBtn.BeginAnimation(OpacityProperty, new DoubleAnimation { To = to, Duration = dur });
+        EditBtn.BeginAnimation(OpacityProperty, new DoubleAnimation { To = to, Duration = dur });
         SaveBtn.BeginAnimation(OpacityProperty, new DoubleAnimation { To = to, Duration = dur });
     }
 
@@ -193,6 +194,7 @@ public partial class PreviewWindow : Window
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         if (IsChildOf(e.OriginalSource as DependencyObject, CloseBtn) ||
+            IsChildOf(e.OriginalSource as DependencyObject, EditBtn) ||
             IsChildOf(e.OriginalSource as DependencyObject, SaveBtn))
         { base.OnMouseLeftButtonDown(e); return; }
 
@@ -299,6 +301,18 @@ public partial class PreviewWindow : Window
     private void CloseClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
+        AnimateDismiss();
+    }
+
+    private void EditClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _fadeTimer.Stop();
+        // Open in image viewer (which has copy/delete)
+        if (_savedFilePath != null && System.IO.File.Exists(_savedFilePath))
+        {
+            Process.Start("explorer.exe", $"\"{_savedFilePath}\"");
+        }
         AnimateDismiss();
     }
 

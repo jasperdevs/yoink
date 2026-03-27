@@ -192,6 +192,17 @@ public partial class App : Application
 
                     overlay.FormClosed += (_, _) =>
                     {
+                        // Save last used mode
+                        var mode = overlay.CurrentMode;
+                        if (mode is CaptureMode.Rectangle or CaptureMode.Freeform)
+                        {
+                            Dispatcher.BeginInvoke(() =>
+                            {
+                                _settingsService!.Settings.LastCaptureMode = mode;
+                                _settingsService.Save();
+                            });
+                        }
+
                         screenshot.Dispose();
                         Dispatcher.BeginInvoke(() => _isCapturing = false);
                     };

@@ -87,6 +87,8 @@ public sealed partial class RegionOverlayForm : Form
     // Blank cursor for color picker (we draw our own crosshair)
     private static readonly Cursor _blankCursor = CreateBlankCursor();
 
+    public CaptureMode CurrentMode => _mode;
+
     // Events
     public event Action<Rectangle>? RegionSelected;
     public event Action<Rectangle>? OcrRegionSelected;
