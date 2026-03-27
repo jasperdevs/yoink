@@ -791,143 +791,56 @@ public sealed partial class RegionOverlayForm
         g.FillRectangle(gradBrush, topRect);
     }
 
-    /// <summary>
-    /// Draw toolbar icons with consistent style: 1.5px stroke, all anti-aliased,
-    /// ~12px icon area, round caps, clean geometric shapes.
-    /// </summary>
+    // Segoe Fluent Icons / Segoe MDL2 Assets glyph map for toolbar icons
+    private static readonly Dictionary<string, char> IconGlyphs = new()
+    {
+        ["rect"]        = '\uE003', // Checkbox outline (selection rectangle)
+        ["free"]        = '\uEE56', // Lasso
+        ["ocr"]         = '\uE8FD', // Scan / text recognition
+        ["picker"]      = '\uEF3C', // Eyedropper / color picker
+        ["draw"]        = '\uE70F', // Edit / pencil
+        ["highlight"]   = '\uE7E6', // Highlight
+        ["arrow"]       = '\uE8A1', // Up-right arrow
+        ["curvedArrow"] = '\uE8AB', // Redo arrow (curved)
+        ["text"]        = '\uE8D2', // Font / text
+        ["step"]        = '\uEA37', // Numbered list
+        ["blur"]        = '\uF0E2', // Grid view / blur
+        ["eraser"]      = '\uE75C', // Eraser
+        ["magnifier"]   = '\uE71E', // Zoom / search
+        ["emoji"]       = '\uE76E', // Emoji / smiley
+        ["gear"]        = '\uE713', // Settings
+        ["close"]       = '\uE711', // Close / X
+    };
+
+    private static Font? _iconFont;
+    private static Font GetIconFont(float size)
+    {
+        // Prefer Segoe Fluent Icons (Win11), fall back to Segoe MDL2 Assets (Win10)
+        _iconFont?.Dispose();
+        try { _iconFont = new Font("Segoe Fluent Icons", size); }
+        catch { _iconFont = new Font("Segoe MDL2 Assets", size); }
+        return _iconFont;
+    }
+
     private static void DrawIcon(Graphics g, string icon, Rectangle b, Color c)
     {
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(c, 1.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-        float cx = b.X + b.Width / 2f, cy = b.Y + b.Height / 2f;
+        if (icon == "color") return; // handled separately
 
-        switch (icon)
-        {
-            case "rect":
-            {
-                // Rounded rectangle
-                using var rp = RRect(new RectangleF(cx - 7, cy - 5, 14, 10), 2);
-                g.DrawPath(pen, rp);
-                break;
-            }
-            case "free":
-                // Lasso curve
-                g.DrawBezier(pen, cx - 7, cy + 3, cx - 2, cy - 7, cx + 2, cy + 6, cx + 7, cy - 3);
-                break;
-            case "ocr":
-                // Scan brackets with text lines
-                g.DrawLines(pen, new[] { new PointF(cx - 3, cy - 6), new PointF(cx - 6, cy - 6), new PointF(cx - 6, cy - 3) });
-                g.DrawLines(pen, new[] { new PointF(cx + 3, cy - 6), new PointF(cx + 6, cy - 6), new PointF(cx + 6, cy - 3) });
-                g.DrawLines(pen, new[] { new PointF(cx - 6, cy + 3), new PointF(cx - 6, cy + 6), new PointF(cx - 3, cy + 6) });
-                g.DrawLines(pen, new[] { new PointF(cx + 6, cy + 3), new PointF(cx + 6, cy + 6), new PointF(cx + 3, cy + 6) });
-                g.DrawLine(pen, cx - 3, cy - 1, cx + 3, cy - 1);
-                g.DrawLine(pen, cx - 3, cy + 2, cx + 2, cy + 2);
-                break;
-            case "picker":
-                // Eyedropper
-                g.DrawLine(pen, cx - 5, cy + 6, cx + 1, cy);
-                g.DrawEllipse(pen, cx - 1, cy - 7, 7, 7);
-                break;
-            case "draw":
-                // Pencil with tip
-                g.DrawLine(pen, cx + 5, cy - 6, cx - 5, cy + 4);
-                g.DrawLine(pen, cx - 5, cy + 4, cx - 6, cy + 7);
-                g.DrawLine(pen, cx - 6, cy + 7, cx - 3, cy + 6);
-                break;
-            case "highlight":
-                // Marker stroke with line above
-                using (var thickPen = new Pen(Color.FromArgb(100, c.R, c.G, c.B), 5f)
-                    { StartCap = LineCap.Round, EndCap = LineCap.Round })
-                    g.DrawLine(thickPen, cx - 5, cy + 2, cx + 5, cy + 2);
-                g.DrawLine(pen, cx - 5, cy - 3, cx + 5, cy - 3);
-                break;
-            case "arrow":
-                // Straight arrow top-right
-                g.DrawLine(pen, cx - 5, cy + 5, cx + 5, cy - 5);
-                g.DrawLine(pen, cx + 5, cy - 5, cx + 1, cy - 4);
-                g.DrawLine(pen, cx + 5, cy - 5, cx + 4, cy - 1);
-                break;
-            case "curvedArrow":
-                // Curved arrow
-                g.DrawBezier(pen, cx - 6, cy + 4, cx - 2, cy - 6, cx + 2, cy + 2, cx + 6, cy - 4);
-                g.DrawLine(pen, cx + 6, cy - 4, cx + 2, cy - 5);
-                g.DrawLine(pen, cx + 6, cy - 4, cx + 5, cy);
-                break;
-            case "text":
-            {
-                // Clean T
-                g.DrawLine(pen, cx - 5, cy - 6, cx + 5, cy - 6);
-                g.DrawLine(pen, cx, cy - 6, cx, cy + 6);
-                g.DrawLine(pen, cx - 2, cy + 6, cx + 2, cy + 6);
-                break;
-            }
-            case "step":
-            {
-                // Numbered circle
-                g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14);
-                using var sf = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-                using var sb = new SolidBrush(c);
-                var tsz = g.MeasureString("1", sf);
-                g.DrawString("1", sf, sb, cx - tsz.Width / 2, cy - tsz.Height / 2);
-                break;
-            }
-            case "blur":
-                // 3x3 grid
-                for (int dy = -1; dy <= 1; dy++)
-                    for (int dx = -1; dx <= 1; dx++)
-                    {
-                        float bx = cx + dx * 5 - 1.5f, by = cy + dy * 5 - 1.5f;
-                        using var rp = RRect(new RectangleF(bx, by, 3, 3), 0.5f);
-                        using var br = new SolidBrush(Color.FromArgb(dx == 0 && dy == 0 ? 180 : 100, c.R, c.G, c.B));
-                        g.FillPath(br, rp);
-                    }
-                break;
-            case "eraser":
-                // Eraser block
-                var eraserPts = new[] {
-                    new PointF(cx - 6, cy + 5), new PointF(cx - 6, cy - 1),
-                    new PointF(cx + 2, cy - 5), new PointF(cx + 7, cy - 5),
-                    new PointF(cx + 7, cy + 1), new PointF(cx - 1, cy + 5)
-                };
-                g.DrawPolygon(pen, eraserPts);
-                g.DrawLine(pen, cx - 1, cy + 5, cx + 2, cy - 1);
-                break;
-            case "magnifier":
-                // Magnifying glass
-                g.DrawEllipse(pen, cx - 5, cy - 6, 10, 10);
-                using (var thickPen = new Pen(c, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
-                    g.DrawLine(thickPen, cx + 3, cy + 3, cx + 7, cy + 7);
-                break;
-            case "emoji":
-                // Smiley face
-                g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14);
-                using (var dotBrush = new SolidBrush(c))
-                {
-                    g.FillEllipse(dotBrush, cx - 4, cy - 3, 2.5f, 2.5f);
-                    g.FillEllipse(dotBrush, cx + 2, cy - 3, 2.5f, 2.5f);
-                }
-                g.DrawArc(pen, cx - 4, cy - 1, 8, 6, 15, 150);
-                break;
-            case "color":
-                // Handled in PaintToolbar directly
-                break;
-            case "gear":
-                // Gear: outer ring with teeth
-                g.DrawEllipse(pen, cx - 3.5f, cy - 3.5f, 7, 7);
-                for (int i = 0; i < 6; i++)
-                {
-                    float angle = i * 60f * MathF.PI / 180f;
-                    float ix = cx + MathF.Cos(angle) * 4f, iy = cy + MathF.Sin(angle) * 4f;
-                    float ox = cx + MathF.Cos(angle) * 7f, oy = cy + MathF.Sin(angle) * 7f;
-                    g.DrawLine(pen, ix, iy, ox, oy);
-                }
-                break;
-            case "close":
-                g.DrawLine(pen, cx - 4, cy - 4, cx + 4, cy + 4);
-                g.DrawLine(pen, cx + 4, cy - 4, cx - 4, cy + 4);
-                break;
-        }
-        g.SmoothingMode = SmoothingMode.Default;
+        if (!IconGlyphs.TryGetValue(icon, out char glyph)) return;
+
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        using var font = new Font(
+            System.Drawing.FontFamily.Families.Any(f => f.Name == "Segoe Fluent Icons")
+                ? "Segoe Fluent Icons" : "Segoe MDL2 Assets",
+            13f, FontStyle.Regular);
+        using var brush = new SolidBrush(c);
+
+        string text = glyph.ToString();
+        var sz = g.MeasureString(text, font);
+        float x = b.X + (b.Width - sz.Width) / 2f;
+        float y = b.Y + (b.Height - sz.Height) / 2f;
+        g.DrawString(text, font, brush, x, y);
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SystemDefault;
     }
 
     private void DrawLabel(Graphics g, Rectangle rect, bool isOcr)
