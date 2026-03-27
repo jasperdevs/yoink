@@ -147,10 +147,27 @@ public sealed partial class RegionOverlayForm
 
         using (var p = RRect(r, 14))
         {
-            // No oversized backdrop - just glass inside the dock itself.
-            using var fill = new SolidBrush(Color.FromArgb((int)(t * 170), 18, 18, 18));
-            g.FillPath(fill, p);
-            using var bp = new Pen(Color.FromArgb((int)(t * 60), 255, 255, 255), 1f);
+            // Dark base fill first (so no bleed from behind)
+            using var baseFill = new SolidBrush(Color.FromArgb((int)(t * 200), 15, 15, 15));
+            g.FillPath(baseFill, p);
+
+            // Mica-style: draw blurred screenshot clipped to pill, low opacity for glass effect
+            var oldClip = g.Clip;
+            g.SetClip(p);
+            using var blurAttr = new System.Drawing.Imaging.ImageAttributes();
+            float[][] matrix = {
+                new[] { 1f, 0, 0, 0, 0 },
+                new[] { 0, 1f, 0, 0, 0 },
+                new[] { 0, 0, 1f, 0, 0 },
+                new[] { 0, 0, 0, t * 0.15f, 0 },  // low alpha = subtle glass
+                new[] { 0, 0, 0, 0, 1f }
+            };
+            blurAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(matrix));
+            g.DrawImage(_blurred, r, r.X, r.Y, r.Width, r.Height, GraphicsUnit.Pixel, blurAttr);
+            g.Clip = oldClip;
+
+            // Border
+            using var bp = new Pen(Color.FromArgb((int)(t * 45), 255, 255, 255), 1f);
             g.DrawPath(bp, p);
         }
 
@@ -197,9 +214,22 @@ public sealed partial class RegionOverlayForm
             var tipRect = new RectangleF(tx - 6, ty - 2, sz.Width + 12, sz.Height + 4);
             using (var tipPath = RRect(tipRect, 8))
             {
-                using var tipBg = new SolidBrush(Color.FromArgb(200, 15, 15, 15));
+                using var tipBg = new SolidBrush(Color.FromArgb(210, 12, 12, 12));
                 g.FillPath(tipBg, tipPath);
-                using var tipBorder = new Pen(Color.FromArgb(50, 255, 255, 255), 0.5f);
+                // Subtle blur glass
+                var oldClip2 = g.Clip;
+                g.SetClip(tipPath);
+                using var tipAttr = new System.Drawing.Imaging.ImageAttributes();
+                float[][] tipMatrix = {
+                    new[] { 1f, 0, 0, 0, 0 }, new[] { 0, 1f, 0, 0, 0 },
+                    new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, 0.1f, 0 },
+                    new[] { 0, 0, 0, 0, 1f }
+                };
+                tipAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(tipMatrix));
+                var tipRI = Rectangle.Round(tipRect);
+                g.DrawImage(_blurred, tipRI, tipRI.X, tipRI.Y, tipRI.Width, tipRI.Height, GraphicsUnit.Pixel, tipAttr);
+                g.Clip = oldClip2;
+                using var tipBorder = new Pen(Color.FromArgb(35, 255, 255, 255), 0.5f);
                 g.DrawPath(tipBorder, tipPath);
             }
             using var tipBrush = new SolidBrush(Color.FromArgb(210, 255, 255, 255));
@@ -301,9 +331,21 @@ public sealed partial class RegionOverlayForm
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using (var p = RRect(lr, 8))
         {
-            using var bg = new SolidBrush(Color.FromArgb(180, 15, 15, 15));
-            g.FillPath(bg, p);
-            using var border = new Pen(Color.FromArgb(45, 255, 255, 255), 0.5f);
+            using var lblBg = new SolidBrush(Color.FromArgb(200, 12, 12, 12));
+            g.FillPath(lblBg, p);
+            var oldClip3 = g.Clip;
+            g.SetClip(p);
+            using var lblAttr = new System.Drawing.Imaging.ImageAttributes();
+            float[][] lblM = {
+                new[] { 1f, 0, 0, 0, 0 }, new[] { 0, 1f, 0, 0, 0 },
+                new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, 0.12f, 0 },
+                new[] { 0, 0, 0, 0, 1f }
+            };
+            lblAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(lblM));
+            var lrI = Rectangle.Round(lr);
+            g.DrawImage(_blurred, lrI, lrI.X, lrI.Y, lrI.Width, lrI.Height, GraphicsUnit.Pixel, lblAttr);
+            g.Clip = oldClip3;
+            using var border = new Pen(Color.FromArgb(35, 255, 255, 255), 0.5f);
             g.DrawPath(border, p);
         }
         g.SmoothingMode = SmoothingMode.Default;

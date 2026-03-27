@@ -6,7 +6,7 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         Foreground="White"
-        Background="#1C1C1C"
+        Background="Transparent"
         WindowStyle="None"
         AllowsTransparency="True"
         ThemeMode="Dark">
@@ -74,10 +74,10 @@
         </Style>
     </Window.Resources>
 
-    <Border CornerRadius="16" ClipToBounds="True" Background="#1C1C1C"
-            BorderBrush="#40000000" BorderThickness="1">
+    <Border Margin="16" CornerRadius="12" ClipToBounds="True" Background="#1C1C1C"
+            BorderBrush="#30FFFFFF" BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="30" ShadowDepth="8" Opacity="0.6" Color="Black"/>
+            <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.5" Color="Black"/>
         </Border.Effect>
     <Grid>
         <Grid.RowDefinitions>
