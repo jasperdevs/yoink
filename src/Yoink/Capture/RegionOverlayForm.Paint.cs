@@ -147,15 +147,8 @@ public sealed partial class RegionOverlayForm
 
         using (var p = RRect(r, 14))
         {
-            var oldClip = g.Clip;
-            using (var dockRegion = new Region(p))
-            {
-                g.Clip = dockRegion;
-                g.DrawImage(_blurred, r, r, GraphicsUnit.Pixel);
-            }
-            g.Clip = oldClip;
-
-            using var fill = new SolidBrush(Color.FromArgb((int)(t * 130), 15, 15, 15));
+            // No oversized backdrop - just glass inside the dock itself.
+            using var fill = new SolidBrush(Color.FromArgb((int)(t * 170), 18, 18, 18));
             g.FillPath(fill, p);
             using var bp = new Pen(Color.FromArgb((int)(t * 60), 255, 255, 255), 1f);
             g.DrawPath(bp, p);

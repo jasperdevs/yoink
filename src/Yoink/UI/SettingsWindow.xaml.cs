@@ -417,10 +417,31 @@ public partial class SettingsWindow : Window
 
     private void DeleteSelectedClick(object sender, RoutedEventArgs e)
     {
-        var toDelete = _historyItems.Where(i => i.IsSelected).Select(i => i.Entry).ToList();
-        foreach (var entry in toDelete)
-            _historyService.DeleteEntry(entry);
-        LoadHistory();
+        if (ImagesSubTab.IsChecked == true)
+        {
+            var toDelete = _historyItems.Where(i => i.IsSelected).Select(i => i.Entry).ToList();
+            foreach (var entry in toDelete)
+                _historyService.DeleteEntry(entry);
+            LoadHistory();
+        }
+        else if (TextSubTab.IsChecked == true)
+        {
+            var toDelete = OcrStack.Children.OfType<Border>().Where(b => b.Tag as bool? == true).ToList();
+            foreach (var card in toDelete)
+            {
+                int idx = OcrStack.Children.IndexOf(card);
+                if (idx >= 0 && idx < _historyService.OcrEntries.Count)
+                    _historyService.DeleteOcrEntry(_historyService.OcrEntries[idx]);
+            }
+            LoadOcrHistory();
+        }
+        else if (ColorsSubTab.IsChecked == true)
+        {
+            var toDelete = ColorStack.Children.OfType<StackPanel>().Select(s => s.Tag).OfType<ColorHistoryEntry>().ToList();
+            foreach (var entry in toDelete)
+                _historyService.DeleteColorEntry(entry);
+            LoadColorHistory();
+        }
     }
 
     // ─── OCR History ───────────────────────────────────────────────
@@ -432,6 +453,7 @@ public partial class SettingsWindow : Window
         HistoryEmptyText.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         HistoryEmptyText.Text = "No text captures yet";
         HistoryCountText.Text = $"{entries.Count} text capture{(entries.Count == 1 ? "" : "s")}";
+        DeleteSelectedBtn.Visibility = _selectMode && TextSubTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (var entry in entries)
         {
@@ -443,6 +465,12 @@ public partial class SettingsWindow : Window
                 Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(12, 255, 255, 255)),
                 Cursor = System.Windows.Input.Cursors.Hand
             };
+
+            if (_selectMode)
+            {
+                card.BorderThickness = new Thickness(Theme.StrokeThickness);
+                card.BorderBrush = Theme.StrokeBrush();
+            }
 
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -473,6 +501,23 @@ public partial class SettingsWindow : Window
             grid.Children.Add(copyBtn);
 
             card.Child = grid;
+            if (_selectMode)
+            {
+                card.MouseLeftButtonDown += (_, _) =>
+                {
+                    if (card.Tag as bool? == true)
+                    {
+                        card.Tag = false;
+                        card.BorderThickness = new Thickness(0);
+                    }
+                    else
+                    {
+                        card.Tag = true;
+                        card.BorderThickness = new Thickness(Theme.StrokeThickness);
+                        card.BorderBrush = Theme.StrokeBrush();
+                    }
+                };
+            }
             OcrStack.Children.Add(card);
         }
     }
@@ -486,6 +531,7 @@ public partial class SettingsWindow : Window
         HistoryEmptyText.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         HistoryEmptyText.Text = "No colors yet";
         HistoryCountText.Text = $"{entries.Count} color{(entries.Count == 1 ? "" : "s")}";
+        DeleteSelectedBtn.Visibility = _selectMode && ColorsSubTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (var entry in entries)
         {
@@ -523,11 +569,26 @@ public partial class SettingsWindow : Window
             stack.Children.Add(swatch);
             stack.Children.Add(hexLabel);
 
-            swatch.MouseLeftButtonDown += (_, _) =>
+            if (_selectMode)
             {
-                System.Windows.Clipboard.SetText(entry.Hex);
-                ToastWindow.Show("Copied", entry.Hex);
-            };
+                var selected = false;
+                swatch.BorderThickness = new Thickness(0);
+                swatch.MouseLeftButtonDown += (_, _) =>
+                {
+                    selected = !selected;
+                    swatch.BorderThickness = new Thickness(selected ? Theme.StrokeThickness : 0);
+                    swatch.BorderBrush = selected ? Theme.StrokeBrush() : null;
+                    stack.Tag = selected ? entry : null;
+                };
+            }
+            else
+            {
+                swatch.MouseLeftButtonDown += (_, _) =>
+                {
+                    System.Windows.Clipboard.SetText(entry.Hex);
+                    ToastWindow.Show("Copied", entry.Hex);
+                };
+            }
 
             ColorStack.Children.Add(stack);
         }
