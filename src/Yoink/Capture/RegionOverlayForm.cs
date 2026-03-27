@@ -116,6 +116,8 @@ public sealed partial class RegionOverlayForm : Form
     private int _textResizeHandle = -1; // -1=none, 0-3=corners
     private bool _textResizing;
     private Point _textResizeStart;
+    private bool _textDragging;
+    private Point _textDragOffset;
 
     // Tool color (shared across draw, arrow, text)
     private Color _toolColor = Color.Red;

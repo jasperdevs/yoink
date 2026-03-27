@@ -48,10 +48,14 @@ public sealed partial class RegionOverlayForm
                 _textResizeStart = e.Location;
                 return;
             }
-            // Check if clicking inside the text box (to reposition cursor -- just keep typing)
+            // Check if clicking inside the text box -- start dragging to move
             var textBox = GetActiveTextRect();
             if (textBox.Contains(e.Location))
+            {
+                _textDragging = true;
+                _textDragOffset = new Point(e.Location.X - _textPos.X, e.Location.Y - _textPos.Y);
                 return;
+            }
             // Clicked outside -- commit
             CommitText();
             return;
@@ -156,6 +160,14 @@ public sealed partial class RegionOverlayForm
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        // Text move drag
+        if (_textDragging && _isTyping)
+        {
+            _textPos = new Point(e.Location.X - _textDragOffset.X, e.Location.Y - _textDragOffset.Y);
+            Invalidate();
+            return;
+        }
+
         // Text resize drag
         if (_textResizing && _isTyping)
         {
@@ -169,9 +181,11 @@ public sealed partial class RegionOverlayForm
         int btn = GetToolbarButtonAt(e.Location);
         if (btn != _hoveredButton) { _hoveredButton = btn; Invalidate(); }
 
-        // Cursor: show resize cursor when hovering text handles
+        // Cursor: show appropriate cursor for text interaction
         if (_isTyping && GetTextHandle(e.Location) >= 0)
             { if (!Cursor.Equals(Cursors.SizeNWSE)) Cursor = Cursors.SizeNWSE; }
+        else if (_isTyping && GetActiveTextRect().Contains(e.Location))
+            { if (!Cursor.Equals(Cursors.SizeAll)) Cursor = Cursors.SizeAll; }
         else if (btn >= 0)
             { if (!Cursor.Equals(Cursors.Hand)) Cursor = Cursors.Hand; }
         else if (_mode == CaptureMode.ColorPicker)
@@ -237,13 +251,9 @@ public sealed partial class RegionOverlayForm
     {
         if (e.Button != MouseButtons.Left) return;
 
-        // End text resize
-        if (_textResizing)
-        {
-            _textResizing = false;
-            _textResizeHandle = -1;
-            return;
-        }
+        // End text move/resize
+        if (_textDragging) { _textDragging = false; return; }
+        if (_textResizing) { _textResizing = false; _textResizeHandle = -1; return; }
         switch (_mode)
         {
             case CaptureMode.Highlight when _isHighlighting:

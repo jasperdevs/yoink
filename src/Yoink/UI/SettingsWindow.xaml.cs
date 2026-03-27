@@ -69,9 +69,8 @@ public partial class SettingsWindow : Window
         try
         {
             var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            int value = Native.Dwm.DWMSBT_MAINWINDOW; // Mica
-            Native.Dwm.DwmSetWindowAttribute(hwnd, Native.Dwm.DWMWA_SYSTEMBACKDROP_TYPE,
-                ref value, sizeof(int));
+            // Disable system backdrop entirely so transparent background works
+            Native.Dwm.DisableBackdrop(hwnd);
         }
         catch { }
     }

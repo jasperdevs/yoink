@@ -219,6 +219,14 @@ public sealed partial class RegionOverlayForm
         }
         if (_mode == CaptureMode.CurvedArrow && _isCurvedArrowDragging && _currentCurvedArrow is { Count: >= 2 })
             PaintCurvedArrow(g, _currentCurvedArrow);
+        // Active draw stroke (not yet committed to undo stack)
+        if (_mode == CaptureMode.Draw && _isSelecting && _currentStroke is { Count: >= 2 })
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var dp = new Pen(_toolColor, 3f) { LineJoin = LineJoin.Round };
+            g.DrawLines(dp, _currentStroke.ToArray());
+            g.SmoothingMode = SmoothingMode.Default;
+        }
 
         // Magnifier preview
         if (_mode == CaptureMode.Magnifier)
