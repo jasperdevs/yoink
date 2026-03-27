@@ -43,18 +43,17 @@ public partial class ToastWindow : Window
         var wa = SystemParameters.WorkArea;
         double targetLeft = wa.Right - ActualWidth - 16;
         Top = wa.Bottom - ActualHeight - 16;
+        Left = targetLeft; // set final position so WPF knows the target
 
-        // Slide in from right
+        // Slide in from right using SlideX transform
+        SlideX.X = ActualWidth + 30;
         var dur = TimeSpan.FromMilliseconds(280);
         var ease = new QuarticEase { EasingMode = EasingMode.EaseOut };
-        Left = wa.Right + 10; // start off-screen right
-        BeginAnimation(LeftProperty, new DoubleAnimation
-        {
-            To = targetLeft, Duration = dur, EasingFunction = ease
-        });
+        SlideX.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty,
+            new DoubleAnimation { From = ActualWidth + 30, To = 0, Duration = dur, EasingFunction = ease });
         BeginAnimation(OpacityProperty, new DoubleAnimation
         {
-            From = 0.3, To = 1, Duration = TimeSpan.FromMilliseconds(150)
+            From = 0.5, To = 1, Duration = TimeSpan.FromMilliseconds(150)
         });
 
         _timer.Start();

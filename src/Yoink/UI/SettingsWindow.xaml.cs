@@ -35,6 +35,24 @@ public partial class SettingsWindow : Window
         };
     }
 
+    private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left) DragMove();
+    }
+
+    private void CloseBtn_Click(object sender, MouseButtonEventArgs e) => Close();
+
+    private void TitleBtn_Enter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is Border b) b.Background = new SolidColorBrush(
+            System.Windows.Media.Color.FromArgb(30, 255, 255, 255));
+    }
+
+    private void TitleBtn_Leave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is Border b) b.Background = System.Windows.Media.Brushes.Transparent;
+    }
+
     private void ApplyMicaBackdrop()
     {
         try
@@ -321,7 +339,7 @@ public partial class SettingsWindow : Window
         var card = new Border
         {
             Width = 148, Margin = new Thickness(3),
-            CornerRadius = new CornerRadius(10), ClipToBounds = true,
+            CornerRadius = new CornerRadius(10),
             Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(12, 255, 255, 255)),
             Cursor = System.Windows.Input.Cursors.Hand,
             Child = grid, Tag = vm,
@@ -329,6 +347,13 @@ public partial class SettingsWindow : Window
             {
                 BlurRadius = 8, ShadowDepth = 2, Opacity = 0.3, Color = System.Windows.Media.Colors.Black
             }
+        };
+        // Clip to rounded rect (WPF Border.ClipToBounds doesn't respect CornerRadius)
+        card.SizeChanged += (s, _) =>
+        {
+            var b = (Border)s!;
+            b.Clip = new System.Windows.Media.RectangleGeometry(
+                new System.Windows.Rect(0, 0, b.ActualWidth, b.ActualHeight), 10, 10);
         };
 
         card.MouseLeftButtonDown += (s, e) =>

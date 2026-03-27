@@ -6,7 +6,9 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         Foreground="White"
-        Background="Transparent"
+        Background="#1C1C1C"
+        WindowStyle="None"
+        AllowsTransparency="True"
         ThemeMode="Dark">
 
     <Window.Resources>
@@ -72,14 +74,37 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="0,4,0,0">
+    <Border CornerRadius="10" ClipToBounds="True" Background="#1C1C1C"
+            BorderBrush="#40000000" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.5" Color="Black"/>
+        </Border.Effect>
+    <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- Custom title bar -->
+        <Border Grid.Row="0" Padding="14,8,8,8" Background="#161616"
+                MouseLeftButtonDown="TitleBar_MouseDown">
+            <Grid>
+                <TextBlock Text="Yoink" FontSize="12" FontWeight="SemiBold" Foreground="White"
+                           Opacity="0.8" VerticalAlignment="Center"/>
+                <Border Width="32" Height="28" CornerRadius="6" Cursor="Hand" Background="Transparent"
+                        MouseLeftButtonDown="CloseBtn_Click" MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave"
+                        HorizontalAlignment="Right">
+                    <Canvas Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Line X1="0" Y1="0" X2="10" Y2="10" Stroke="#AAFFFFFF" StrokeThickness="1.5"/>
+                        <Line X1="10" Y1="0" X2="0" Y2="10" Stroke="#AAFFFFFF" StrokeThickness="1.5"/>
+                    </Canvas>
+                </Border>
+            </Grid>
+        </Border>
+
         <!-- Main tabs -->
-        <Border Grid.Row="0" Padding="16,4,16,4">
+        <Border Grid.Row="1" Padding="16,4,16,4">
             <StackPanel Orientation="Horizontal">
                 <RadioButton x:Name="SettingsTab" Content="Settings" GroupName="Main"
                              IsChecked="True" Click="TabChanged" Style="{StaticResource TabPill}"/>
@@ -88,7 +113,7 @@
             </StackPanel>
         </Border>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
 
             <!-- Settings -->
             <ScrollViewer x:Name="SettingsPanel" VerticalScrollBarVisibility="Auto" Padding="18,6,18,18">
@@ -252,4 +277,5 @@
             </Grid>
         </Grid>
     </Grid>
+    </Border>
 </Window>
