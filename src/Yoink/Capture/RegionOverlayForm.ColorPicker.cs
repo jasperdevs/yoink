@@ -8,11 +8,14 @@ namespace Yoink.Capture;
 
 public sealed partial class RegionOverlayForm
 {
+    private bool _pickerReady;
+
     private void OnPickerTick(object? sender, EventArgs e)
     {
         Native.User32.GetCursorPos(out var pt);
         var np = new Point(pt.X - _virtualBounds.X, pt.Y - _virtualBounds.Y);
-        if (np == _pickerCursorPos) return;
+        if (_pickerReady && np == _pickerCursorPos) return;
+        _pickerReady = true;
         _pickerCursorPos = np;
         BuildMagnifier();
 

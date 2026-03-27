@@ -26,7 +26,7 @@ public sealed partial class RegionOverlayForm
         if (_mode == CaptureMode.ColorPicker)
         {
             PaintToolbar(g);
-            PaintMagnifier(g);
+            if (_pickerReady) PaintMagnifier(g);
             return;
         }
 
