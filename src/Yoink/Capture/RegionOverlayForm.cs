@@ -88,6 +88,9 @@ public sealed partial class RegionOverlayForm : Form
     // Undo stack: "draw", "blur", "arrow", "eraser"
     private readonly List<string> _undoStack = new();
 
+    // Blank cursor for color picker (we draw our own crosshair)
+    private static readonly Cursor _blankCursor = CreateBlankCursor();
+
     // Events
     public event Action<Rectangle>? RegionSelected;
     public event Action<Rectangle>? OcrRegionSelected;
@@ -167,12 +170,13 @@ public sealed partial class RegionOverlayForm : Form
 
     private void CalcToolbar()
     {
-        int w = ButtonSize * BtnCount + ButtonSpacing * (BtnCount - 1) + 16;
+        int pad = 4;
+        int w = ButtonSize * BtnCount + ButtonSpacing * (BtnCount - 1) + pad * 2;
         int x = (ClientSize.Width - w) / 2;
         _toolbarRect = new Rectangle(x, ToolbarTopMargin, w, ToolbarHeight);
         for (int i = 0; i < BtnCount; i++)
             _toolbarButtons[i] = new Rectangle(
-                _toolbarRect.X + 8 + i * (ButtonSize + ButtonSpacing),
+                _toolbarRect.X + pad + i * (ButtonSize + ButtonSpacing),
                 _toolbarRect.Y + (ToolbarHeight - ButtonSize) / 2,
                 ButtonSize, ButtonSize);
     }
@@ -242,6 +246,12 @@ public sealed partial class RegionOverlayForm : Form
         }
         bar.UnlockBits(bits);
         return bar;
+    }
+
+    private static Cursor CreateBlankCursor()
+    {
+        using var bmp = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+        return new Cursor(bmp.GetHicon());
     }
 
     private void Cancel() => SelectionCancelled?.Invoke();

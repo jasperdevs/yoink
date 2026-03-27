@@ -29,6 +29,21 @@ public sealed partial class RegionOverlayForm
 
         bool isOcr = _mode == CaptureMode.Ocr;
 
+        // Darken outside selection while dragging (rect/OCR modes)
+        if (_hasSelection && (_mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr))
+        {
+            using var overlay = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            var sel = _selectionRect;
+            // Top
+            g.FillRectangle(overlay, 0, 0, ClientSize.Width, sel.Top);
+            // Bottom
+            g.FillRectangle(overlay, 0, sel.Bottom, ClientSize.Width, ClientSize.Height - sel.Bottom);
+            // Left
+            g.FillRectangle(overlay, 0, sel.Top, sel.Left, sel.Height);
+            // Right
+            g.FillRectangle(overlay, sel.Right, sel.Top, ClientSize.Width - sel.Right, sel.Height);
+        }
+
         switch (_mode)
         {
             case CaptureMode.Rectangle when _hasSelection:

@@ -85,7 +85,13 @@ public sealed partial class RegionOverlayForm
     {
         int btn = GetToolbarButtonAt(e.Location);
         if (btn != _hoveredButton) { _hoveredButton = btn; Invalidate(); }
-        Cursor = btn >= 0 ? Cursors.Hand : Cursors.Cross;
+
+        if (btn >= 0)
+            { if (!Cursor.Equals(Cursors.Hand)) Cursor = Cursors.Hand; }
+        else if (_mode == CaptureMode.ColorPicker)
+            { if (Cursor != _blankCursor) Cursor = _blankCursor; }
+        else
+            { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
 
         switch (_mode)
         {

@@ -28,12 +28,29 @@ public partial class ImageViewerWindow : Window
         bmp.Freeze();
         ViewerImage.Source = bmp;
         InfoText.Text = $"{_entry.Width} x {_entry.Height}  |  {_entry.CapturedAt:MMM d, yyyy  h:mm tt}";
+
+        // Size window to image, capped at 80% of screen
+        var screen = SystemParameters.WorkArea;
+        double maxW = screen.Width * 0.8;
+        double maxH = screen.Height * 0.8;
+        double scale = Math.Min(maxW / bmp.PixelWidth, maxH / bmp.PixelHeight);
+        scale = Math.Min(scale, 1.0); // don't upscale
+        Width = Math.Max(400, bmp.PixelWidth * scale);
+        Height = Math.Max(300, bmp.PixelHeight * scale);
+        SizeToContent = SizeToContent.Manual;
     }
 
     private void OnKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == Key.Escape) Close();
     }
+
+    private void DragWindow(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left) DragMove();
+    }
+
+    private void CloseClick(object sender, MouseButtonEventArgs e) => Close();
 
     private void CopyClick(object sender, RoutedEventArgs e)
     {
