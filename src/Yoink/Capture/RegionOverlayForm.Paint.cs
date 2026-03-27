@@ -1,7 +1,11 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Windows.Forms;
 using Yoink.Models;
+
+// Unified dash/border constants for consistency across all selection borders
+// Every dashed border in the app uses these same values.
 
 namespace Yoink.Capture;
 
@@ -34,15 +38,10 @@ public sealed partial class RegionOverlayForm
         bool isOcr = _mode == CaptureMode.Ocr;
         bool isSelectionMode = _mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr;
 
-        // Auto-detect: show detected window border when hovering (white animated)
+        // Auto-detect: show detected window border when hovering
         if (isSelectionMode && !_isSelecting && _autoDetectActive && _autoDetectRect.Width > 0)
         {
-            using var adPen = new Pen(Color.FromArgb(180, 255, 255, 255), 2f)
-            {
-                DashStyle = DashStyle.Dash,
-                DashPattern = new[] { 6f, 4f },
-                DashOffset = _dashOffset
-            };
+            using var adPen = MarchingPen(180);
             g.DrawRectangle(adPen, _autoDetectRect);
         }
         // Show fullscreen border when in selection mode but not yet dragging
@@ -68,22 +67,17 @@ public sealed partial class RegionOverlayForm
         {
             case CaptureMode.Rectangle when _hasSelection:
             case CaptureMode.Ocr when _hasSelection:
-                // Animated marching ants: white dashes moving right
-                using (var marchPen = new Pen(Color.White, 2f)
-                {
-                    DashStyle = DashStyle.Dash,
-                    DashPattern = new[] { 6f, 4f },
-                    DashOffset = _dashOffset
-                })
-                {
-                    g.DrawRectangle(marchPen, _selectionRect);
-                }
                 // Subtle outer shadow
                 using (var shadowPen = new Pen(Color.FromArgb(40, 0, 0, 0), 4f))
                 {
                     var sr = _selectionRect;
                     sr.Inflate(1, 1);
                     g.DrawRectangle(shadowPen, sr);
+                }
+                // Animated marching ants
+                using (var marchPen = MarchingPen(255))
+                {
+                    g.DrawRectangle(marchPen, _selectionRect);
                 }
                 DrawLabel(g, _selectionRect, isOcr);
                 break;
@@ -104,18 +98,21 @@ public sealed partial class RegionOverlayForm
         if (ShowCrosshairGuides && _mode != CaptureMode.ColorPicker)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
-            using var chPen = new Pen(Color.FromArgb(70, 255, 255, 255), 1f)
-            {
-                DashStyle = DashStyle.Dash,
-                DashPattern = new[] { 8f, 6f },
-                DashOffset = _dashOffset
-            };
+            using var chPen = MarchingPen(70, 1f);
             g.DrawLine(chPen, cur.X, 0, cur.X, ClientSize.Height);
             g.DrawLine(chPen, 0, cur.Y, ClientSize.Width, cur.Y);
         }
 
         PaintToolbar(g);
     }
+
+    /// <summary>Create a unified marching ants pen. Every dashed border uses this.</summary>
+    private Pen MarchingPen(int alpha, float width = 2f) => new Pen(Color.FromArgb(alpha, 255, 255, 255), width)
+    {
+        DashStyle = DashStyle.Dash,
+        DashPattern = new[] { 6f, 4f },
+        DashOffset = _dashOffset
+    };
 
     // All annotations rendered in creation order via undo stack (Excalidraw style)
     private void PaintAnnotations(Graphics g)
@@ -728,34 +725,38 @@ public sealed partial class RegionOverlayForm
         if (_hoveredButton >= 0 && _hoveredButton < labels.Length && t > 0.5f)
         {
             string label = labels[_hoveredButton];
-            using var tipFont = new Font("Segoe UI", 9f);
+            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+            using var tipFont = new Font("Segoe UI", 9f, FontStyle.Regular);
             var sz = g.MeasureString(label, tipFont);
             var btnRect = _toolbarButtons[_hoveredButton];
             float tx = btnRect.X + btnRect.Width / 2f - sz.Width / 2f;
-            float ty = r.Bottom + 6 + oy;
-            var tipRect = new RectangleF(tx - 6, ty - 2, sz.Width + 12, sz.Height + 4);
-            using (var tipPath = RRect(tipRect, 8))
+            float ty = r.Bottom + 8 + oy;
+            var tipRect = new RectangleF(tx - 8, ty - 3, sz.Width + 16, sz.Height + 6);
+            using (var tipPath = RRect(tipRect, 10))
             {
-                using var tipBg = new SolidBrush(Color.FromArgb(210, 12, 12, 12));
+                // Dark base (match dock)
+                using var tipBg = new SolidBrush(Color.FromArgb((int)(t * 200), 15, 15, 15));
                 g.FillPath(tipBg, tipPath);
-                // Subtle blur glass
+                // Frosted glass overlay (same as dock)
                 var oldClip2 = g.Clip;
                 g.SetClip(tipPath);
                 using var tipAttr = new System.Drawing.Imaging.ImageAttributes();
                 float[][] tipMatrix = {
                     new[] { 1f, 0, 0, 0, 0 }, new[] { 0, 1f, 0, 0, 0 },
-                    new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, 0.1f, 0 },
+                    new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, t * 0.15f, 0 },
                     new[] { 0, 0, 0, 0, 1f }
                 };
                 tipAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(tipMatrix));
                 var tipRI = Rectangle.Round(tipRect);
                 g.DrawImage(_blurred, tipRI, tipRI.X, tipRI.Y, tipRI.Width, tipRI.Height, GraphicsUnit.Pixel, tipAttr);
                 g.Clip = oldClip2;
-                using var tipBorder = new Pen(Color.FromArgb(35, 255, 255, 255), 0.5f);
+                // Border (match dock)
+                using var tipBorder = new Pen(Color.FromArgb((int)(t * 45), 255, 255, 255), 1f);
                 g.DrawPath(tipBorder, tipPath);
             }
-            using var tipBrush = new SolidBrush(Color.FromArgb(210, 255, 255, 255));
+            using var tipBrush = new SolidBrush(Color.FromArgb((int)(t * 220), 255, 255, 255));
             g.DrawString(label, tipFont, tipBrush, tx, ty);
+            g.TextRenderingHint = TextRenderingHint.SystemDefault;
         }
 
         g.SmoothingMode = SmoothingMode.Default;
@@ -806,9 +807,9 @@ public sealed partial class RegionOverlayForm
         ["highlight"]   = '\uE7E6', // Highlight
         ["line"]        = '\uEDC6', // Diagonal line
         ["arrow"]       = '\uE72A', // Forward arrow (→ clean diagonal)
-        ["curvedArrow"] = '\uE10D', // Redo (curved arrow)
+        ["curvedArrow"] = '\uE8EE', // InkingCurvature / bend
         ["text"]        = '\uE8D2', // Font / text
-        ["step"]        = '\uF146', // Number annotation (circled info)
+        ["step"]        = '\uE91B', // Numbered list / step counter
         ["blur"]        = '\uE80A', // Grid / mosaic
         ["eraser"]      = '\uE75C', // Eraser
         ["magnifier"]   = '\uE71E', // Zoom / search
@@ -831,21 +832,6 @@ public sealed partial class RegionOverlayForm
     {
         if (icon == "color") return; // handled separately
 
-        // Step number: custom drawn circled "1" (no good icon font glyph for this)
-        if (icon == "step")
-        {
-            float cx = b.X + b.Width / 2f, cy = b.Y + b.Height / 2f;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(c, 1.5f);
-            g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14);
-            using var numFont = new Font("Segoe UI", 9f, FontStyle.Bold);
-            using var brush2 = new SolidBrush(c);
-            var ns = g.MeasureString("1", numFont);
-            g.DrawString("1", numFont, brush2, cx - ns.Width / 2f + 0.5f, cy - ns.Height / 2f);
-            g.SmoothingMode = SmoothingMode.Default;
-            return;
-        }
-
         if (!IconGlyphs.TryGetValue(icon, out char glyph)) return;
 
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
@@ -866,34 +852,37 @@ public sealed partial class RegionOverlayForm
     private void DrawLabel(Graphics g, Rectangle rect, bool isOcr)
     {
         string text = isOcr ? $"OCR  {rect.Width} x {rect.Height}" : $"{rect.Width} x {rect.Height}";
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         using var font = new Font("Segoe UI", 10f);
         var sz = g.MeasureString(text, font);
         float lx = rect.X, ly = rect.Bottom + 8;
         if (ly + sz.Height > ClientSize.Height) ly = rect.Y - sz.Height - 8;
-        var lr = new RectangleF(lx - 6, ly - 3, sz.Width + 12, sz.Height + 6);
+        var lr = new RectangleF(lx - 8, ly - 3, sz.Width + 16, sz.Height + 6);
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var p = RRect(lr, 8))
+        using (var p = RRect(lr, 10))
         {
-            using var lblBg = new SolidBrush(Color.FromArgb(200, 12, 12, 12));
+            // Match dock: dark base + frosted glass + border
+            using var lblBg = new SolidBrush(Color.FromArgb(200, 15, 15, 15));
             g.FillPath(lblBg, p);
             var oldClip3 = g.Clip;
             g.SetClip(p);
             using var lblAttr = new System.Drawing.Imaging.ImageAttributes();
             float[][] lblM = {
                 new[] { 1f, 0, 0, 0, 0 }, new[] { 0, 1f, 0, 0, 0 },
-                new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, 0.12f, 0 },
+                new[] { 0, 0, 1f, 0, 0 }, new[] { 0, 0, 0, 0.15f, 0 },
                 new[] { 0, 0, 0, 0, 1f }
             };
             lblAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(lblM));
             var lrI = Rectangle.Round(lr);
             g.DrawImage(_blurred, lrI, lrI.X, lrI.Y, lrI.Width, lrI.Height, GraphicsUnit.Pixel, lblAttr);
             g.Clip = oldClip3;
-            using var border = new Pen(Color.FromArgb(35, 255, 255, 255), 0.5f);
+            using var border = new Pen(Color.FromArgb(45, 255, 255, 255), 1f);
             g.DrawPath(border, p);
         }
         g.SmoothingMode = SmoothingMode.Default;
         using var fg = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
         g.DrawString(text, font, fg, lx, ly);
+        g.TextRenderingHint = TextRenderingHint.SystemDefault;
     }
 
     private void PaintBlurRect(Graphics g, Rectangle rect)
