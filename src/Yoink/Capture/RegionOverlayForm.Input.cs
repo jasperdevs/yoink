@@ -20,8 +20,10 @@ public sealed partial class RegionOverlayForm
             var modeMap = new[] {
                 CaptureMode.Rectangle, CaptureMode.Freeform,
                 CaptureMode.Ocr, CaptureMode.ColorPicker,
-                CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.CurvedArrow,
-                CaptureMode.Text, CaptureMode.Blur, CaptureMode.Eraser };
+                CaptureMode.Draw, CaptureMode.Highlight,
+                CaptureMode.Arrow, CaptureMode.CurvedArrow,
+                CaptureMode.Text, CaptureMode.StepNumber,
+                CaptureMode.Blur, CaptureMode.Eraser, CaptureMode.Magnifier };
             if (btn < modeMap.Length) SetMode(modeMap[btn]);
             return;
         }
@@ -112,6 +114,22 @@ public sealed partial class RegionOverlayForm
                 _textBuffer = "";
                 Invalidate();
                 break;
+            case CaptureMode.Highlight:
+                _isSelecting = true;
+                _currentHighlight = new List<Point> { e.Location };
+                _highlightStrokes.Add(_currentHighlight);
+                break;
+            case CaptureMode.StepNumber:
+                _stepNumbers.Add((e.Location, _nextStepNumber, _toolColor));
+                _nextStepNumber++;
+                _undoStack.Add("step");
+                Invalidate();
+                break;
+            case CaptureMode.Magnifier:
+                _magnifierActive = true;
+                _magnifierPos = e.Location;
+                Invalidate();
+                break;
             case CaptureMode.Draw:
                 _isSelecting = true;
                 _currentStroke = new List<Point> { e.Location };
@@ -160,8 +178,20 @@ public sealed partial class RegionOverlayForm
 
         switch (_mode)
         {
+            case CaptureMode.Rectangle when !_isSelecting:
+            case CaptureMode.Ocr when !_isSelecting:
+                // Auto-detect window under cursor
+                var detected = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
+                if (detected != _autoDetectRect)
+                {
+                    _autoDetectRect = detected;
+                    _autoDetectActive = detected.Width > 0;
+                    Invalidate();
+                }
+                break;
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
+                _autoDetectActive = false;
                 _selectionEnd = e.Location;
                 _selectionRect = NormRect(_selectionStart, _selectionEnd);
                 if (_selectionRect.Width > 3 || _selectionRect.Height > 3) _hasDragged = true;
@@ -171,6 +201,15 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Freeform when _isSelecting:
                 _freeformPoints.Add(e.Location);
                 _hasDragged = true;
+                Invalidate();
+                break;
+            case CaptureMode.Highlight when _isSelecting:
+                _currentHighlight?.Add(e.Location);
+                Invalidate();
+                break;
+            case CaptureMode.Magnifier:
+                _magnifierPos = e.Location;
+                _magnifierActive = true;
                 Invalidate();
                 break;
             case CaptureMode.Draw when _isSelecting:
@@ -207,6 +246,15 @@ public sealed partial class RegionOverlayForm
         }
         switch (_mode)
         {
+            case CaptureMode.Highlight when _isSelecting:
+                _isSelecting = false;
+                _currentHighlight = null;
+                _undoStack.Add("highlight");
+                break;
+            case CaptureMode.Magnifier:
+                _magnifierActive = false;
+                Invalidate();
+                break;
             case CaptureMode.Draw when _isSelecting:
                 _isSelecting = false;
                 _currentStroke = null;
@@ -259,9 +307,12 @@ public sealed partial class RegionOverlayForm
                 bool isOcr = _mode == CaptureMode.Ocr;
                 if (!_hasDragged)
                 {
-                    var fullRect = new Rectangle(0, 0, _screenshot.Width, _screenshot.Height);
-                    if (isOcr) OcrRegionSelected?.Invoke(fullRect);
-                    else RegionSelected?.Invoke(fullRect);
+                    // Use auto-detected window region if available, else fullscreen
+                    var clickRect = (_autoDetectActive && _autoDetectRect.Width > 0)
+                        ? _autoDetectRect
+                        : new Rectangle(0, 0, _screenshot.Width, _screenshot.Height);
+                    if (isOcr) OcrRegionSelected?.Invoke(clickRect);
+                    else RegionSelected?.Invoke(clickRect);
                 }
                 else if (_selectionRect.Width > 2 && _selectionRect.Height > 2)
                 {
@@ -315,6 +366,13 @@ public sealed partial class RegionOverlayForm
                 _blurRects.RemoveAt(_blurRects.Count - 1);
             else if (last == "arrow" && _arrows.Count > 0)
                 _arrows.RemoveAt(_arrows.Count - 1);
+            else if (last == "highlight" && _highlightStrokes.Count > 0)
+                _highlightStrokes.RemoveAt(_highlightStrokes.Count - 1);
+            else if (last == "step" && _stepNumbers.Count > 0)
+            {
+                _stepNumbers.RemoveAt(_stepNumbers.Count - 1);
+                _nextStepNumber = _stepNumbers.Count > 0 ? _stepNumbers[^1].number + 1 : 1;
+            }
             else if (last == "curvedArrow" && _curvedArrows.Count > 0)
                 _curvedArrows.RemoveAt(_curvedArrows.Count - 1);
             else if (last == "eraser" && _eraserFills.Count > 0)

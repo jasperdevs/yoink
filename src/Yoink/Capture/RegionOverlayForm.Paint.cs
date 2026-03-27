@@ -34,8 +34,14 @@ public sealed partial class RegionOverlayForm
         bool isOcr = _mode == CaptureMode.Ocr;
         bool isSelectionMode = _mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr;
 
+        // Auto-detect: show detected window border when hovering
+        if (isSelectionMode && !_isSelecting && _autoDetectActive && _autoDetectRect.Width > 0)
+        {
+            using var adPen = new Pen(Color.FromArgb(100, 0, 150, 255), 2f) { DashStyle = DashStyle.Dash };
+            g.DrawRectangle(adPen, _autoDetectRect);
+        }
         // Show fullscreen border when in selection mode but not yet dragging
-        if (isSelectionMode && !_hasSelection && !_isSelecting)
+        else if (isSelectionMode && !_hasSelection && !_isSelecting)
         {
             using var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 2f);
             g.DrawRectangle(pen, 1, 1, ClientSize.Width - 3, ClientSize.Height - 3);
@@ -129,6 +135,27 @@ public sealed partial class RegionOverlayForm
             g.SmoothingMode = SmoothingMode.Default;
         }
 
+        // Highlight strokes (semi-transparent thick brush)
+        if (_highlightStrokes.Count > 0 || (_mode == CaptureMode.Highlight && _currentHighlight is { Count: >= 2 }))
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var hlPen = new Pen(Color.FromArgb(80, _toolColor.R, _toolColor.G, _toolColor.B), 18f)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                EndCap = System.Drawing.Drawing2D.LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+            foreach (var hl in _highlightStrokes)
+                if (hl.Count >= 2) g.DrawLines(hlPen, hl.ToArray());
+            if (_currentHighlight is { Count: >= 2 })
+                g.DrawLines(hlPen, _currentHighlight.ToArray());
+            g.SmoothingMode = SmoothingMode.Default;
+        }
+
+        // Step numbers
+        foreach (var (pos, num, color) in _stepNumbers)
+            PaintStepNumber(g, pos, num, color);
+
         // Straight arrows (use tool color, thickness scales with length)
         foreach (var arrow in _arrows)
             PaintArrow(g, arrow.from, arrow.to);
@@ -199,6 +226,10 @@ public sealed partial class RegionOverlayForm
             g.DrawString($"{(int)_textFontSize}px", sizeFont, sizeBrush, textRect.Right + 4, textRect.Y);
         }
 
+        // Magnifier tool
+        if (_mode == CaptureMode.Magnifier)
+            PaintMagnifierTool(g);
+
         // Color picker popup
         if (_colorPickerOpen)
             PaintColorPicker(g);
@@ -242,6 +273,79 @@ public sealed partial class RegionOverlayForm
                 g.FillPolygon(brush, pts);
             }
         }
+        g.SmoothingMode = SmoothingMode.Default;
+    }
+
+    private static void PaintStepNumber(Graphics g, Point pos, int num, Color color)
+    {
+        int radius = 16;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        // Filled circle
+        using var brush = new SolidBrush(color);
+        g.FillEllipse(brush, pos.X - radius, pos.Y - radius, radius * 2, radius * 2);
+        // White border
+        using var borderPen = new Pen(Color.White, 2f);
+        g.DrawEllipse(borderPen, pos.X - radius, pos.Y - radius, radius * 2, radius * 2);
+        // Number
+        using var font = new Font("Segoe UI", 12f, FontStyle.Bold);
+        string text = num.ToString();
+        var sz = g.MeasureString(text, font);
+        using var textBrush = new SolidBrush(Color.White);
+        g.DrawString(text, font, textBrush, pos.X - sz.Width / 2, pos.Y - sz.Height / 2);
+        g.SmoothingMode = SmoothingMode.Default;
+    }
+
+    private void PaintMagnifierTool(Graphics g)
+    {
+        if (!_magnifierActive) return;
+        int zoomFactor = 3;
+        int srcSize = 40;
+        int dstSize = srcSize * zoomFactor;
+        int mx = _magnifierPos.X, my = _magnifierPos.Y;
+
+        // Source region on the screenshot
+        int sx = Math.Clamp(mx - srcSize / 2, 0, _bmpW - srcSize);
+        int sy = Math.Clamp(my - srcSize / 2, 0, _bmpH - srcSize);
+        var srcRect = new Rectangle(sx, sy, srcSize, srcSize);
+
+        // Draw position: offset from cursor
+        int px = mx + 24;
+        int py = my + 24;
+        if (px + dstSize + 10 > ClientSize.Width) px = mx - 24 - dstSize;
+        if (py + dstSize + 10 > ClientSize.Height) py = my - 24 - dstSize;
+
+        var dstRect = new Rectangle(px, py, dstSize, dstSize);
+
+        // Background
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var bgPath = RRect(new RectangleF(px - 2, py - 2, dstSize + 4, dstSize + 4), 8))
+        {
+            using var bg = new SolidBrush(Color.FromArgb(220, 20, 20, 20));
+            g.FillPath(bg, bgPath);
+        }
+        g.SmoothingMode = SmoothingMode.Default;
+
+        // Clip to rounded rect
+        using var clipPath = RRect(dstRect, 6);
+        var oldClip = g.Clip;
+        g.SetClip(clipPath);
+        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+        g.DrawImage(_screenshot, dstRect, srcRect, GraphicsUnit.Pixel);
+        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Default;
+        g.InterpolationMode = InterpolationMode.Default;
+        g.Clip = oldClip;
+
+        // Crosshair in center
+        int ccx = px + dstSize / 2, ccy = py + dstSize / 2;
+        using var crossPen = new Pen(Color.FromArgb(180, 255, 255, 255), 1f);
+        g.DrawLine(crossPen, ccx - 8, ccy, ccx + 8, ccy);
+        g.DrawLine(crossPen, ccx, ccy - 8, ccx, ccy + 8);
+
+        // Border
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var borderPen = new Pen(Color.FromArgb(50, 255, 255, 255), 1f);
+        g.DrawPath(borderPen, clipPath);
         g.SmoothingMode = SmoothingMode.Default;
     }
 
@@ -322,14 +426,18 @@ public sealed partial class RegionOverlayForm
 
         // Buttons: rect, free, ocr, picker, draw, arrow, text, blur, eraser, [color], gear, close
         string[] icons = { "rect", "free", "ocr", "picker",
-            "draw", "arrow", "curvedArrow", "text", "blur", "eraser", "color", "gear", "close" };
-        string[] labels = { "Rectangle (1)", "Freeform (2)",
-            "OCR (3)", "Color Picker (4)", "Draw (5)", "Arrow (6)", "Curved Arrow (7)",
-            "Text (8)", "Blur (9)", "Eraser (0)", "Color", "Settings", "Close (Esc)" };
+            "draw", "highlight", "arrow", "curvedArrow", "text", "step",
+            "blur", "eraser", "magnifier", "color", "gear", "close" };
+        string[] labels = { "Rectangle", "Freeform",
+            "OCR", "Color Picker", "Draw", "Highlight",
+            "Arrow", "Curved Arrow", "Text", "Step Number",
+            "Blur", "Eraser", "Magnifier", "Color", "Settings", "Close (Esc)" };
         CaptureMode[] modes = { CaptureMode.Rectangle, CaptureMode.Freeform,
             CaptureMode.Ocr, CaptureMode.ColorPicker,
-            CaptureMode.Draw, CaptureMode.Arrow, CaptureMode.CurvedArrow,
-            CaptureMode.Text, CaptureMode.Blur, CaptureMode.Eraser };
+            CaptureMode.Draw, CaptureMode.Highlight,
+            CaptureMode.Arrow, CaptureMode.CurvedArrow,
+            CaptureMode.Text, CaptureMode.StepNumber,
+            CaptureMode.Blur, CaptureMode.Eraser, CaptureMode.Magnifier };
 
         for (int i = 0; i < BtnCount; i++)
         {
@@ -508,6 +616,36 @@ public sealed partial class RegionOverlayForm
                 g.DrawString("T", tf, tBrush, cx - 7, cy - 9);
                 break;
             }
+            case "step":
+            {
+                // Numbered circle
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14);
+                using var sf = new Font("Segoe UI", 8f, FontStyle.Bold);
+                using var sb = new SolidBrush(c);
+                g.DrawString("1", sf, sb, cx - 4, cy - 6);
+                g.SmoothingMode = SmoothingMode.Default;
+                break;
+            }
+            case "highlight":
+                // Marker/highlighter icon
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (var thickPen = new Pen(Color.FromArgb(120, c.R, c.G, c.B), 6f))
+                {
+                    thickPen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
+                    thickPen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+                    g.DrawLine(thickPen, cx - 5, cy + 2, cx + 5, cy + 2);
+                }
+                g.DrawLine(pen, cx - 5, cy - 4, cx + 5, cy - 4); // line above
+                g.SmoothingMode = SmoothingMode.Default;
+                break;
+            case "magnifier":
+                // Magnifying glass
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawEllipse(pen, cx - 5, cy - 6, 10, 10);
+                g.DrawLine(pen, cx + 3, cy + 3, cx + 7, cy + 7);
+                g.SmoothingMode = SmoothingMode.Default;
+                break;
             case "color":
                 // Handled in PaintToolbar directly
                 break;

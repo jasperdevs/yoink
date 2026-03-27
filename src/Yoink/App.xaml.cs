@@ -39,6 +39,8 @@ public partial class App : Application
 
         _trayIcon = new TrayIcon();
         _trayIcon.OnCapture += () => OnHotkeyPressed();
+        _trayIcon.OnOcr += () => OnOcrHotkeyPressed();
+        _trayIcon.OnColorPicker += () => OnPickerHotkeyPressed();
         _trayIcon.OnSettings += ShowSettings;
         _trayIcon.OnHistory += ShowHistory;
         _trayIcon.OnQuit += () => Shutdown();

@@ -7,9 +7,12 @@ public enum CaptureMode
     ColorPicker,
     Ocr,
     Draw,
+    Highlight,
     Arrow,
     CurvedArrow,
     Text,
+    StepNumber,
     Blur,
-    Eraser
+    Eraser,
+    Magnifier
 }

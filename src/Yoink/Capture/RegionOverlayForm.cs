@@ -25,8 +25,8 @@ public sealed partial class RegionOverlayForm : Form
 
     private readonly List<Point> _freeformPoints = new();
 
-    // Toolbar: rect, free, OCR, picker, draw, arrow, curvedArrow, text, blur, eraser, [color], gear, close
-    private const int BtnCount = 13;
+    // Toolbar: rect, free, OCR, picker, draw, highlight, arrow, curvedArrow, text, step, blur, eraser, magnifier, [color], gear, close
+    private const int BtnCount = 16;
     private readonly Rectangle[] _toolbarButtons = new Rectangle[BtnCount];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
@@ -78,6 +78,22 @@ public sealed partial class RegionOverlayForm : Form
     private readonly List<List<Point>> _curvedArrows = new();
     private List<Point>? _currentCurvedArrow;
     private bool _isCurvedArrowDragging;
+
+    // Highlight brush strokes (semi-transparent)
+    private readonly List<List<Point>> _highlightStrokes = new();
+    private List<Point>? _currentHighlight;
+
+    // Step numbering
+    private readonly List<(Point pos, int number, Color color)> _stepNumbers = new();
+    private int _nextStepNumber = 1;
+
+    // Magnifier state
+    private bool _magnifierActive;
+    private Point _magnifierPos;
+
+    // Region auto-detect
+    private Rectangle _autoDetectRect;
+    private bool _autoDetectActive;
 
     // Color picker popup state
     private bool _colorPickerOpen;

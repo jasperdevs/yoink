@@ -8,6 +8,8 @@ public sealed class TrayIcon : IDisposable
     private readonly NotifyIcon _notifyIcon;
 
     public event Action? OnCapture;
+    public event Action? OnOcr;
+    public event Action? OnColorPicker;
     public event Action? OnSettings;
     public event Action? OnHistory;
     public event Action? OnQuit;
@@ -51,8 +53,14 @@ public sealed class TrayIcon : IDisposable
         // Custom renderer for rounded feel and hover colors
         menu.Renderer = new ThemedMenuRenderer(bg, hoverBg, sepColor, isDark);
 
-        var captureItem = new ToolStripMenuItem("Capture") { ForeColor = fg };
+        var captureItem = new ToolStripMenuItem("Screenshot") { ForeColor = fg };
         captureItem.Click += (_, _) => OnCapture?.Invoke();
+
+        var ocrItem = new ToolStripMenuItem("Text capture (OCR)") { ForeColor = fg };
+        ocrItem.Click += (_, _) => OnOcr?.Invoke();
+
+        var pickerItem = new ToolStripMenuItem("Color picker") { ForeColor = fg };
+        pickerItem.Click += (_, _) => OnColorPicker?.Invoke();
 
         var settingsItem = new ToolStripMenuItem("Settings") { ForeColor = fg };
         settingsItem.Click += (_, _) => OnSettings?.Invoke();
@@ -60,12 +68,15 @@ public sealed class TrayIcon : IDisposable
         var historyItem = new ToolStripMenuItem("History") { ForeColor = fg };
         historyItem.Click += (_, _) => OnHistory?.Invoke();
 
-        var sep = new ToolStripSeparator();
-
         var quitItem = new ToolStripMenuItem("Quit") { ForeColor = fg };
         quitItem.Click += (_, _) => OnQuit?.Invoke();
 
-        menu.Items.AddRange(new ToolStripItem[] { captureItem, sep, settingsItem, historyItem, new ToolStripSeparator(), quitItem });
+        menu.Items.AddRange(new ToolStripItem[] {
+            captureItem, ocrItem, pickerItem,
+            new ToolStripSeparator(),
+            settingsItem, historyItem,
+            new ToolStripSeparator(),
+            quitItem });
 
         return menu;
     }
