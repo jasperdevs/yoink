@@ -30,9 +30,9 @@ public sealed partial class RegionOverlayForm : Form
     private readonly Rectangle[] _toolbarButtons = new Rectangle[BtnCount];
     private int _hoveredButton = -1;
     private Rectangle _toolbarRect;
-    private const int ToolbarHeight = 44;
-    private const int ButtonSize = 36;
-    private const int ButtonSpacing = 4;
+    private const int ToolbarHeight = 48;
+    private const int ButtonSize = 34;
+    private const int ButtonSpacing = 2;
     private const int ToolbarTopMargin = 16;
 
     private float _toolbarAnim;
@@ -321,17 +321,26 @@ public sealed partial class RegionOverlayForm : Form
         Invalidate();
     }
 
+    // Group separators: after index 3 (capture modes), 12 (annotation tools), 13 (emoji)
+    private static readonly int[] SepAfter = { 3, 13 };
+    private const int SepWidth = 8;
+
     private void CalcToolbar()
     {
-        int pad = 4;
-        int w = ButtonSize * BtnCount + ButtonSpacing * (BtnCount - 1) + pad * 2;
+        int pad = 8;
+        int seps = SepAfter.Length;
+        int w = ButtonSize * BtnCount + ButtonSpacing * (BtnCount - 1) + pad * 2 + seps * SepWidth;
         int x = (ClientSize.Width - w) / 2;
         _toolbarRect = new Rectangle(x, ToolbarTopMargin, w, ToolbarHeight);
+        int cx = _toolbarRect.X + pad;
         for (int i = 0; i < BtnCount; i++)
+        {
             _toolbarButtons[i] = new Rectangle(
-                _toolbarRect.X + pad + i * (ButtonSize + ButtonSpacing),
-                _toolbarRect.Y + (ToolbarHeight - ButtonSize) / 2,
+                cx, _toolbarRect.Y + (ToolbarHeight - ButtonSize) / 2,
                 ButtonSize, ButtonSize);
+            cx += ButtonSize + ButtonSpacing;
+            if (Array.IndexOf(SepAfter, i) >= 0) cx += SepWidth;
+        }
     }
 
     // Builds a heavily blurred copy of the entire screenshot (reused for all glass effects).

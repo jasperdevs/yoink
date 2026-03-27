@@ -669,6 +669,19 @@ public sealed partial class RegionOverlayForm
             CaptureMode.Blur, CaptureMode.Eraser, CaptureMode.Magnifier,
             CaptureMode.Emoji };
 
+        // Draw group separator lines
+        foreach (int sepIdx in SepAfter)
+        {
+            if (sepIdx < BtnCount - 1)
+            {
+                int sx = (_toolbarButtons[sepIdx].Right + _toolbarButtons[sepIdx + 1].X) / 2;
+                int sy1 = r.Y + 12;
+                int sy2 = r.Bottom - 12;
+                using var sepPen = new Pen(Color.FromArgb((int)(t * 30), 255, 255, 255), 1f);
+                g.DrawLine(sepPen, sx, sy1 + oy, sx, sy2 + oy);
+            }
+        }
+
         for (int i = 0; i < BtnCount; i++)
         {
             var btn = new Rectangle(_toolbarButtons[i].X, _toolbarButtons[i].Y + oy,
@@ -778,156 +791,143 @@ public sealed partial class RegionOverlayForm
         g.FillRectangle(gradBrush, topRect);
     }
 
+    /// <summary>
+    /// Draw toolbar icons with consistent style: 1.5px stroke, all anti-aliased,
+    /// ~12px icon area, round caps, clean geometric shapes.
+    /// </summary>
     private static void DrawIcon(Graphics g, string icon, Rectangle b, Color c)
     {
-        using var pen = new Pen(c, 1.6f);
-        int cx = b.X + b.Width / 2, cy = b.Y + b.Height / 2;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = new Pen(c, 1.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        float cx = b.X + b.Width / 2f, cy = b.Y + b.Height / 2f;
+
         switch (icon)
         {
             case "rect":
-                // Dashed rectangle
-                g.DrawRectangle(pen, cx - 7, cy - 5, 14, 10);
+            {
+                // Rounded rectangle
+                using var rp = RRect(new RectangleF(cx - 7, cy - 5, 14, 10), 2);
+                g.DrawPath(pen, rp);
                 break;
+            }
             case "free":
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawBezier(pen, cx - 7, cy + 4, cx - 3, cy - 7, cx + 3, cy + 6, cx + 7, cy - 4);
-                g.SmoothingMode = SmoothingMode.Default;
+                // Lasso curve
+                g.DrawBezier(pen, cx - 7, cy + 3, cx - 2, cy - 7, cx + 2, cy + 6, cx + 7, cy - 3);
                 break;
-
             case "ocr":
-                // Scan brackets (like a document scanner)
-                g.DrawLine(pen, cx - 6, cy - 5, cx - 3, cy - 5); // top-left bracket
-                g.DrawLine(pen, cx - 6, cy - 5, cx - 6, cy - 2);
-                g.DrawLine(pen, cx + 3, cy - 5, cx + 6, cy - 5); // top-right bracket
-                g.DrawLine(pen, cx + 6, cy - 5, cx + 6, cy - 2);
-                g.DrawLine(pen, cx - 6, cy + 2, cx - 6, cy + 5); // bottom-left bracket
-                g.DrawLine(pen, cx - 6, cy + 5, cx - 3, cy + 5);
-                g.DrawLine(pen, cx + 6, cy + 2, cx + 6, cy + 5); // bottom-right bracket
-                g.DrawLine(pen, cx + 3, cy + 5, cx + 6, cy + 5);
-                // Scan lines inside
+                // Scan brackets with text lines
+                g.DrawLines(pen, new[] { new PointF(cx - 3, cy - 6), new PointF(cx - 6, cy - 6), new PointF(cx - 6, cy - 3) });
+                g.DrawLines(pen, new[] { new PointF(cx + 3, cy - 6), new PointF(cx + 6, cy - 6), new PointF(cx + 6, cy - 3) });
+                g.DrawLines(pen, new[] { new PointF(cx - 6, cy + 3), new PointF(cx - 6, cy + 6), new PointF(cx - 3, cy + 6) });
+                g.DrawLines(pen, new[] { new PointF(cx + 6, cy + 3), new PointF(cx + 6, cy + 6), new PointF(cx + 3, cy + 6) });
                 g.DrawLine(pen, cx - 3, cy - 1, cx + 3, cy - 1);
                 g.DrawLine(pen, cx - 3, cy + 2, cx + 2, cy + 2);
                 break;
             case "picker":
                 // Eyedropper
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawEllipse(pen, cx - 3, cy - 7, 6, 6);
-                g.DrawLine(pen, cx, cy - 1, cx, cy + 7);
-                g.SmoothingMode = SmoothingMode.Default;
+                g.DrawLine(pen, cx - 5, cy + 6, cx + 1, cy);
+                g.DrawEllipse(pen, cx - 1, cy - 7, 7, 7);
                 break;
             case "draw":
-                // Pencil line
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawLine(pen, cx - 6, cy + 5, cx + 4, cy - 5);
-                g.DrawLine(pen, cx - 6, cy + 5, cx - 7, cy + 7);
-                g.SmoothingMode = SmoothingMode.Default;
+                // Pencil with tip
+                g.DrawLine(pen, cx + 5, cy - 6, cx - 5, cy + 4);
+                g.DrawLine(pen, cx - 5, cy + 4, cx - 6, cy + 7);
+                g.DrawLine(pen, cx - 6, cy + 7, cx - 3, cy + 6);
+                break;
+            case "highlight":
+                // Marker stroke with line above
+                using (var thickPen = new Pen(Color.FromArgb(100, c.R, c.G, c.B), 5f)
+                    { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    g.DrawLine(thickPen, cx - 5, cy + 2, cx + 5, cy + 2);
+                g.DrawLine(pen, cx - 5, cy - 3, cx + 5, cy - 3);
                 break;
             case "arrow":
-                // Arrow pointing top-right
-                g.SmoothingMode = SmoothingMode.AntiAlias;
+                // Straight arrow top-right
                 g.DrawLine(pen, cx - 5, cy + 5, cx + 5, cy - 5);
-                g.DrawLine(pen, cx + 5, cy - 5, cx, cy - 4);
-                g.DrawLine(pen, cx + 5, cy - 5, cx + 4, cy);
-                g.SmoothingMode = SmoothingMode.Default;
+                g.DrawLine(pen, cx + 5, cy - 5, cx + 1, cy - 4);
+                g.DrawLine(pen, cx + 5, cy - 5, cx + 4, cy - 1);
                 break;
             case "curvedArrow":
-                // Curved line with arrowhead
-                g.SmoothingMode = SmoothingMode.AntiAlias;
+                // Curved arrow
                 g.DrawBezier(pen, cx - 6, cy + 4, cx - 2, cy - 6, cx + 2, cy + 2, cx + 6, cy - 4);
                 g.DrawLine(pen, cx + 6, cy - 4, cx + 2, cy - 5);
                 g.DrawLine(pen, cx + 6, cy - 4, cx + 5, cy);
-                g.SmoothingMode = SmoothingMode.Default;
                 break;
             case "text":
             {
-                // "T" letter
-                using var tf = new Font("Segoe UI", 12f, FontStyle.Bold);
-                using var tBrush = new SolidBrush(c);
-                g.DrawString("T", tf, tBrush, cx - 7, cy - 9);
+                // Clean T
+                g.DrawLine(pen, cx - 5, cy - 6, cx + 5, cy - 6);
+                g.DrawLine(pen, cx, cy - 6, cx, cy + 6);
+                g.DrawLine(pen, cx - 2, cy + 6, cx + 2, cy + 6);
                 break;
             }
             case "step":
             {
                 // Numbered circle
-                g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14);
-                using var sf = new Font("Segoe UI", 8f, FontStyle.Bold);
+                using var sf = new Font("Segoe UI", 8.5f, FontStyle.Bold);
                 using var sb = new SolidBrush(c);
-                g.DrawString("1", sf, sb, cx - 4, cy - 6);
-                g.SmoothingMode = SmoothingMode.Default;
+                var tsz = g.MeasureString("1", sf);
+                g.DrawString("1", sf, sb, cx - tsz.Width / 2, cy - tsz.Height / 2);
                 break;
             }
-            case "highlight":
-                // Marker/highlighter icon
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var thickPen = new Pen(Color.FromArgb(120, c.R, c.G, c.B), 6f))
-                {
-                    thickPen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
-                    thickPen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
-                    g.DrawLine(thickPen, cx - 5, cy + 2, cx + 5, cy + 2);
-                }
-                g.DrawLine(pen, cx - 5, cy - 4, cx + 5, cy - 4); // line above
-                g.SmoothingMode = SmoothingMode.Default;
+            case "blur":
+                // 3x3 grid
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        float bx = cx + dx * 5 - 1.5f, by = cy + dy * 5 - 1.5f;
+                        using var rp = RRect(new RectangleF(bx, by, 3, 3), 0.5f);
+                        using var br = new SolidBrush(Color.FromArgb(dx == 0 && dy == 0 ? 180 : 100, c.R, c.G, c.B));
+                        g.FillPath(br, rp);
+                    }
+                break;
+            case "eraser":
+                // Eraser block
+                var eraserPts = new[] {
+                    new PointF(cx - 6, cy + 5), new PointF(cx - 6, cy - 1),
+                    new PointF(cx + 2, cy - 5), new PointF(cx + 7, cy - 5),
+                    new PointF(cx + 7, cy + 1), new PointF(cx - 1, cy + 5)
+                };
+                g.DrawPolygon(pen, eraserPts);
+                g.DrawLine(pen, cx - 1, cy + 5, cx + 2, cy - 1);
                 break;
             case "magnifier":
                 // Magnifying glass
-                g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.DrawEllipse(pen, cx - 5, cy - 6, 10, 10);
-                g.DrawLine(pen, cx + 3, cy + 3, cx + 7, cy + 7);
-                g.SmoothingMode = SmoothingMode.Default;
+                using (var thickPen = new Pen(c, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    g.DrawLine(thickPen, cx + 3, cy + 3, cx + 7, cy + 7);
                 break;
             case "emoji":
-            {
-                // Smiley face icon
-                g.SmoothingMode = SmoothingMode.AntiAlias;
+                // Smiley face
                 g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14);
-                // Eyes
-                g.FillEllipse(new SolidBrush(c), cx - 4, cy - 3, 2, 2);
-                g.FillEllipse(new SolidBrush(c), cx + 2, cy - 3, 2, 2);
-                // Smile arc
-                g.DrawArc(pen, cx - 4, cy - 1, 8, 6, 10, 160);
-                g.SmoothingMode = SmoothingMode.Default;
+                using (var dotBrush = new SolidBrush(c))
+                {
+                    g.FillEllipse(dotBrush, cx - 4, cy - 3, 2.5f, 2.5f);
+                    g.FillEllipse(dotBrush, cx + 2, cy - 3, 2.5f, 2.5f);
+                }
+                g.DrawArc(pen, cx - 4, cy - 1, 8, 6, 15, 150);
                 break;
-            }
             case "color":
                 // Handled in PaintToolbar directly
                 break;
-            case "blur":
-                // Grid dots for pixelate
-                for (int dy = -4; dy <= 4; dy += 4)
-                    for (int dx = -4; dx <= 4; dx += 4)
-                        g.FillRectangle(new SolidBrush(c), cx + dx - 1, cy + dy - 1, 2, 2);
-                break;
-            case "eraser":
-                // Eraser shape
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawRectangle(pen, cx - 6, cy - 3, 12, 8);
-                g.DrawLine(pen, cx - 2, cy - 3, cx - 2, cy + 5);
-                g.SmoothingMode = SmoothingMode.Default;
-                break;
             case "gear":
-                // Gear: circle with 4 notch lines
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawEllipse(pen, cx - 4, cy - 4, 8, 8);
-                g.DrawLine(pen, cx, cy - 7, cx, cy - 4);
-                g.DrawLine(pen, cx, cy + 4, cx, cy + 7);
-                g.DrawLine(pen, cx - 7, cy, cx - 4, cy);
-                g.DrawLine(pen, cx + 4, cy, cx + 7, cy);
-                // Diagonal notches
-                int d = 2;
-                g.DrawLine(pen, cx - 5, cy - 5, cx - 5 + d, cy - 5 + d);
-                g.DrawLine(pen, cx + 5, cy - 5, cx + 5 - d, cy - 5 + d);
-                g.DrawLine(pen, cx - 5, cy + 5, cx - 5 + d, cy + 5 - d);
-                g.DrawLine(pen, cx + 5, cy + 5, cx + 5 - d, cy + 5 - d);
-                g.SmoothingMode = SmoothingMode.Default;
+                // Gear: outer ring with teeth
+                g.DrawEllipse(pen, cx - 3.5f, cy - 3.5f, 7, 7);
+                for (int i = 0; i < 6; i++)
+                {
+                    float angle = i * 60f * MathF.PI / 180f;
+                    float ix = cx + MathF.Cos(angle) * 4f, iy = cy + MathF.Sin(angle) * 4f;
+                    float ox = cx + MathF.Cos(angle) * 7f, oy = cy + MathF.Sin(angle) * 7f;
+                    g.DrawLine(pen, ix, iy, ox, oy);
+                }
                 break;
             case "close":
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawLine(pen, cx - 5, cy - 5, cx + 5, cy + 5);
-                g.DrawLine(pen, cx + 5, cy - 5, cx - 5, cy + 5);
-                g.SmoothingMode = SmoothingMode.Default;
+                g.DrawLine(pen, cx - 4, cy - 4, cx + 4, cy + 4);
+                g.DrawLine(pen, cx + 4, cy - 4, cx - 4, cy + 4);
                 break;
         }
+        g.SmoothingMode = SmoothingMode.Default;
     }
 
     private void DrawLabel(Graphics g, Rectangle rect, bool isOcr)
