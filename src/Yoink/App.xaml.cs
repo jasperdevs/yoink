@@ -153,16 +153,6 @@ public partial class App : Application
                         System.Windows.Forms.Application.ExitThread();
                     };
 
-                    overlay.OcrFreeformSelected += fbmp =>
-                    {
-                        overlay.Hide();
-                        var clone = new Bitmap(fbmp);
-                        HandleOcrResult(clone);
-                        fbmp.Dispose();
-                        overlay.Close();
-                        System.Windows.Forms.Application.ExitThread();
-                    };
-
                     // Color picker – copy hex without # prefix
                     overlay.ColorPicked += hex =>
                     {

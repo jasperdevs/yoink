@@ -250,7 +250,6 @@ public sealed partial class RegionOverlayForm : Form
     public event Action<Rectangle>? RegionSelected;
     public event Action<Rectangle>? OcrRegionSelected;
     public event Action<Bitmap>? FreeformSelected;
-    public event Action<Bitmap>? OcrFreeformSelected;
     public event Action<string>? ColorPicked;
     public event Action? SelectionCancelled;
     public event Action? SettingsRequested;
