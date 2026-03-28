@@ -961,9 +961,5 @@ public sealed partial class RegionOverlayForm
             || mode == CaptureMode.Emoji;
     }
 
-    protected override void OnDeactivate(EventArgs e)
-    {
-        base.OnDeactivate(e);
-        Cancel();
-    }
+
 }

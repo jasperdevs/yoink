@@ -22,6 +22,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private bool _isCapturing;
 
+
     protected override void OnStartup(StartupEventArgs e)
     {
         _mutex = new Mutex(true, "YoinkScreenshotTool_SingleInstance", out bool isNew);
