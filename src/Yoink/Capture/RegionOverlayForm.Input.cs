@@ -214,6 +214,8 @@ public sealed partial class RegionOverlayForm
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        bool needsRepaint = false;
+
         // Text move drag
         if (_textDragging && _isTyping)
         {
@@ -235,10 +237,8 @@ public sealed partial class RegionOverlayForm
         int btn = GetToolbarButtonAt(e.Location);
         if (btn != _hoveredButton)
         {
-            var oldHover = _hoveredButton;
             _hoveredButton = btn;
-            if (oldHover >= 0) Invalidate(_toolbarButtons[oldHover]);
-            if (btn >= 0) Invalidate(_toolbarButtons[btn]);
+            needsRepaint = true;
         }
 
         // Cursor: show appropriate cursor for context
@@ -266,20 +266,9 @@ public sealed partial class RegionOverlayForm
         else
             { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
 
-        // Crosshair guides: invalidate previous + current cursor lines
         if (ShowCrosshairGuides)
-        {
-            // Previous position strips
-            if (_lastCursorPos.X > 0)
-            {
-                Invalidate(new Rectangle(_lastCursorPos.X - 2, 0, 6, ClientSize.Height));
-                Invalidate(new Rectangle(0, _lastCursorPos.Y - 2, ClientSize.Width, 6));
-            }
-            // New position strips
-            Invalidate(new Rectangle(e.Location.X - 2, 0, 6, ClientSize.Height));
-            Invalidate(new Rectangle(0, e.Location.Y - 2, ClientSize.Width, 6));
-            _lastCursorPos = e.Location;
-        }
+            needsRepaint = true;
+        _lastCursorPos = e.Location;
 
         switch (_mode)
         {
@@ -289,15 +278,9 @@ public sealed partial class RegionOverlayForm
                 var detected = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
                 if (detected != _autoDetectRect)
                 {
-                    if (_lastAutoDetectRect.Width > 0)
-                    {
-                        var old = _lastAutoDetectRect;
-                        old.Inflate(8, 8);
-                        Invalidate(old);
-                    }
                     _autoDetectRect = detected;
                     _autoDetectActive = detected.Width > 0;
-                    Invalidate();
+                    needsRepaint = true;
                 }
                 break;
             case CaptureMode.Rectangle when _isSelecting:
@@ -307,41 +290,41 @@ public sealed partial class RegionOverlayForm
                 _selectionRect = NormRect(_selectionStart, _selectionEnd);
                 if (_selectionRect.Width > 3 || _selectionRect.Height > 3) _hasDragged = true;
                 _hasSelection = _selectionRect.Width > 2 && _selectionRect.Height > 2;
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Freeform when _isSelecting:
                 _freeformPoints.Add(e.Location);
                 _hasDragged = true;
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Highlight when _isHighlighting:
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Magnifier:
-                Invalidate(); // live preview follows cursor
+                needsRepaint = true;
                 break;
             case CaptureMode.Draw when _isSelecting:
                 _currentStroke?.Add(e.Location);
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Line when _isLineDragging:
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Arrow when _isArrowDragging:
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.CurvedArrow when _isCurvedArrowDragging:
                 _currentCurvedArrow?.Add(e.Location);
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Blur when _isBlurring:
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Eraser when _isEraserDragging:
-                Invalidate();
+                needsRepaint = true;
                 break;
             case CaptureMode.Emoji when _isPlacingEmoji:
-                Invalidate(); // live preview follows cursor
+                needsRepaint = true;
                 break;
         }
 
@@ -352,7 +335,7 @@ public sealed partial class RegionOverlayForm
             int relY = e.Location.Y - _fontPickerRect.Y - pad;
             int idx = _fontPickerScroll + relY / itemH;
             int newHover = (relY >= 0 && idx < FontChoices.Length) ? idx : -1;
-            if (newHover != _fontPickerHovered) { _fontPickerHovered = newHover; Invalidate(); }
+            if (newHover != _fontPickerHovered) { _fontPickerHovered = newHover; needsRepaint = true; }
         }
 
         // Emoji picker hover
@@ -370,8 +353,11 @@ public sealed partial class RegionOverlayForm
             int row = relY / (emojiSize + pad);
             int idx = (_emojiScrollOffset + row) * cols + col;
             int newHover = (col >= 0 && col < cols && relY >= 0 && idx < filtered.Length) ? idx : -1;
-            if (newHover != _emojiHovered) { _emojiHovered = newHover; Invalidate(); }
+            if (newHover != _emojiHovered) { _emojiHovered = newHover; needsRepaint = true; }
         }
+
+        if (needsRepaint)
+            Invalidate();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -470,28 +456,12 @@ public sealed partial class RegionOverlayForm
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
-        // Force clear hover/crosshair when cursor leaves overlay so nothing sticks
-        if (_hoveredButton >= 0)
-        {
-            int old = _hoveredButton;
-            _hoveredButton = -1;
-            Invalidate(_toolbarButtons[old]);
-        }
-        if (ShowCrosshairGuides && _lastCursorPos.X > 0)
-        {
-            Invalidate(new Rectangle(_lastCursorPos.X - 3, 0, 8, ClientSize.Height));
-            Invalidate(new Rectangle(0, _lastCursorPos.Y - 3, ClientSize.Width, 8));
-            _lastCursorPos = Point.Empty;
-        }
-        if (_lastAutoDetectRect.Width > 0)
-        {
-            var old = _lastAutoDetectRect;
-            old.Inflate(8, 8);
-            Invalidate(old);
-            _lastAutoDetectRect = Rectangle.Empty;
-            _autoDetectRect = Rectangle.Empty;
-            _autoDetectActive = false;
-        }
+        _hoveredButton = -1;
+        _lastCursorPos = Point.Empty;
+        _lastAutoDetectRect = Rectangle.Empty;
+        _autoDetectRect = Rectangle.Empty;
+        _autoDetectActive = false;
+        Invalidate();
     }
 
     // ProcessCmdKey always receives ESC (OnKeyDown sometimes doesn't)
@@ -794,7 +764,6 @@ public sealed partial class RegionOverlayForm
 
         if (m == CaptureMode.ColorPicker)
         {
-            _blurred ??= BuildBlurred(_screenshot);
             _pickerTimer.Start();
         }
         else

@@ -348,6 +348,7 @@ public partial class SettingsWindow : Window
         _settingsService.Settings.ToastPosition = (ToastPosition)ToastPositionCombo.SelectedIndex;
         _settingsService.Save();
         ToastWindow.SetPosition(_settingsService.Settings.ToastPosition);
+        PreviewWindow.SetPosition(_settingsService.Settings.ToastPosition);
     }
 
     // ─── Screenshot History (date-grouped) ─────────────────────────

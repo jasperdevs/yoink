@@ -26,6 +26,7 @@ public partial class PreviewWindow : Window
     private string? _savedFilePath;
 
     private static PreviewWindow? _current;
+    private static Yoink.Models.ToastPosition _position = Yoink.Models.ToastPosition.Right;
 
     public static void DismissCurrent()
     {
@@ -36,6 +37,8 @@ public partial class PreviewWindow : Window
         else
             _current.Dispatcher.BeginInvoke(_current.ForceClose);
     }
+
+    public static void SetPosition(Yoink.Models.ToastPosition position) => _position = position;
 
     public PreviewWindow(Bitmap screenshot, string? savedFilePath = null)
     {
@@ -141,12 +144,9 @@ public partial class PreviewWindow : Window
     {
         var wa = SystemParameters.WorkArea;
 
-        // Position at final location but offset via RenderTransform (no ghost frame)
-        Left = wa.Right - ActualWidth - 16;
-        Top = wa.Bottom - ActualHeight - 16;
-
-        // Start with translate pushed fully off-screen to the right
-        double slideFrom = ActualWidth + 30;
+        var (targetLeft, targetTop, slideFrom) = GetPlacement(wa);
+        Left = targetLeft;
+        Top = targetTop;
         SlideX.X = slideFrom;
 
         // Now make visible and animate in one pass
@@ -289,12 +289,28 @@ public partial class PreviewWindow : Window
         var ease = new QuarticEase { EasingMode = EasingMode.EaseIn };
 
         SlideX.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation { To = 350, Duration = dur, EasingFunction = ease });
+            new DoubleAnimation { To = GetDismissOffset(), Duration = dur, EasingFunction = ease });
 
         var fadeOut = new DoubleAnimation { To = 0, Duration = dur, EasingFunction = ease };
         fadeOut.Completed += (_, _) => ForceClose();
         BeginAnimation(OpacityProperty, fadeOut);
     }
+
+    private (double left, double top, double slideFrom) GetPlacement(Rect wa) => _position switch
+    {
+        Yoink.Models.ToastPosition.Left => (16, wa.Bottom - ActualHeight - 16, -(ActualWidth + 30)),
+        Yoink.Models.ToastPosition.TopLeft => (16, 16, -(ActualWidth + 30)),
+        Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - 16, 16, ActualWidth + 30),
+        _ => (wa.Right - ActualWidth - 16, wa.Bottom - ActualHeight - 16, ActualWidth + 30),
+    };
+
+    private double GetDismissOffset() => _position switch
+    {
+        Yoink.Models.ToastPosition.Left => -(ActualWidth + 40),
+        Yoink.Models.ToastPosition.TopLeft => -(ActualWidth + 40),
+        Yoink.Models.ToastPosition.TopRight => ActualWidth + 40,
+        _ => ActualWidth + 40,
+    };
 
     private static bool IsChildOf(DependencyObject? child, DependencyObject parent)
     {

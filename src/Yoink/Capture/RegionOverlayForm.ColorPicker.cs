@@ -10,11 +10,16 @@ public sealed partial class RegionOverlayForm
 {
     private bool _pickerReady;
 
+    private bool _pickerBusy;
+
     private void OnPickerTick(object? sender, EventArgs e)
     {
+        if (_pickerBusy) return;
         Native.User32.GetCursorPos(out var pt);
         var np = new Point(pt.X - _virtualBounds.X, pt.Y - _virtualBounds.Y);
         if (_pickerReady && np == _pickerCursorPos) return;
+
+        _pickerBusy = true;
         _pickerReady = true;
         _pickerCursorPos = np;
         BuildMagnifier();
@@ -23,6 +28,7 @@ public sealed partial class RegionOverlayForm
         if (!_pickerPrevDirty.IsEmpty) Invalidate(_pickerPrevDirty);
         Invalidate(newDirty);
         _pickerPrevDirty = newDirty;
+        _pickerBusy = false;
     }
 
     private void BuildMagnifier()
@@ -34,8 +40,8 @@ public sealed partial class RegionOverlayForm
         _hexStr = $"{_pickedColor.R:X2}{_pickedColor.G:X2}{_pickedColor.B:X2}";
         _rgbStr = $"{_pickedColor.R}, {_pickedColor.G}, {_pickedColor.B}";
 
-        // Transparent background so glass shows through in info area
-        Array.Fill(_magPixels, 0);
+        // Opaque background for speed
+        Array.Fill(_magPixels, unchecked((int)0xFF0F0F0F));
 
         int half = Grid / 2;
         for (int gy = 0; gy < Grid; gy++)
@@ -100,18 +106,8 @@ public sealed partial class RegionOverlayForm
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using var path = RRect(magRect, 14);
 
-        // Glass backdrop: blurred screenshot clipped to panel shape
-        var oldClip = g.Clip;
-        using (var magRegion = new Region(path))
-        {
-            g.Clip = magRegion;
-            if (_blurred != null)
-                g.DrawImage(_blurred, magRect, magRect, GraphicsUnit.Pixel);
-        }
-        g.Clip = oldClip;
-
-        // Dark tint
-        using (var tint = new SolidBrush(Color.FromArgb(140, 15, 15, 15)))
+        // Solid background only (no blur)
+        using (var tint = new SolidBrush(Color.FromArgb(230, 15, 15, 15)))
             g.FillPath(tint, path);
 
         // Magnifier pixels on top

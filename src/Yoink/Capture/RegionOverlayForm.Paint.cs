@@ -101,7 +101,7 @@ public sealed partial class RegionOverlayForm
                     sr.Inflate(1, 1);
                     g.DrawRectangle(shadowPen, sr);
                 }
-                // Animated marching ants
+                // Static dashed border
                 using (var marchPen = DashedPen(255))
                 {
                     g.DrawRectangle(marchPen, _selectionRect);
@@ -129,7 +129,7 @@ public sealed partial class RegionOverlayForm
         if (ShowCrosshairGuides && _mode != CaptureMode.ColorPicker)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
-            // Shadow for visibility on light backgrounds
+            // Soft shadow for visibility on light backgrounds
             using var chShadow = new Pen(Color.FromArgb(20, 0, 0, 0), 3f);
             g.DrawLine(chShadow, cur.X + 1, 0, cur.X + 1, ClientSize.Height);
             g.DrawLine(chShadow, 0, cur.Y + 1, ClientSize.Width, cur.Y + 1);

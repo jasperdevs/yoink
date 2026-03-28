@@ -43,8 +43,6 @@ public sealed partial class RegionOverlayForm : Form
     private readonly System.Windows.Forms.Timer _animTimer;
     private DateTime _showTime;
 
-    // Pre-rendered blurred screenshot used for all glass effects
-    private Bitmap? _blurred;
     private const int TopBarHeight = 110;
 
     // Color picker state
@@ -370,36 +368,6 @@ public sealed partial class RegionOverlayForm : Form
         }
     }
 
-    // Builds a heavily blurred copy of the entire screenshot (reused for all glass effects).
-    private static Bitmap BuildBlurred(Bitmap src)
-    {
-        int w = src.Width, h = src.Height;
-        // 3-pass downsample/upsample at 1/32 for extreme blur
-        Bitmap cur = src;
-        for (int pass = 0; pass < 3; pass++)
-        {
-            int tw = Math.Max(2, w / 32);
-            int th = Math.Max(2, h / 32);
-            var tiny = new Bitmap(tw, th, PixelFormat.Format32bppArgb);
-            using (var tg = Graphics.FromImage(tiny))
-            {
-                tg.InterpolationMode = InterpolationMode.HighQualityBilinear;
-                tg.DrawImage(cur, new Rectangle(0, 0, tw, th),
-                    new Rectangle(0, 0, cur.Width, cur.Height), GraphicsUnit.Pixel);
-            }
-            var up = new Bitmap(w, h, PixelFormat.Format32bppArgb);
-            using (var ug = Graphics.FromImage(up))
-            {
-                ug.InterpolationMode = InterpolationMode.HighQualityBilinear;
-                ug.DrawImage(tiny, new Rectangle(0, 0, w, h));
-            }
-            tiny.Dispose();
-            if (pass > 0) cur.Dispose();
-            cur = up;
-        }
-        return cur;
-    }
-
     private static Cursor CreateBlankCursor()
     {
         using var bmp = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
@@ -427,7 +395,6 @@ public sealed partial class RegionOverlayForm : Form
     {
         if (disposing)
         {
-            _blurred?.Dispose();
             _cachedBase?.Dispose();
             _animTimer.Dispose();
             _pickerTimer.Dispose();
