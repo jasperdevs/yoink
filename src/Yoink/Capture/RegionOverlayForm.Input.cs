@@ -6,10 +6,24 @@ namespace Yoink.Capture;
 
 public sealed partial class RegionOverlayForm
 {
-    private (string emoji, string name)[] GetFilteredEmojiPalette() =>
-        string.IsNullOrEmpty(_emojiSearch)
+    private (string emoji, string name)[]? _filteredEmojis;
+    private string _lastEmojiSearch = "";
+
+    private (string emoji, string name)[] GetFilteredEmojiPalette()
+    {
+        if (_filteredEmojis != null && _lastEmojiSearch == _emojiSearch)
+            return _filteredEmojis;
+        _lastEmojiSearch = _emojiSearch;
+        _filteredEmojis = string.IsNullOrEmpty(_emojiSearch)
             ? EmojiPalette
             : EmojiPalette.Where(em => em.name.Contains(_emojiSearch, StringComparison.OrdinalIgnoreCase)).ToArray();
+        return _filteredEmojis;
+    }
+
+    private void InvalidateEmojiCache()
+    {
+        _filteredEmojis = null;
+    }
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
@@ -91,6 +105,18 @@ public sealed partial class RegionOverlayForm
                 Invalidate();
                 return;
             }
+            if (_textStrokeBtnRect.Contains(e.Location))
+            {
+                _textStroke = !_textStroke;
+                Invalidate();
+                return;
+            }
+            if (_textShadowBtnRect.Contains(e.Location))
+            {
+                _textShadow = !_textShadow;
+                Invalidate();
+                return;
+            }
             if (_textFontBtnRect.Contains(e.Location))
             {
                 _fontPickerOpen = !_fontPickerOpen;
@@ -139,6 +165,8 @@ public sealed partial class RegionOverlayForm
                 _toolColor = ta.Color;
                 _textBold = ta.Bold;
                 _textItalic = ta.Italic;
+                _textStroke = ta.Stroke;
+                _textShadow = ta.Shadow;
                 _textFontFamily = ta.FontFamily;
                 Invalidate();
                 return;
@@ -252,6 +280,8 @@ public sealed partial class RegionOverlayForm
             _toolColor = ta.Color;
             _textBold = ta.Bold;
             _textItalic = ta.Italic;
+            _textStroke = ta.Stroke;
+            _textShadow = ta.Shadow;
             _textFontFamily = ta.FontFamily;
             Invalidate();
         }
@@ -270,11 +300,21 @@ public sealed partial class RegionOverlayForm
             return;
         }
 
-        // Text resize drag
+        // Text resize drag - each handle pulls in its own direction
         if (_textResizing && _isTyping)
         {
+            float dx = e.Location.X - _textResizeStart.X;
             float dy = e.Location.Y - _textResizeStart.Y;
-            _textFontSize = Math.Clamp(_textFontSize + dy * 0.3f, 10f, 120f);
+            // Scale factor depends on which corner: outward = bigger, inward = smaller
+            float delta = _textResizeHandle switch
+            {
+                0 => (-dx - dy) * 0.15f, // TL: pull up-left = bigger
+                1 => (dx - dy) * 0.15f,  // TR: pull up-right = bigger
+                2 => (-dx + dy) * 0.15f, // BL: pull down-left = bigger
+                3 => (dx + dy) * 0.15f,  // BR: pull down-right = bigger
+                _ => 0
+            };
+            _textFontSize = Math.Clamp(_textFontSize + delta, 10f, 120f);
             _textResizeStart = e.Location;
             Invalidate();
             return;
@@ -288,11 +328,20 @@ public sealed partial class RegionOverlayForm
         }
 
         // Cursor: show appropriate cursor for context
-        if (_isTyping && GetTextHandle(e.Location) >= 0)
-            { if (!Cursor.Equals(Cursors.SizeNWSE)) Cursor = Cursors.SizeNWSE; }
-        else if (_isTyping && GetActiveTextRect().Contains(e.Location))
-            { if (!Cursor.Equals(Cursors.SizeAll)) Cursor = Cursors.SizeAll; }
-        else if (_mode == CaptureMode.Text && !_isTyping)
+        if (_isTyping)
+        {
+            int h = GetTextHandle(e.Location);
+            if (h >= 0)
+            {
+                var hCursor = h is 0 or 3 ? Cursors.SizeNWSE : Cursors.SizeNESW;
+                if (!Cursor.Equals(hCursor)) Cursor = hCursor;
+            }
+            else if (GetActiveTextRect().Contains(e.Location))
+                { if (!Cursor.Equals(Cursors.SizeAll)) Cursor = Cursors.SizeAll; }
+            else
+                { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
+        }
+        else if (_mode == CaptureMode.Text)
             { if (!Cursor.Equals(Cursors.IBeam)) Cursor = Cursors.IBeam; }
         else if (_emojiPickerOpen)
         {
@@ -686,7 +735,7 @@ public sealed partial class RegionOverlayForm
     private void CommitText()
     {
         if (_isTyping && _textBuffer.Length > 0)
-            _undoStack.Add(new TextAnnotation(_textPos, _textBuffer, _textFontSize, _toolColor, _textBold, _textItalic, _textFontFamily));
+            _undoStack.Add(new TextAnnotation(_textPos, _textBuffer, _textFontSize, _toolColor, _textBold, _textItalic, _textStroke, _textShadow, _textFontFamily));
         _isTyping = false;
         _textBuffer = "";
         _fontPickerOpen = false;

@@ -121,12 +121,16 @@ public sealed partial class RegionOverlayForm : Form
     private float _textFontSize = 24f;
     private bool _textBold = true; // default bold
     private bool _textItalic;
+    private bool _textStroke = true; // outline stroke enabled by default
+    private bool _textShadow = true; // shadow enabled by default
     private string _textFontFamily = "Segoe UI";
 
     // Inline text formatting toolbar hit rects (computed during paint)
     private RectangleF _textToolbarRect;
     private RectangleF _textBoldBtnRect;
     private RectangleF _textItalicBtnRect;
+    private RectangleF _textStrokeBtnRect;
+    private RectangleF _textShadowBtnRect;
     private RectangleF _textFontBtnRect;
     private int _textResizeHandle = -1;
     private bool _textResizing;
