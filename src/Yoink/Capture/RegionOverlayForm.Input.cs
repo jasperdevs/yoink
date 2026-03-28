@@ -492,11 +492,6 @@ public sealed partial class RegionOverlayForm
     {
         base.OnMouseLeave(e);
         _hoveredButton = -1;
-        if (_lastCursorPos != Point.Empty)
-        {
-            Invalidate(new Rectangle(_lastCursorPos.X - 3, 0, 7, ClientSize.Height));
-            Invalidate(new Rectangle(0, _lastCursorPos.Y - 3, ClientSize.Width, 7));
-        }
         _prevCursorPos = _lastCursorPos;
         _lastCursorPos = Point.Empty;
         _lastAutoDetectRect = Rectangle.Empty;
@@ -510,6 +505,7 @@ public sealed partial class RegionOverlayForm
     {
         if (keyData == Keys.Escape)
         {
+            // Close all popups and transient state in one pass
             bool anyClosed = false;
             if (_emojiPickerOpen) { _emojiPickerOpen = false; anyClosed = true; }
             if (_fontPickerOpen) { _fontPickerOpen = false; anyClosed = true; }
@@ -517,11 +513,9 @@ public sealed partial class RegionOverlayForm
             if (_isPlacingEmoji) { _isPlacingEmoji = false; _selectedEmoji = null; anyClosed = true; }
             if (_isTyping)
             {
-                if (_textBuffer.Length > 0)
-                    _undoStack.Add(new TextAnnotation(_textPos, _textBuffer, _textFontSize, _toolColor, _textBold, _textFontFamily));
+                // ESC = discard (Enter = commit)
                 _isTyping = false;
                 _textBuffer = "";
-                _fontPickerOpen = false;
                 anyClosed = true;
             }
             if (anyClosed) { Invalidate(); return true; }

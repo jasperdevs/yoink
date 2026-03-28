@@ -145,23 +145,33 @@ public partial class PreviewWindow : Window
     {
         var wa = SystemParameters.WorkArea;
 
-        var (targetLeft, targetTop, slideFrom) = GetPlacement(wa);
-        Left = targetLeft;
-        Top = targetTop;
-        SlideX.X = slideFrom;
+        var (targetLeft, targetTop, startLeft, startTop, animateLeft) = GetPlacement(wa);
+        Left = startLeft;
+        Top = startTop;
 
-        // Now make visible and animate in one pass
-        Opacity = 1;
-        SlideX.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation
+        Dispatcher.BeginInvoke(() =>
+        {
+            Opacity = 1;
+            var dur = TimeSpan.FromMilliseconds(280);
+            var ease = new QuarticEase { EasingMode = EasingMode.EaseOut };
+
+            if (animateLeft)
             {
-                From = slideFrom,
-                To = 0,
-                Duration = TimeSpan.FromMilliseconds(280),
-                EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut }
-            });
+                BeginAnimation(LeftProperty, new DoubleAnimation
+                {
+                    To = targetLeft, Duration = dur, EasingFunction = ease
+                });
+            }
+            else
+            {
+                BeginAnimation(TopProperty, new DoubleAnimation
+                {
+                    To = targetTop, Duration = dur, EasingFunction = ease
+                });
+            }
 
-        _fadeTimer.Start();
+            _fadeTimer.Start();
+        }, System.Windows.Threading.DispatcherPriority.Render);
     }
 
     // ─── Hover ─────────────────────────────────────────────────────
@@ -187,9 +197,9 @@ public partial class PreviewWindow : Window
     {
         _isFading = false;
         BeginAnimation(OpacityProperty, null);
-        SlideX.BeginAnimation(TranslateTransform.XProperty, null);
+        BeginAnimation(LeftProperty, null);
+        BeginAnimation(TopProperty, null);
         Opacity = 1;
-        SlideX.X = 0;
     }
 
     private void AnimateButtons(double to)
@@ -286,11 +296,29 @@ public partial class PreviewWindow : Window
         if (_isFading) return;
         _isFading = true;
 
+        // Cancel entrance animation
+        BeginAnimation(LeftProperty, null);
+        BeginAnimation(TopProperty, null);
+
+        var wa = SystemParameters.WorkArea;
         var dur = TimeSpan.FromMilliseconds(280);
         var ease = new QuarticEase { EasingMode = EasingMode.EaseIn };
 
-        SlideX.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation { To = GetDismissOffset(), Duration = dur, EasingFunction = ease });
+        var (exitLeft, exitTop, animateLeft) = GetDismissPlacement(wa);
+        if (animateLeft)
+        {
+            BeginAnimation(LeftProperty, new DoubleAnimation
+            {
+                To = exitLeft, Duration = dur, EasingFunction = ease
+            });
+        }
+        else
+        {
+            BeginAnimation(TopProperty, new DoubleAnimation
+            {
+                To = exitTop, Duration = dur, EasingFunction = ease
+            });
+        }
 
         var fadeOut = new DoubleAnimation { To = 0, Duration = dur, EasingFunction = ease };
         fadeOut.Completed += (_, _) => ForceClose();
@@ -299,21 +327,31 @@ public partial class PreviewWindow : Window
 
     private const double Edge = 8;
 
-    private (double left, double top, double slideFrom) GetPlacement(Rect wa) => _position switch
+    private (double targetLeft, double targetTop, double startLeft, double startTop, bool animateLeft) GetPlacement(Rect wa)
     {
-        Yoink.Models.ToastPosition.Left => (Edge, wa.Bottom - ActualHeight - Edge, -(ActualWidth + 30)),
-        Yoink.Models.ToastPosition.TopLeft => (Edge, Edge, -(ActualWidth + 30)),
-        Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - Edge, Edge, ActualWidth + 30),
-        _ => (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, ActualWidth + 30),
-    };
+        return _position switch
+        {
+            Yoink.Models.ToastPosition.Left =>
+                (Edge, wa.Bottom - ActualHeight - Edge, -ActualWidth - 10, wa.Bottom - ActualHeight - Edge, true),
+            Yoink.Models.ToastPosition.TopLeft =>
+                (Edge, Edge, Edge, -ActualHeight - 10, false),
+            Yoink.Models.ToastPosition.TopRight =>
+                (wa.Right - ActualWidth - Edge, Edge, wa.Right - ActualWidth - Edge, -ActualHeight - 10, false),
+            _ =>
+                (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, wa.Right + 10, wa.Bottom - ActualHeight - Edge, true),
+        };
+    }
 
-    private double GetDismissOffset() => _position switch
+    private (double exitLeft, double exitTop, bool animateLeft) GetDismissPlacement(Rect wa)
     {
-        Yoink.Models.ToastPosition.Left => -(ActualWidth + 40),
-        Yoink.Models.ToastPosition.TopLeft => -(ActualWidth + 40),
-        Yoink.Models.ToastPosition.TopRight => ActualWidth + 40,
-        _ => ActualWidth + 40,
-    };
+        return _position switch
+        {
+            Yoink.Models.ToastPosition.Left => (-ActualWidth - 20, wa.Bottom - ActualHeight - Edge, true),
+            Yoink.Models.ToastPosition.TopLeft => (Edge, -ActualHeight - 20, false),
+            Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - Edge, -ActualHeight - 20, false),
+            _ => (wa.Right + 20, wa.Bottom - ActualHeight - Edge, true),
+        };
+    }
 
     private static bool IsChildOf(DependencyObject? child, DependencyObject parent)
     {

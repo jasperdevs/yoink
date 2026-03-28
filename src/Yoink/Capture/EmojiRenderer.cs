@@ -20,6 +20,7 @@ public sealed class EmojiRenderer : IDisposable
     private readonly ID2D1Factory1 _d2dFactory;
     private readonly IDWriteFactory _dwFactory;
     private readonly Dictionary<(string emoji, int sizeKey), Bitmap> _cache = new();
+    private const int MaxCacheSize = 512;
 
     public EmojiRenderer()
     {
@@ -30,13 +31,20 @@ public sealed class EmojiRenderer : IDisposable
 
     public Bitmap GetEmoji(string emoji, float size)
     {
-        int sizeKey = (int)(size * 10);
+        int sizeKey = (int)MathF.Round(size * 10);
         if (_cache.TryGetValue((emoji, sizeKey), out var cached))
             return cached;
 
-        var bmp = Render(emoji, size);
-        _cache[(emoji, sizeKey)] = bmp;
-        return bmp;
+        if (_cache.Count >= MaxCacheSize)
+        {
+            foreach (var bmp in _cache.Values)
+                bmp.Dispose();
+            _cache.Clear();
+        }
+
+        var rendered = Render(emoji, size);
+        _cache[(emoji, sizeKey)] = rendered;
+        return rendered;
     }
 
     private Bitmap Render(string emoji, float size)

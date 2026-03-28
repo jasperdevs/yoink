@@ -19,15 +19,13 @@ public sealed partial class RegionOverlayForm
         var np = new Point(pt.X - _virtualBounds.X, pt.Y - _virtualBounds.Y);
         if (_pickerReady && np == _pickerCursorPos) return;
 
-        var prevPos = _pickerCursorPos;
         _pickerBusy = true;
         _pickerReady = true;
         _pickerCursorPos = np;
         BuildMagnifier();
 
-        var oldDirty = PickerDirtyRect(prevPos);
         var newDirty = PickerDirtyRect(_pickerCursorPos);
-        if (!oldDirty.IsEmpty) Invalidate(oldDirty);
+        if (!_pickerPrevDirty.IsEmpty) Invalidate(_pickerPrevDirty);
         Invalidate(newDirty);
         _pickerPrevDirty = newDirty;
         _pickerBusy = false;
