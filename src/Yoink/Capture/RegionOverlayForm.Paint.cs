@@ -11,21 +11,37 @@ namespace Yoink.Capture;
 
 public sealed partial class RegionOverlayForm
 {
+    // Cached base layer: screenshot + annotations. Only rebuilt when annotations change.
+    private Bitmap? _cachedBase;
+    private int _cachedAnnotationCount = -1;
+
+    private void EnsureCachedBase()
+    {
+        if (_cachedBase != null && _cachedAnnotationCount == _undoStack.Count) return;
+        _cachedBase?.Dispose();
+        _cachedBase = new Bitmap(_screenshot);
+        using var g = Graphics.FromImage(_cachedBase);
+        RenderAnnotationsTo(g);
+        _cachedAnnotationCount = _undoStack.Count;
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
+        EnsureCachedBase();
         var g = e.Graphics;
         g.InterpolationMode = InterpolationMode.NearestNeighbor;
 
-        // Raw screenshot background
+        // Cached screenshot + annotations (fast blit)
         var clip = e.ClipRectangle;
         g.CompositingMode = CompositingMode.SourceCopy;
-        g.DrawImage(_screenshot, clip, clip, GraphicsUnit.Pixel);
+        g.DrawImage(_cachedBase!, clip, clip, GraphicsUnit.Pixel);
         g.CompositingMode = CompositingMode.SourceOver;
 
-        // Top fade: blurred backdrop that fades out downward (behind dock area)
-        PaintTopFade(g);
+        // Always-on dim
+        using (var dimOverlay = new SolidBrush(Color.FromArgb(35, 0, 0, 0)))
+            g.FillRectangle(dimOverlay, clip);
 
-        // Annotations render first (they get baked under the darkening overlay)
+        // Live tool previews (active drawing in progress)
         PaintAnnotations(g);
 
         if (_mode == CaptureMode.ColorPicker)
@@ -41,6 +57,9 @@ public sealed partial class RegionOverlayForm
         // Auto-detect: show detected window border when hovering
         if (isSelectionMode && !_isSelecting && _autoDetectActive && _autoDetectRect.Width > 0)
         {
+            // Shadow for visibility on light backgrounds
+            using var adShadow = new Pen(Color.FromArgb(30, 0, 0, 0), 4f);
+            g.DrawRectangle(adShadow, _autoDetectRect.X + 1, _autoDetectRect.Y + 1, _autoDetectRect.Width, _autoDetectRect.Height);
             using var adPen = DashedPen(180);
             g.DrawRectangle(adPen, _autoDetectRect);
         }
@@ -51,10 +70,10 @@ public sealed partial class RegionOverlayForm
             g.DrawRectangle(pen, 1, 1, ClientSize.Width - 3, ClientSize.Height - 3);
         }
 
-        // Darken outside selection (rect/OCR)
+        // Extra darkening outside selection (on top of the always-on dim)
         if (_hasSelection && isSelectionMode)
         {
-            using var overlay = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            using var overlay = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
             var sel = _selectionRect;
             g.FillRectangle(overlay, 0, 0, ClientSize.Width, sel.Top);
             g.FillRectangle(overlay, 0, sel.Bottom, ClientSize.Width, ClientSize.Height - sel.Bottom);
@@ -94,11 +113,15 @@ public sealed partial class RegionOverlayForm
                 break;
         }
 
-        // Crosshair guidelines (full-screen dashed lines at cursor)
+        // Crosshair guidelines
         if (ShowCrosshairGuides && _mode != CaptureMode.ColorPicker)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
-            using var chPen = DashedPen(70, 1f);
+            // Shadow for visibility on light backgrounds
+            using var chShadow = new Pen(Color.FromArgb(20, 0, 0, 0), 3f);
+            g.DrawLine(chShadow, cur.X + 1, 0, cur.X + 1, ClientSize.Height);
+            g.DrawLine(chShadow, 0, cur.Y + 1, ClientSize.Width, cur.Y + 1);
+            using var chPen = DashedPen(80, 1f);
             g.DrawLine(chPen, cur.X, 0, cur.X, ClientSize.Height);
             g.DrawLine(chPen, 0, cur.Y, ClientSize.Width, cur.Y);
         }
@@ -113,10 +136,10 @@ public sealed partial class RegionOverlayForm
         DashPattern = new[] { 6f, 4f }
     };
 
-    // All annotations rendered in creation order via undo stack (Excalidraw style)
+    // Annotations are now rendered into the cached base bitmap.
+    // This method is kept for the active-tool previews (live drawing).
     private void PaintAnnotations(Graphics g)
     {
-        RenderAnnotationsTo(g);
 
         // Active tool previews
         if (_mode == CaptureMode.Eraser && _isEraserDragging)
@@ -659,19 +682,7 @@ public sealed partial class RegionOverlayForm
         g.SmoothingMode = SmoothingMode.Default;
     }
 
-    private void PaintTopFade(Graphics g)
-    {
-        // Subtle dark gradient behind toolbar for readability
-        int fadeH = _toolbarRect.Bottom + 20;
-        if (fadeH <= 0) return;
-        var topRect = new Rectangle(0, 0, ClientSize.Width, fadeH);
-        using var gradBrush = new LinearGradientBrush(
-            topRect,
-            Color.FromArgb(60, 0, 0, 0),
-            Color.FromArgb(0, 0, 0, 0),
-            LinearGradientMode.Vertical);
-        g.FillRectangle(gradBrush, topRect);
-    }
+    // PaintTopFade removed - always-on dim provides sufficient contrast for toolbar
 
     // Fixed button glyphs (not in ToolDef)
     private static readonly Dictionary<string, char> FixedGlyphs = new()

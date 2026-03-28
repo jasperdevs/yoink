@@ -424,6 +424,7 @@ public sealed partial class RegionOverlayForm : Form
         if (disposing)
         {
             _blurred?.Dispose();
+            _cachedBase?.Dispose();
             _animTimer.Dispose();
             _pickerTimer.Dispose();
             _magGfx.Dispose();
