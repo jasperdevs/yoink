@@ -132,6 +132,8 @@ public sealed partial class RegionOverlayForm : Form
     private RectangleF _textStrokeBtnRect;
     private RectangleF _textShadowBtnRect;
     private RectangleF _textFontBtnRect;
+    private int _hoveredTextBtn = -1; // 0=B, 1=I, 2=S, 3=Sh, 4=Font, -1=none
+    private string _textBtnTooltip = "";
     private int _textResizeHandle = -1;
     private bool _textResizing;
     private Point _textResizeStart;

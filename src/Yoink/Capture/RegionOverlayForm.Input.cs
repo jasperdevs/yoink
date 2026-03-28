@@ -327,38 +327,60 @@ public sealed partial class RegionOverlayForm
             toolbarDirty = true;
         }
 
-        // Cursor: show appropriate cursor for context
+        // Text toolbar button hover tracking
+        int prevTextBtn = _hoveredTextBtn;
+        _hoveredTextBtn = -1;
         if (_isTyping)
         {
-            int h = GetTextHandle(e.Location);
-            if (h >= 0)
-            {
-                var hCursor = h is 0 or 3 ? Cursors.SizeNWSE : Cursors.SizeNESW;
-                if (!Cursor.Equals(hCursor)) Cursor = hCursor;
-            }
-            else if (GetActiveTextRect().Contains(e.Location))
-                { if (!Cursor.Equals(Cursors.SizeAll)) Cursor = Cursors.SizeAll; }
-            else
-                { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
+            if (_textBoldBtnRect.Contains(e.Location)) _hoveredTextBtn = 0;
+            else if (_textItalicBtnRect.Contains(e.Location)) _hoveredTextBtn = 1;
+            else if (_textStrokeBtnRect.Contains(e.Location)) _hoveredTextBtn = 2;
+            else if (_textShadowBtnRect.Contains(e.Location)) _hoveredTextBtn = 3;
+            else if (_textFontBtnRect.Contains(e.Location)) _hoveredTextBtn = 4;
         }
-        else if (_mode == CaptureMode.Text)
-            { if (!Cursor.Equals(Cursors.IBeam)) Cursor = Cursors.IBeam; }
-        else if (_emojiPickerOpen)
+        if (_hoveredTextBtn != prevTextBtn)
+        {
+            _textBtnTooltip = _hoveredTextBtn switch
+            {
+                0 => "Bold", 1 => "Italic", 2 => "Stroke", 3 => "Shadow", 4 => _textFontFamily, _ => ""
+            };
+            needsRepaint = true;
+        }
+
+        // Cursor: show appropriate cursor for context
+        System.Windows.Forms.Cursor target;
+        if (_isTyping && _hoveredTextBtn >= 0)
+            target = Cursors.Hand;
+        else if (_isTyping && _textToolbarRect.Contains(e.Location))
+            target = Cursors.Default;
+        else if (_isTyping)
+        {
+            int h = GetTextHandle(e.Location);
+            if (h >= 0) target = h is 0 or 3 ? Cursors.SizeNWSE : Cursors.SizeNESW;
+            else if (GetActiveTextRect().Contains(e.Location)) target = Cursors.SizeAll;
+            else target = Cursors.Cross;
+        }
+        else if (_emojiPickerOpen && _emojiPickerRect.Contains(e.Location))
         {
             int searchBottom = _emojiPickerRect.Y + 6 + 28 + 6;
-            if (_emojiPickerRect.Contains(e.Location) && e.Location.Y < searchBottom)
-                { if (!Cursor.Equals(Cursors.IBeam)) Cursor = Cursors.IBeam; }
-            else
-                { if (!Cursor.Equals(Cursors.Default)) Cursor = Cursors.Default; }
+            target = e.Location.Y < searchBottom ? Cursors.IBeam : (_emojiHovered >= 0 ? Cursors.Hand : Cursors.Default);
         }
-        else if (_fontPickerOpen || _colorPickerOpen)
-            { if (!Cursor.Equals(Cursors.Default)) Cursor = Cursors.Default; }
+        else if (_fontPickerOpen && _fontPickerRect.Contains(e.Location))
+        {
+            int searchBarH = 28, pad = 6;
+            int searchBottom = _fontPickerRect.Y + pad + searchBarH;
+            target = e.Location.Y < searchBottom ? Cursors.IBeam : (_fontPickerHovered >= 0 ? Cursors.Hand : Cursors.Default);
+        }
+        else if (_colorPickerOpen && _colorPickerRect.Contains(e.Location))
+            target = Cursors.Hand;
+        else if (_mode == CaptureMode.Text && !_isTyping)
+            target = Cursors.IBeam;
         else if (btn >= 0)
-            { if (!Cursor.Equals(Cursors.Hand)) Cursor = Cursors.Hand; }
-        else if (_mode == CaptureMode.ColorPicker)
-            { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
+            target = Cursors.Hand;
         else
-            { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
+            target = Cursors.Cross;
+
+        if (!Cursor.Equals(target)) Cursor = target;
 
         _prevCursorPos = _lastCursorPos;
         _lastCursorPos = e.Location;

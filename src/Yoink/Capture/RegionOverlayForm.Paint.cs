@@ -1065,14 +1065,24 @@ public sealed partial class RegionOverlayForm
         float cx = tx + pad;
         float cy = ty + pad;
 
+        int btnIdx = 0;
         void DrawToggleBtn(ref RectangleF rect, float x, string label, Font f, bool active)
         {
             rect = new RectangleF(x, cy, btnW, btnH);
+            bool hovered = _hoveredTextBtn == btnIdx;
             using var btnPath = RRect(rect, 5);
-            using var btnBg = new SolidBrush(active ? Color.FromArgb(50, 255, 255, 255) : Color.FromArgb(12, 255, 255, 255));
+            int bgAlpha = active ? 50 : hovered ? 30 : 12;
+            using var btnBg = new SolidBrush(Color.FromArgb(bgAlpha, 255, 255, 255));
             g.FillPath(btnBg, btnPath);
-            using var brush = new SolidBrush(Color.FromArgb(active ? 255 : 120, 255, 255, 255));
+            if (hovered)
+            {
+                using var hoverBorder = new Pen(Color.FromArgb(40, 255, 255, 255), 1f);
+                g.DrawPath(hoverBorder, btnPath);
+            }
+            int textAlpha = active ? 255 : hovered ? 200 : 120;
+            using var brush = new SolidBrush(Color.FromArgb(textAlpha, 255, 255, 255));
             g.DrawString(label, f, brush, rect, _iconFmt);
+            btnIdx++;
         }
 
         // B, I, S(troke), Sh(adow)
@@ -1087,13 +1097,45 @@ public sealed partial class RegionOverlayForm
 
         // Font selector
         _textFontBtnRect = new RectangleF(cx, cy, fontW, btnH);
-        using (var btnPath = RRect(_textFontBtnRect, 5))
         {
-            using var btnBg = new SolidBrush(_fontPickerOpen ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(12, 255, 255, 255));
+            bool fontHovered = _hoveredTextBtn == 4;
+            using var btnPath = RRect(_textFontBtnRect, 5);
+            int bgAlpha = _fontPickerOpen ? 40 : fontHovered ? 30 : 12;
+            using var btnBg = new SolidBrush(Color.FromArgb(bgAlpha, 255, 255, 255));
             g.FillPath(btnBg, btnPath);
+            if (fontHovered)
+            {
+                using var hoverBorder = new Pen(Color.FromArgb(40, 255, 255, 255), 1f);
+                g.DrawPath(hoverBorder, btnPath);
+            }
         }
-        using var fontBrush = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
+        int fontTextAlpha = _hoveredTextBtn == 4 ? 255 : 200;
+        using var fontBrush = new SolidBrush(Color.FromArgb(fontTextAlpha, 255, 255, 255));
         g.DrawString(fontLabel, uiFont, fontBrush, _textFontBtnRect, _iconFmt);
+
+        // Tooltip for hovered text button
+        if (_hoveredTextBtn >= 0 && _textBtnTooltip.Length > 0)
+        {
+            var hovRect = _hoveredTextBtn switch
+            {
+                0 => _textBoldBtnRect, 1 => _textItalicBtnRect,
+                2 => _textStrokeBtnRect, 3 => _textShadowBtnRect,
+                _ => _textFontBtnRect
+            };
+            using var tipFont = new Font("Segoe UI", 8f);
+            var tipSize = g.MeasureString(_textBtnTooltip, tipFont);
+            float tipX = hovRect.X + hovRect.Width / 2f - tipSize.Width / 2f - 6;
+            float tipY = _textToolbarRect.Y - tipSize.Height - 10;
+            var tipRect = new RectangleF(tipX, tipY, tipSize.Width + 12, tipSize.Height + 6);
+            PaintShadow(g, tipRect, tipRect.Height / 2f, 40, 1f);
+            using var tipPath = RRect(tipRect, tipRect.Height / 2f);
+            using var tipBg = new SolidBrush(Color.FromArgb(240, 24, 24, 24));
+            g.FillPath(tipBg, tipPath);
+            using var tipBorder = new Pen(Color.FromArgb(25, 255, 255, 255), 1f);
+            g.DrawPath(tipBorder, tipPath);
+            using var tipBrush = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
+            g.DrawString(_textBtnTooltip, tipFont, tipBrush, tipX + 6, tipY + 3);
+        }
 
         g.TextRenderingHint = TextRenderingHint.SystemDefault;
         g.SmoothingMode = SmoothingMode.Default;
