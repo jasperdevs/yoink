@@ -48,14 +48,15 @@
                 </Canvas>
             </Border>
 
-            <!-- Edit button (inside, bottom-left of image) -->
-            <Border x:Name="EditBtn" Width="28" Height="28" CornerRadius="6"
+            <!-- Pin button (inside, bottom-left of image) -->
+            <Border x:Name="PinBtn" Width="28" Height="28" CornerRadius="6"
                     Background="#70000000" Cursor="Hand"
-                    MouseLeftButtonDown="EditClick"
+                    MouseLeftButtonDown="PinClick"
                     HorizontalAlignment="Left" VerticalAlignment="Bottom"
                     Margin="5,0,0,5" Opacity="0">
-                <Path Data="M3,17.25V21h3.75L17.81,9.94l-3.75-3.75L3,17.25z M20.71,7.04c0.39-0.39,0.39-1.02,0-1.41l-2.34-2.34c-0.39-0.39-1.02-0.39-1.41,0l-1.83,1.83l3.75,3.75L20.71,7.04z"
-                      Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"
+                <Path x:Name="PinIcon"
+                      Data="M16,12V4h1V2H7V4h1v8l-2,2v2h5.2v6h1.6v-6H18v-2Z"
+                      Fill="White" Stretch="Uniform" Width="12" Height="12" Opacity="0.9"
                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
 

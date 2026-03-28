@@ -9,6 +9,7 @@ public partial class ToastWindow : Window
 {
     private readonly DispatcherTimer _timer;
     private bool _isDismissing;
+    private bool _isHovered;
     private static ToastWindow? _current;
     private static Yoink.Models.ToastPosition _position = Yoink.Models.ToastPosition.Right;
 
@@ -37,8 +38,10 @@ public partial class ToastWindow : Window
         }
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        _timer.Tick += (_, _) => { _timer.Stop(); SlideAway(); };
+        _timer.Tick += (_, _) => { _timer.Stop(); if (!_isHovered) SlideAway(); };
 
+        MouseEnter += (_, _) => { _isHovered = true; _timer.Stop(); };
+        MouseLeave += (_, _) => { _isHovered = false; _timer.Start(); };
         MouseLeftButtonDown += (_, _) => SlideAway();
         SourceInitialized += (_, _) =>
         {
@@ -163,18 +166,20 @@ public partial class ToastWindow : Window
         toast.Show();
     }
 
+    private const double Edge = 8;
+
     private (double targetLeft, double targetTop, double startLeft, double startTop, bool animateLeft) GetPlacement(Rect wa)
     {
         return _position switch
         {
             Yoink.Models.ToastPosition.Left =>
-                (16, wa.Bottom - ActualHeight - 16, -ActualWidth - 10, wa.Bottom - ActualHeight - 16, true),
+                (Edge, wa.Bottom - ActualHeight - Edge, -ActualWidth - 10, wa.Bottom - ActualHeight - Edge, true),
             Yoink.Models.ToastPosition.TopLeft =>
-                (16, 16, 16, -ActualHeight - 10, false),
+                (Edge, Edge, Edge, -ActualHeight - 10, false),
             Yoink.Models.ToastPosition.TopRight =>
-                (wa.Right - ActualWidth - 16, 16, wa.Right - ActualWidth - 16, -ActualHeight - 10, false),
+                (wa.Right - ActualWidth - Edge, Edge, wa.Right - ActualWidth - Edge, -ActualHeight - 10, false),
             _ =>
-                (wa.Right - ActualWidth - 16, wa.Bottom - ActualHeight - 16, wa.Right + 10, wa.Bottom - ActualHeight - 16, true),
+                (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, wa.Right + 10, wa.Bottom - ActualHeight - Edge, true),
         };
     }
 
@@ -183,13 +188,13 @@ public partial class ToastWindow : Window
         return _position switch
         {
             Yoink.Models.ToastPosition.Left =>
-                (16, wa.Bottom - ActualHeight - 16, -ActualWidth - 20, wa.Bottom - ActualHeight - 16, true),
+                (Edge, wa.Bottom - ActualHeight - Edge, -ActualWidth - 20, wa.Bottom - ActualHeight - Edge, true),
             Yoink.Models.ToastPosition.TopLeft =>
-                (16, 16, 16, -ActualHeight - 20, false),
+                (Edge, Edge, Edge, -ActualHeight - 20, false),
             Yoink.Models.ToastPosition.TopRight =>
-                (wa.Right - ActualWidth - 16, 16, wa.Right - ActualWidth - 16, -ActualHeight - 20, false),
+                (wa.Right - ActualWidth - Edge, Edge, wa.Right - ActualWidth - Edge, -ActualHeight - 20, false),
             _ =>
-                (wa.Right - ActualWidth - 16, wa.Bottom - ActualHeight - 16, wa.Right + 20, wa.Bottom - ActualHeight - 16, true),
+                (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, wa.Right + 20, wa.Bottom - ActualHeight - Edge, true),
         };
     }
 }

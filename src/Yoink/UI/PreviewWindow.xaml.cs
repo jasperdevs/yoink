@@ -21,6 +21,7 @@ public partial class PreviewWindow : Window
     private readonly DispatcherTimer _fadeTimer;
     private bool _isFading;
     private bool _isHovered;
+    private bool _isPinned;
     private System.Windows.Point _mouseDownPos;
     private bool _mouseIsDown;
     private string? _savedFilePath;
@@ -55,7 +56,7 @@ public partial class PreviewWindow : Window
         FitToImage();
 
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        _fadeTimer.Tick += (_, _) => { _fadeTimer.Stop(); if (!_isHovered) AnimateDismiss(); };
+        _fadeTimer.Tick += (_, _) => { _fadeTimer.Stop(); if (!_isHovered && !_isPinned) AnimateDismiss(); };
 
         SourceInitialized += (_, _) =>
         {
@@ -195,7 +196,7 @@ public partial class PreviewWindow : Window
     {
         var dur = TimeSpan.FromMilliseconds(120);
         CloseBtn.BeginAnimation(OpacityProperty, new DoubleAnimation { To = to, Duration = dur });
-        EditBtn.BeginAnimation(OpacityProperty, new DoubleAnimation { To = to, Duration = dur });
+        PinBtn.BeginAnimation(OpacityProperty, new DoubleAnimation { To = _isPinned ? 1 : to, Duration = dur });
         SaveBtn.BeginAnimation(OpacityProperty, new DoubleAnimation { To = to, Duration = dur });
     }
 
@@ -204,7 +205,7 @@ public partial class PreviewWindow : Window
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         if (IsChildOf(e.OriginalSource as DependencyObject, CloseBtn) ||
-            IsChildOf(e.OriginalSource as DependencyObject, EditBtn) ||
+            IsChildOf(e.OriginalSource as DependencyObject, PinBtn) ||
             IsChildOf(e.OriginalSource as DependencyObject, SaveBtn))
         { base.OnMouseLeftButtonDown(e); return; }
 
@@ -296,12 +297,14 @@ public partial class PreviewWindow : Window
         BeginAnimation(OpacityProperty, fadeOut);
     }
 
+    private const double Edge = 8;
+
     private (double left, double top, double slideFrom) GetPlacement(Rect wa) => _position switch
     {
-        Yoink.Models.ToastPosition.Left => (16, wa.Bottom - ActualHeight - 16, -(ActualWidth + 30)),
-        Yoink.Models.ToastPosition.TopLeft => (16, 16, -(ActualWidth + 30)),
-        Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - 16, 16, ActualWidth + 30),
-        _ => (wa.Right - ActualWidth - 16, wa.Bottom - ActualHeight - 16, ActualWidth + 30),
+        Yoink.Models.ToastPosition.Left => (Edge, wa.Bottom - ActualHeight - Edge, -(ActualWidth + 30)),
+        Yoink.Models.ToastPosition.TopLeft => (Edge, Edge, -(ActualWidth + 30)),
+        Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - Edge, Edge, ActualWidth + 30),
+        _ => (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, ActualWidth + 30),
     };
 
     private double GetDismissOffset() => _position switch
@@ -330,16 +333,27 @@ public partial class PreviewWindow : Window
         AnimateDismiss();
     }
 
-    private void EditClick(object sender, MouseButtonEventArgs e)
+    private void PinClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
-        _fadeTimer.Stop();
-        // Open in image viewer (which has copy/delete)
-        if (_savedFilePath != null && System.IO.File.Exists(_savedFilePath))
+        _isPinned = !_isPinned;
+        if (_isPinned)
         {
-            Process.Start("explorer.exe", $"\"{_savedFilePath}\"");
+            _fadeTimer.Stop();
+            PinBtn.Background = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromArgb(180, 255, 255, 255));
+            PinIcon.Fill = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(20, 20, 20));
+            PinBtn.Opacity = 1;
         }
-        AnimateDismiss();
+        else
+        {
+            PinBtn.Background = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromArgb(112, 0, 0, 0));
+            PinIcon.Fill = System.Windows.Media.Brushes.White;
+            _fadeTimer.Interval = TimeSpan.FromSeconds(3);
+            _fadeTimer.Start();
+        }
     }
 
     private void SaveClick(object sender, MouseButtonEventArgs e)
