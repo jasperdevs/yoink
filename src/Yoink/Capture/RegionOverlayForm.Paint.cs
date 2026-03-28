@@ -37,9 +37,26 @@ public sealed partial class RegionOverlayForm
         g.DrawImage(_cachedBase!, clip, clip, GraphicsUnit.Pixel);
         g.CompositingMode = CompositingMode.SourceOver;
 
-        // Always-on dim
-        using (var dimOverlay = new SolidBrush(Color.FromArgb(35, 0, 0, 0)))
+        bool isOcr = _mode == CaptureMode.Ocr;
+        bool isSelectionMode = _mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr;
+
+        // Screen dim: dark outside selection, clear inside, light dim when no selection
+        if (_hasSelection && isSelectionMode)
+        {
+            // Dark dim outside selection, NO dim inside
+            using var overlay = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+            var sel = _selectionRect;
+            g.FillRectangle(overlay, 0, 0, ClientSize.Width, sel.Top);
+            g.FillRectangle(overlay, 0, sel.Bottom, ClientSize.Width, ClientSize.Height - sel.Bottom);
+            g.FillRectangle(overlay, 0, sel.Top, sel.Left, sel.Height);
+            g.FillRectangle(overlay, sel.Right, sel.Top, ClientSize.Width - sel.Right, sel.Height);
+        }
+        else
+        {
+            // Light dim when idle (no selection)
+            using var dimOverlay = new SolidBrush(Color.FromArgb(35, 0, 0, 0));
             g.FillRectangle(dimOverlay, clip);
+        }
 
         // Live tool previews (active drawing in progress)
         PaintAnnotations(g);
@@ -51,34 +68,18 @@ public sealed partial class RegionOverlayForm
             return;
         }
 
-        bool isOcr = _mode == CaptureMode.Ocr;
-        bool isSelectionMode = _mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr;
-
         // Auto-detect: show detected window border when hovering
         if (isSelectionMode && !_isSelecting && _autoDetectActive && _autoDetectRect.Width > 0)
         {
-            // Shadow for visibility on light backgrounds
             using var adShadow = new Pen(Color.FromArgb(30, 0, 0, 0), 4f);
             g.DrawRectangle(adShadow, _autoDetectRect.X + 1, _autoDetectRect.Y + 1, _autoDetectRect.Width, _autoDetectRect.Height);
             using var adPen = DashedPen(180);
             g.DrawRectangle(adPen, _autoDetectRect);
         }
-        // Show fullscreen border when in selection mode but not yet dragging
         else if (isSelectionMode && !_hasSelection && !_isSelecting)
         {
             using var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 2f);
             g.DrawRectangle(pen, 1, 1, ClientSize.Width - 3, ClientSize.Height - 3);
-        }
-
-        // Extra darkening outside selection (on top of the always-on dim)
-        if (_hasSelection && isSelectionMode)
-        {
-            using var overlay = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
-            var sel = _selectionRect;
-            g.FillRectangle(overlay, 0, 0, ClientSize.Width, sel.Top);
-            g.FillRectangle(overlay, 0, sel.Bottom, ClientSize.Width, ClientSize.Height - sel.Bottom);
-            g.FillRectangle(overlay, 0, sel.Top, sel.Left, sel.Height);
-            g.FillRectangle(overlay, sel.Right, sel.Top, ClientSize.Width - sel.Right, sel.Height);
         }
 
         // Selection borders (on top of everything)

@@ -37,6 +37,7 @@ public sealed partial class RegionOverlayForm : Form
     private const int ToolbarTopMargin = 16;
 
     private float _toolbarAnim;
+    private Point _lastCursorPos;
     private readonly System.Windows.Forms.Timer _animTimer;
     private DateTime _showTime;
 

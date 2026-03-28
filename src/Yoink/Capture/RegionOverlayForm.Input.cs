@@ -250,9 +250,20 @@ public sealed partial class RegionOverlayForm
         else
             { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
 
-        // Crosshair guides need full repaint on every move
+        // Crosshair guides: invalidate previous + current cursor lines
         if (ShowCrosshairGuides)
-            Invalidate();
+        {
+            // Previous position strips
+            if (_lastCursorPos.X > 0)
+            {
+                Invalidate(new Rectangle(_lastCursorPos.X - 2, 0, 6, ClientSize.Height));
+                Invalidate(new Rectangle(0, _lastCursorPos.Y - 2, ClientSize.Width, 6));
+            }
+            // New position strips
+            Invalidate(new Rectangle(e.Location.X - 2, 0, 6, ClientSize.Height));
+            Invalidate(new Rectangle(0, e.Location.Y - 2, ClientSize.Width, 6));
+            _lastCursorPos = e.Location;
+        }
 
         switch (_mode)
         {
@@ -434,30 +445,27 @@ public sealed partial class RegionOverlayForm
         }
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
+    // ProcessCmdKey always receives ESC (OnKeyDown sometimes doesn't)
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        // ESC: close popups first, then exit tool to Rectangle, then close overlay
-        if (e.KeyCode == Keys.Escape)
+        if (keyData == Keys.Escape)
         {
-            // Close any open popup first
-            if (_emojiPickerOpen) { _emojiPickerOpen = false; Invalidate(); return; }
-            if (_fontPickerOpen) { _fontPickerOpen = false; Invalidate(); return; }
-            if (_colorPickerOpen) { _colorPickerOpen = false; Invalidate(); return; }
-            // Cancel emoji placing
-            if (_isPlacingEmoji) { _isPlacingEmoji = false; _selectedEmoji = null; Invalidate(); return; }
-            // Cancel text typing
-            if (_isTyping) { _isTyping = false; _textBuffer = ""; Invalidate(); return; }
-            // If in an annotation tool, go back to Rectangle
+            if (_emojiPickerOpen) { _emojiPickerOpen = false; Invalidate(); return true; }
+            if (_fontPickerOpen) { _fontPickerOpen = false; Invalidate(); return true; }
+            if (_colorPickerOpen) { _colorPickerOpen = false; Invalidate(); return true; }
+            if (_isPlacingEmoji) { _isPlacingEmoji = false; _selectedEmoji = null; Invalidate(); return true; }
+            if (_isTyping) { _isTyping = false; _textBuffer = ""; Invalidate(); return true; }
             if (_mode != CaptureMode.Rectangle && _mode != CaptureMode.Freeform
                 && _mode != CaptureMode.Ocr)
-            {
-                SetMode(CaptureMode.Rectangle);
-                return;
-            }
-            // Already in capture mode - close overlay
+            { SetMode(CaptureMode.Rectangle); return true; }
             Cancel();
-            return;
+            return true;
         }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
 
         // Emoji picker search input
         if (_emojiPickerOpen)
