@@ -245,6 +245,7 @@ public sealed partial class RegionOverlayForm
         {
             _hoveredButton = btn;
             needsRepaint = true;
+            crosshairOnly = false;
         }
 
         // Cursor: show appropriate cursor for context
@@ -275,7 +276,7 @@ public sealed partial class RegionOverlayForm
         if (ShowCrosshairGuides)
         {
             needsRepaint = true;
-            crosshairOnly = true;
+            crosshairOnly = crosshairOnly && btn < 0 && !_emojiPickerOpen && !_fontPickerOpen && !_colorPickerOpen;
         }
         _prevCursorPos = _lastCursorPos;
         _lastCursorPos = e.Location;
