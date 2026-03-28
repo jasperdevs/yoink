@@ -27,6 +27,8 @@
 
   <ItemGroup>
     <PackageReference Include="Vortice.Direct2D1" Version="3.8.3" />
+    <PackageReference Include="ZXing.Net" Version="0.16.10" />
+    <PackageReference Include="ZXing.Net.Bindings.Windows.Compatibility" Version="0.16.10" />
   </ItemGroup>
 
 </Project>

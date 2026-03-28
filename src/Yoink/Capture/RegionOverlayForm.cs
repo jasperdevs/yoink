@@ -30,10 +30,11 @@ public sealed partial class RegionOverlayForm : Form
     private int BtnCount => _visibleTools.Length + 3; // +3 for color, gear, close
     private Rectangle[] _toolbarButtons = Array.Empty<Rectangle>();
     private int _hoveredButton = -1;
+    private bool _showToolNumberBadges = true;
     private Rectangle _toolbarRect;
     private const int ToolbarHeight = 44;
     private const int ButtonSize = 32;
-    private const int ButtonSpacing = 4;
+    private const int ButtonSpacing = 2;
     private const int ToolbarTopMargin = 16;
 
     private float _toolbarAnim;
@@ -43,6 +44,7 @@ public sealed partial class RegionOverlayForm : Form
     private Rectangle _lastAutoDetectRect;
     private readonly System.Windows.Forms.Timer _animTimer;
     private DateTime _showTime;
+    private ToolbarForm? _toolbarForm;
 
     private const int TopBarHeight = 110;
 
@@ -55,7 +57,6 @@ public sealed partial class RegionOverlayForm : Form
     private readonly SolidBrush _mutedBrush = new(Color.FromArgb(140, 255, 255, 255));
     private readonly Pen _crossPen = new(Color.FromArgb(210, 255, 255, 255), 1f);
     private Point _pickerCursorPos;
-    private Rectangle _pickerPrevDirty;
     private Color _pickedColor = Color.Black;
     private string _hexStr = "000000";
     private string _rgbStr = "0, 0, 0";
@@ -81,6 +82,10 @@ public sealed partial class RegionOverlayForm : Form
     private Point _lineStart;
     private bool _isLineDragging;
 
+    // Ruler tool
+    private Point _rulerStart;
+    private bool _isRulerDragging;
+
     // Curved arrows: freehand path with arrowhead at end
     private List<Point>? _currentCurvedArrow;
     private bool _isCurvedArrowDragging;
@@ -89,6 +94,11 @@ public sealed partial class RegionOverlayForm : Form
     private Point _highlightStart;
     private bool _isHighlighting;
     private static readonly Color DefaultHighlightColor = Color.FromArgb(255, 255, 220, 0);
+
+    // Shape tools
+    private Point _shapeStart;
+    private bool _isRectShapeDragging;
+    private bool _isCircleShapeDragging;
 
     // Step numbering
     private int _nextStepNumber = 1;
@@ -245,6 +255,12 @@ public sealed partial class RegionOverlayForm : Form
     private static readonly Cursor _blankCursor = CreateBlankCursor();
 
     public CaptureMode CurrentMode => _mode;
+
+    public void SetShowToolNumberBadges(bool show)
+    {
+        _showToolNumberBadges = show;
+        RefreshToolbar();
+    }
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool ShowCrosshairGuides { get; set; }
 
@@ -262,6 +278,7 @@ public sealed partial class RegionOverlayForm : Form
     public event Action<Rectangle>? OcrRegionSelected;
     public event Action<Bitmap>? FreeformSelected;
     public event Action<string>? ColorPicked;
+    public event Action<Rectangle>? ScanRegionSelected;
     public event Action? SelectionCancelled;
     public event Action? SettingsRequested;
 
@@ -270,17 +287,17 @@ public sealed partial class RegionOverlayForm : Form
     {
         _screenshot = screenshot;
         _virtualBounds = virtualBounds;
-        _bmpW = screenshot.Width;
-        _bmpH = screenshot.Height;
+        _bmpW = _screenshot.Width;
+        _bmpH = _screenshot.Height;
         _mode = initialMode;
         _showTime = DateTime.UtcNow;
 
         // Cache pixels for color picker
         _pixelData = new int[_bmpW * _bmpH];
-        var bits = screenshot.LockBits(new Rectangle(0, 0, _bmpW, _bmpH),
+        var bits = _screenshot.LockBits(new Rectangle(0, 0, _bmpW, _bmpH),
             ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
         Marshal.Copy(bits.Scan0, _pixelData, 0, _pixelData.Length);
-        screenshot.UnlockBits(bits);
+        _screenshot.UnlockBits(bits);
 
         // Magnifier bitmap for color picker
         _magBitmap = new Bitmap(PW, PH, PixelFormat.Format32bppArgb);
@@ -328,16 +345,39 @@ public sealed partial class RegionOverlayForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        _showTime = DateTime.UtcNow;
-        _animTimer.Start();
+        _toolbarAnim = 1f;
         Native.User32.SetWindowPos(Handle, Native.User32.HWND_TOPMOST,
             0, 0, 0, 0,
             Native.User32.SWP_NOMOVE | Native.User32.SWP_NOSIZE | Native.User32.SWP_SHOWWINDOW);
         Native.User32.SetForegroundWindow(Handle);
+
+        _toolbarForm = new ToolbarForm(this);
+        PositionToolbarForm();
+        _toolbarForm.Show(this);
+        _toolbarForm.UpdateSurface();
         Invalidate();
     }
 
-    private const int GroupGap = 12; // spacing between tool groups (no line, just space)
+    internal void PositionToolbarForm()
+    {
+        if (_toolbarForm is null) return;
+        // Cover the toolbar + tooltip + popup area
+        int margin = 20;
+        int popupH = 300; // enough for emoji/font/color pickers below toolbar
+        var bounds = new Rectangle(
+            _toolbarRect.X - margin + _virtualBounds.X,
+            _toolbarRect.Y - margin + _virtualBounds.Y,
+            _toolbarRect.Width + margin * 2,
+            _toolbarRect.Height + popupH + margin * 2);
+        _toolbarForm.Bounds = bounds;
+    }
+
+    internal void RefreshToolbar()
+    {
+        _toolbarForm?.UpdateSurface();
+    }
+
+    private const int GroupGap = 16; // spacing between tool groups (includes separator line)
 
     // Separator indices (computed dynamically based on visible tools)
     private int[] _sepAfter = Array.Empty<int>();
@@ -349,7 +389,7 @@ public sealed partial class RegionOverlayForm : Form
         // Compute group gaps: between tool groups
         var gaps = new List<int>();
         for (int i = 0; i < _visibleTools.Length - 1; i++)
-            if (_visibleTools[i].Group != _visibleTools[i + 1].Group)
+            if (_visibleTools[i].Group != _visibleTools[i + 1].Group || _visibleTools[i].Mode == CaptureMode.Freeform)
                 gaps.Add(i);
         gaps.Add(_visibleTools.Length - 1); // gap before color/gear/close
         _sepAfter = gaps.ToArray();
@@ -377,6 +417,18 @@ public sealed partial class RegionOverlayForm : Form
 
     private void Cancel() => SelectionCancelled?.Invoke();
 
+    private bool IsPointInOverlayUi(Point p)
+    {
+        var tbBounds = _toolbarRect;
+        tbBounds.Inflate(24, 18);
+        tbBounds.Height += 44;
+        if (tbBounds.Contains(p)) return true;
+        if (_emojiPickerOpen && _emojiPickerRect.Contains(p)) return true;
+        if (_fontPickerOpen && _fontPickerRect.Contains(p)) return true;
+        if (_colorPickerOpen && _colorPickerRect.Contains(p)) return true;
+        return false;
+    }
+
     private static Rectangle NormRect(Point a, Point b) =>
         new(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Abs(b.X - a.X), Math.Abs(b.Y - a.Y));
 
@@ -396,7 +448,9 @@ public sealed partial class RegionOverlayForm : Form
     {
         if (disposing)
         {
-            _cachedBase?.Dispose();
+            CloseMagWindow();
+            _toolbarForm?.Close();
+            _toolbarForm?.Dispose();
             _animTimer.Dispose();
             _pickerTimer.Dispose();
             _magGfx.Dispose();

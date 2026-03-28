@@ -141,6 +141,8 @@ public sealed partial class RegionOverlayForm
         {
             case CaptureMode.Rectangle:
             case CaptureMode.Ocr:
+            case CaptureMode.Scan:
+            case CaptureMode.GoogleLens:
                 _isSelecting = true;
                 _selectionStart = _selectionEnd = e.Location;
                 _hasSelection = false;
@@ -159,6 +161,14 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Highlight:
                 _isHighlighting = true;
                 _highlightStart = e.Location;
+                break;
+            case CaptureMode.RectShape:
+                _isRectShapeDragging = true;
+                _shapeStart = e.Location;
+                break;
+            case CaptureMode.CircleShape:
+                _isCircleShapeDragging = true;
+                _shapeStart = e.Location;
                 break;
             case CaptureMode.StepNumber:
                 _undoStack.Add(new StepNumberAnnotation(e.Location, _nextStepNumber, _toolColor));
@@ -180,6 +190,10 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Line:
                 _isLineDragging = true;
                 _lineStart = e.Location;
+                break;
+            case CaptureMode.Ruler:
+                _isRulerDragging = true;
+                _rulerStart = e.Location;
                 break;
             case CaptureMode.Arrow:
                 _isArrowDragging = true;
@@ -220,7 +234,7 @@ public sealed partial class RegionOverlayForm
     protected override void OnMouseMove(MouseEventArgs e)
     {
         bool needsRepaint = false;
-        bool crosshairOnly = false;
+        bool toolbarDirty = false;
 
         // Text move drag
         if (_textDragging && _isTyping)
@@ -244,8 +258,7 @@ public sealed partial class RegionOverlayForm
         if (btn != _hoveredButton)
         {
             _hoveredButton = btn;
-            needsRepaint = true;
-            crosshairOnly = false;
+            toolbarDirty = true;
         }
 
         // Cursor: show appropriate cursor for context
@@ -257,7 +270,6 @@ public sealed partial class RegionOverlayForm
             { if (!Cursor.Equals(Cursors.IBeam)) Cursor = Cursors.IBeam; }
         else if (_emojiPickerOpen)
         {
-            // IBeam on search bar, arrow on rest of picker
             int searchBottom = _emojiPickerRect.Y + 6 + 28 + 6;
             if (_emojiPickerRect.Contains(e.Location) && e.Location.Y < searchBottom)
                 { if (!Cursor.Equals(Cursors.IBeam)) Cursor = Cursors.IBeam; }
@@ -269,85 +281,68 @@ public sealed partial class RegionOverlayForm
         else if (btn >= 0)
             { if (!Cursor.Equals(Cursors.Hand)) Cursor = Cursors.Hand; }
         else if (_mode == CaptureMode.ColorPicker)
-            { if (Cursor != _blankCursor) Cursor = _blankCursor; }
+            { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
         else
             { if (!Cursor.Equals(Cursors.Cross)) Cursor = Cursors.Cross; }
 
-        if (ShowCrosshairGuides)
-        {
-            needsRepaint = true;
-            crosshairOnly = crosshairOnly && btn < 0 && !_emojiPickerOpen && !_fontPickerOpen && !_colorPickerOpen;
-        }
         _prevCursorPos = _lastCursorPos;
         _lastCursorPos = e.Location;
+
+        if (_mode == CaptureMode.ColorPicker)
+        {
+            UpdateColorPicker(e.Location);
+            return;
+        }
 
         switch (_mode)
         {
             case CaptureMode.Rectangle when !_isSelecting:
             case CaptureMode.Ocr when !_isSelecting:
-                // Auto-detect window under cursor
+            case CaptureMode.Scan when !_isSelecting:
+            case CaptureMode.GoogleLens when !_isSelecting:
                 var detected = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
                 if (detected != _autoDetectRect)
                 {
                     _autoDetectRect = detected;
                     _autoDetectActive = detected.Width > 0;
                     needsRepaint = true;
-                    crosshairOnly = false;
                 }
                 break;
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
+            case CaptureMode.Scan when _isSelecting:
+            case CaptureMode.GoogleLens when _isSelecting:
                 _autoDetectActive = false;
                 _selectionEnd = e.Location;
                 _selectionRect = NormRect(_selectionStart, _selectionEnd);
                 if (_selectionRect.Width > 3 || _selectionRect.Height > 3) _hasDragged = true;
                 _hasSelection = _selectionRect.Width > 2 && _selectionRect.Height > 2;
                 needsRepaint = true;
-                crosshairOnly = false;
                 break;
             case CaptureMode.Freeform when _isSelecting:
                 _freeformPoints.Add(e.Location);
                 _hasDragged = true;
                 needsRepaint = true;
-                crosshairOnly = false;
                 break;
             case CaptureMode.Highlight when _isHighlighting:
-                needsRepaint = true;
-                crosshairOnly = false;
-                break;
+            case CaptureMode.RectShape when _isRectShapeDragging:
+            case CaptureMode.CircleShape when _isCircleShapeDragging:
             case CaptureMode.Magnifier:
+            case CaptureMode.Line when _isLineDragging:
+            case CaptureMode.Ruler when _isRulerDragging:
+            case CaptureMode.Arrow when _isArrowDragging:
+            case CaptureMode.Blur when _isBlurring:
+            case CaptureMode.Eraser when _isEraserDragging:
+            case CaptureMode.Emoji when _isPlacingEmoji:
                 needsRepaint = true;
-                crosshairOnly = false;
                 break;
             case CaptureMode.Draw when _isSelecting:
                 _currentStroke?.Add(e.Location);
                 needsRepaint = true;
-                crosshairOnly = false;
-                break;
-            case CaptureMode.Line when _isLineDragging:
-                needsRepaint = true;
-                crosshairOnly = false;
-                break;
-            case CaptureMode.Arrow when _isArrowDragging:
-                needsRepaint = true;
-                crosshairOnly = false;
                 break;
             case CaptureMode.CurvedArrow when _isCurvedArrowDragging:
                 _currentCurvedArrow?.Add(e.Location);
                 needsRepaint = true;
-                crosshairOnly = false;
-                break;
-            case CaptureMode.Blur when _isBlurring:
-                needsRepaint = true;
-                crosshairOnly = false;
-                break;
-            case CaptureMode.Eraser when _isEraserDragging:
-                needsRepaint = true;
-                crosshairOnly = false;
-                break;
-            case CaptureMode.Emoji when _isPlacingEmoji:
-                needsRepaint = true;
-                crosshairOnly = false;
                 break;
         }
 
@@ -358,7 +353,7 @@ public sealed partial class RegionOverlayForm
             int relY = e.Location.Y - _fontPickerRect.Y - pad;
             int idx = _fontPickerScroll + relY / itemH;
             int newHover = (relY >= 0 && idx < FontChoices.Length) ? idx : -1;
-            if (newHover != _fontPickerHovered) { _fontPickerHovered = newHover; needsRepaint = true; crosshairOnly = false; }
+            if (newHover != _fontPickerHovered) { _fontPickerHovered = newHover; toolbarDirty = true; }
         }
 
         // Emoji picker hover
@@ -374,26 +369,26 @@ public sealed partial class RegionOverlayForm
             int row = relY / (emojiSize + pad);
             int idx = (_emojiScrollOffset + row) * cols + col;
             int newHover = (col >= 0 && col < cols && relY >= 0 && idx < filtered.Length) ? idx : -1;
-            if (newHover != _emojiHovered) { _emojiHovered = newHover; needsRepaint = true; crosshairOnly = false; }
+            if (newHover != _emojiHovered) { _emojiHovered = newHover; toolbarDirty = true; }
+        }
+
+        // Crosshair: partial invalidation (old + new strips)
+        if (ShowCrosshairGuides)
+        {
+            if (_prevCursorPos != Point.Empty && _prevCursorPos != _lastCursorPos)
+            {
+                Invalidate(new Rectangle(_prevCursorPos.X - 2, 0, 5, ClientSize.Height));
+                Invalidate(new Rectangle(0, _prevCursorPos.Y - 2, ClientSize.Width, 5));
+            }
+            Invalidate(new Rectangle(_lastCursorPos.X - 2, 0, 5, ClientSize.Height));
+            Invalidate(new Rectangle(0, _lastCursorPos.Y - 2, ClientSize.Width, 5));
         }
 
         if (needsRepaint)
-        {
-            if (crosshairOnly && _lastCursorPos != Point.Empty)
-            {
-                if (_prevCursorPos != Point.Empty && _prevCursorPos != _lastCursorPos)
-                {
-                    Invalidate(new Rectangle(_prevCursorPos.X - 3, 0, 7, ClientSize.Height));
-                    Invalidate(new Rectangle(0, _prevCursorPos.Y - 3, ClientSize.Width, 7));
-                }
-                Invalidate(new Rectangle(_lastCursorPos.X - 3, 0, 7, ClientSize.Height));
-                Invalidate(new Rectangle(0, _lastCursorPos.Y - 3, ClientSize.Width, 7));
-            }
-            else
-            {
-                Invalidate();
-            }
-        }
+            Invalidate();
+
+        if (toolbarDirty)
+            RefreshToolbar();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -412,6 +407,20 @@ public sealed partial class RegionOverlayForm
                     _undoStack.Add(new HighlightAnnotation(hlRect, DefaultHighlightColor));
                 Invalidate();
                 break;
+            case CaptureMode.RectShape when _isRectShapeDragging:
+                _isRectShapeDragging = false;
+                var rectShape = GetShapeRect(e.Location);
+                if (rectShape.Width > 2 && rectShape.Height > 2)
+                    _undoStack.Add(new RectShapeAnnotation(rectShape, _toolColor));
+                Invalidate();
+                break;
+            case CaptureMode.CircleShape when _isCircleShapeDragging:
+                _isCircleShapeDragging = false;
+                var circleShape = GetShapeRect(e.Location);
+                if (circleShape.Width > 2 && circleShape.Height > 2)
+                    _undoStack.Add(new CircleShapeAnnotation(circleShape, _toolColor));
+                Invalidate();
+                break;
             case CaptureMode.Magnifier:
                 // Click already placed it in OnMouseDown, nothing to do on up
                 break;
@@ -428,6 +437,15 @@ public sealed partial class RegionOverlayForm
                 float ldy = lineEnd.Y - _lineStart.Y;
                 if (MathF.Sqrt(ldx * ldx + ldy * ldy) > 5)
                     _undoStack.Add(new LineAnnotation(_lineStart, lineEnd));
+                Invalidate();
+                break;
+            case CaptureMode.Ruler when _isRulerDragging:
+                _isRulerDragging = false;
+                var rulerEnd = GetRulerEnd(e.Location);
+                float rdx = rulerEnd.X - _rulerStart.X;
+                float rdy = rulerEnd.Y - _rulerStart.Y;
+                if (MathF.Sqrt(rdx * rdx + rdy * rdy) > 3)
+                    _undoStack.Add(new RulerAnnotation(_rulerStart, rulerEnd));
                 Invalidate();
                 break;
             case CaptureMode.Arrow when _isArrowDragging:
@@ -462,8 +480,12 @@ public sealed partial class RegionOverlayForm
                 break;
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
+            case CaptureMode.Scan when _isSelecting:
+            case CaptureMode.GoogleLens when _isSelecting:
                 _isSelecting = false;
                 bool isOcr = _mode == CaptureMode.Ocr;
+                bool isScan = _mode == CaptureMode.Scan;
+                bool isLens = _mode == CaptureMode.GoogleLens;
                 if (!_hasDragged)
                 {
                     // Use auto-detected window region if available, else fullscreen
@@ -471,11 +493,15 @@ public sealed partial class RegionOverlayForm
                         ? _autoDetectRect
                         : new Rectangle(0, 0, _screenshot.Width, _screenshot.Height);
                     if (isOcr) OcrRegionSelected?.Invoke(clickRect);
+                    else if (isScan) ScanRegionSelected?.Invoke(clickRect);
+                    else if (isLens) ScanRegionSelected?.Invoke(clickRect);
                     else RegionSelected?.Invoke(clickRect);
                 }
                 else if (_selectionRect.Width > 2 && _selectionRect.Height > 2)
                 {
                     if (isOcr) OcrRegionSelected?.Invoke(_selectionRect);
+                    else if (isScan) ScanRegionSelected?.Invoke(_selectionRect);
+                    else if (isLens) ScanRegionSelected?.Invoke(_selectionRect);
                     else RegionSelected?.Invoke(_selectionRect);
                 }
                 else { _hasSelection = false; Invalidate(); }
@@ -499,19 +525,38 @@ public sealed partial class RegionOverlayForm
         _autoDetectRect = Rectangle.Empty;
         _autoDetectActive = false;
         Invalidate();
+        RefreshToolbar();
     }
 
     // ProcessCmdKey always receives ESC (OnKeyDown sometimes doesn't)
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (TryHandleAnnotationToolNumber(keyData))
+        {
+            RefreshToolbar();
+            Invalidate();
+            return true;
+        }
+
         if (keyData == Keys.Escape)
         {
             // Close all popups and transient state in one pass
             bool anyClosed = false;
+            if (_mode == CaptureMode.ColorPicker) { CloseMagWindow(); anyClosed = true; }
             if (_emojiPickerOpen) { _emojiPickerOpen = false; anyClosed = true; }
             if (_fontPickerOpen) { _fontPickerOpen = false; anyClosed = true; }
             if (_colorPickerOpen) { _colorPickerOpen = false; anyClosed = true; }
             if (_isPlacingEmoji) { _isPlacingEmoji = false; _selectedEmoji = null; anyClosed = true; }
+            if (_isRulerDragging) { _isRulerDragging = false; anyClosed = true; }
+            if (_isSelecting) { _isSelecting = false; _hasSelection = false; anyClosed = true; }
+            if (_isArrowDragging) { _isArrowDragging = false; anyClosed = true; }
+            if (_isLineDragging) { _isLineDragging = false; anyClosed = true; }
+            if (_isCurvedArrowDragging) { _isCurvedArrowDragging = false; anyClosed = true; }
+            if (_isBlurring) { _isBlurring = false; anyClosed = true; }
+            if (_isEraserDragging) { _isEraserDragging = false; anyClosed = true; }
+            if (_isHighlighting) { _isHighlighting = false; anyClosed = true; }
+            if (_isRectShapeDragging) { _isRectShapeDragging = false; anyClosed = true; }
+            if (_isCircleShapeDragging) { _isCircleShapeDragging = false; anyClosed = true; }
             if (_isTyping)
             {
                 // ESC = discard (Enter = commit)
@@ -521,7 +566,7 @@ public sealed partial class RegionOverlayForm
             }
             if (anyClosed) { Invalidate(); return true; }
             if (_mode != CaptureMode.Rectangle && _mode != CaptureMode.Freeform
-                && _mode != CaptureMode.Ocr)
+                && _mode != CaptureMode.Ocr && _mode != CaptureMode.Scan && _mode != CaptureMode.GoogleLens)
             { SetMode(CaptureMode.Rectangle); return true; }
             Cancel();
             return true;
@@ -580,12 +625,9 @@ public sealed partial class RegionOverlayForm
         if (e.KeyCode == Keys.D2) SetMode(CaptureMode.Freeform);
         if (e.KeyCode == Keys.D3) SetMode(CaptureMode.Ocr);
         if (e.KeyCode == Keys.D4) SetMode(CaptureMode.ColorPicker);
-        if (e.KeyCode == Keys.D5) SetMode(CaptureMode.Draw);
-        if (e.KeyCode == Keys.D6) SetMode(CaptureMode.Arrow);
-        if (e.KeyCode == Keys.D7) SetMode(CaptureMode.CurvedArrow);
-        if (e.KeyCode == Keys.D8) SetMode(CaptureMode.Text);
-        if (e.KeyCode == Keys.D9) SetMode(CaptureMode.Blur);
-        if (e.KeyCode == Keys.D0) SetMode(CaptureMode.Eraser);
+        if (e.KeyCode == Keys.D5) SetMode(CaptureMode.Scan);
+        if (e.KeyCode == Keys.D6) SetMode(CaptureMode.GoogleLens);
+        if (e.KeyCode == Keys.D0) SetMode(CaptureMode.Blur);
 
         if (e.KeyCode == Keys.Z && e.Control && _undoStack.Count > 0)
         {
@@ -804,18 +846,25 @@ public sealed partial class RegionOverlayForm
         _isSelecting = false;
         _isBlurring = false;
         _isHighlighting = false;
+        _isRectShapeDragging = false;
+        _isCircleShapeDragging = false;
         _isArrowDragging = false;
         _isLineDragging = false;
+        _isRulerDragging = false;
         _isCurvedArrowDragging = false;
         _isEraserDragging = false;
         _autoDetectActive = false;
 
         if (m == CaptureMode.ColorPicker)
         {
-            _pickerTimer.Start();
+            _pickerTimer.Stop();
+            _pickerReady = false;
         }
         else
+        {
             _pickerTimer.Stop();
+            CloseMagWindow();
+        }
 
         // Emoji mode: always open picker
         if (m == CaptureMode.Emoji)
@@ -840,5 +889,81 @@ public sealed partial class RegionOverlayForm
         }
 
         Invalidate();
+    }
+
+    private Point GetRulerEnd(Point current)
+    {
+        if ((ModifierKeys & Keys.Shift) == 0) return current;
+
+        int dx = current.X - _rulerStart.X;
+        int dy = current.Y - _rulerStart.Y;
+        if (Math.Abs(dx) >= Math.Abs(dy))
+            return new Point(current.X, _rulerStart.Y);
+        return new Point(_rulerStart.X, current.Y);
+    }
+
+    private Rectangle GetShapeRect(Point current)
+    {
+        if ((ModifierKeys & Keys.Shift) == 0)
+            return NormRect(_shapeStart, current);
+
+        int dx = current.X - _shapeStart.X;
+        int dy = current.Y - _shapeStart.Y;
+        int size = Math.Max(Math.Abs(dx), Math.Abs(dy));
+        int x2 = _shapeStart.X + Math.Sign(dx == 0 ? 1 : dx) * size;
+        int y2 = _shapeStart.Y + Math.Sign(dy == 0 ? 1 : dy) * size;
+        return NormRect(_shapeStart, new Point(x2, y2));
+    }
+
+    private bool TryHandleAnnotationToolNumber(Keys keyCode)
+    {
+        int index = keyCode switch
+        {
+            Keys.D1 => 0,
+            Keys.D2 => 1,
+            Keys.D3 => 2,
+            Keys.D4 => 3,
+            Keys.D5 => 4,
+            Keys.D6 => 5,
+            Keys.D7 => 6,
+            Keys.D8 => 7,
+            Keys.D9 => 8,
+            _ => -1
+        };
+        if (index < 0) return false;
+
+        var annotationModes = ToolDef.AllTools
+            .Where(t => t.Mode is { } mode && IsAnnotationNumberBadgeMode(mode))
+            .Select(t => t.Mode!.Value)
+            .Distinct()
+            .ToList();
+
+        if (index >= annotationModes.Count) return false;
+        SetMode(annotationModes[index]);
+        return true;
+    }
+
+    private static bool IsAnnotationNumberBadgeMode(CaptureMode mode)
+    {
+        return mode == CaptureMode.Ruler
+            || mode == CaptureMode.Highlight
+            || mode == CaptureMode.RectShape
+            || mode == CaptureMode.CircleShape
+            || mode == CaptureMode.Draw
+            || mode == CaptureMode.Line
+            || mode == CaptureMode.Arrow
+            || mode == CaptureMode.CurvedArrow
+            || mode == CaptureMode.Text
+            || mode == CaptureMode.StepNumber
+            || mode == CaptureMode.Blur
+            || mode == CaptureMode.Eraser
+            || mode == CaptureMode.Magnifier
+            || mode == CaptureMode.Emoji;
+    }
+
+    protected override void OnDeactivate(EventArgs e)
+    {
+        base.OnDeactivate(e);
+        Cancel();
     }
 }

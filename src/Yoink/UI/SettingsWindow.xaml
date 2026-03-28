@@ -137,10 +137,14 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Screenshot" FontSize="13" VerticalAlignment="Center"/>
-                            <TextBox x:Name="HotkeyBox" Grid.Column="1" IsReadOnly="True"
-                                     FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
-                                     PreviewKeyDown="HotkeyBox_PreviewKeyDown"
-                                     GotFocus="HotkeyBox_GotFocus" LostFocus="HotkeyBox_LostFocus"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBox x:Name="HotkeyBox" IsReadOnly="True"
+                                         FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
+                                         PreviewKeyDown="HotkeyBox_PreviewKeyDown"
+                                         GotFocus="HotkeyBox_GotFocus" LostFocus="HotkeyBox_LostFocus"/>
+                                <Button Content="X" Width="28" Height="28" Margin="6,0,0,0"
+                                        FontSize="11" Click="ClearCaptureHotkey_Click"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
@@ -154,10 +158,14 @@
                                 <TextBlock Text="Text capture (OCR)" FontSize="13"/>
                                 <TextBlock Text="Copies text from screen" FontSize="11" Opacity="0.3"/>
                             </StackPanel>
-                            <TextBox x:Name="OcrHotkeyBox" Grid.Column="1" IsReadOnly="True"
-                                     FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
-                                     PreviewKeyDown="OcrHotkeyBox_PreviewKeyDown"
-                                     GotFocus="OcrHotkeyBox_GotFocus" LostFocus="OcrHotkeyBox_LostFocus"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBox x:Name="OcrHotkeyBox" IsReadOnly="True"
+                                         FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
+                                         PreviewKeyDown="OcrHotkeyBox_PreviewKeyDown"
+                                         GotFocus="OcrHotkeyBox_GotFocus" LostFocus="OcrHotkeyBox_LostFocus"/>
+                                <Button Content="X" Width="28" Height="28" Margin="6,0,0,0"
+                                        FontSize="11" Click="ClearOcrHotkey_Click"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
@@ -171,10 +179,32 @@
                                 <TextBlock Text="Color picker" FontSize="13"/>
                                 <TextBlock Text="Pick color, copies hex" FontSize="11" Opacity="0.3"/>
                             </StackPanel>
-                            <TextBox x:Name="PickerHotkeyBox" Grid.Column="1" IsReadOnly="True"
-                                     FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
-                                     PreviewKeyDown="PickerHotkeyBox_PreviewKeyDown"
-                                     GotFocus="PickerHotkeyBox_GotFocus" LostFocus="PickerHotkeyBox_LostFocus"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBox x:Name="PickerHotkeyBox" IsReadOnly="True"
+                                         FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
+                                         PreviewKeyDown="PickerHotkeyBox_PreviewKeyDown"
+                                         GotFocus="PickerHotkeyBox_GotFocus" LostFocus="PickerHotkeyBox_LostFocus"/>
+                                <Button Content="X" Width="28" Height="28" Margin="6,0,0,0"
+                                        FontSize="11" Click="ClearPickerHotkey_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Default capture tool" FontSize="13"/>
+                                <TextBlock Text="What the main screenshot hotkey opens" FontSize="11" Opacity="0.3"/>
+                            </StackPanel>
+                            <ComboBox x:Name="DefaultCaptureModeCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="145"
+                                      SelectionChanged="DefaultCaptureModeCombo_SelectionChanged">
+                                <ComboBoxItem Content="Rectangle"/>
+                                <ComboBoxItem Content="Freeform"/>
+                            </ComboBox>
                         </Grid>
                     </Border>
 
@@ -211,11 +241,97 @@
                                   Checked="SaveHistoryCheck_Changed" Unchecked="SaveHistoryCheck_Changed"/>
                     </Border>
 
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Auto-clear history" FontSize="13"/>
+                                <TextBlock Text="Automatically remove old captures, OCR, and colors" FontSize="11" Opacity="0.3"/>
+                            </StackPanel>
+                            <ComboBox x:Name="HistoryRetentionCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="145"
+                                      SelectionChanged="HistoryRetentionCombo_SelectionChanged">
+                                <ComboBoxItem Content="Never"/>
+                                <ComboBoxItem Content="1 day"/>
+                                <ComboBoxItem Content="7 days"/>
+                                <ComboBoxItem Content="30 days"/>
+                                <ComboBoxItem Content="3 months"/>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
                     <TextBlock Text="Toolbar" Style="{StaticResource SectionLabel}" Margin="0,14,0,6"/>
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="QR/barcode scanner hotkey" FontSize="13"/>
+                                <TextBlock Text="Optional, disabled by default" FontSize="11" Opacity="0.3"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBox x:Name="ScanHotkeyBox" IsReadOnly="True"
+                                         FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
+                                         PreviewKeyDown="ScanHotkeyBox_PreviewKeyDown"
+                                         GotFocus="ScanHotkeyBox_GotFocus" LostFocus="ScanHotkeyBox_LostFocus"/>
+                                <Button Content="X" Width="28" Height="28" Margin="6,0,0,0"
+                                        FontSize="11" Click="ClearScanHotkey_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Ruler hotkey" FontSize="13"/>
+                                <TextBlock Text="Optional, disabled by default" FontSize="11" Opacity="0.3"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBox x:Name="RulerHotkeyBox" IsReadOnly="True"
+                                         FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
+                                         PreviewKeyDown="RulerHotkeyBox_PreviewKeyDown"
+                                         GotFocus="RulerHotkeyBox_GotFocus" LostFocus="RulerHotkeyBox_LostFocus"/>
+                                <Button Content="X" Width="28" Height="28" Margin="6,0,0,0"
+                                        FontSize="11" Click="ClearRulerHotkey_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Google Lens hotkey" FontSize="13"/>
+                                <TextBlock Text="Optional, disabled by default" FontSize="11" Opacity="0.3"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBox x:Name="LensHotkeyBox" IsReadOnly="True"
+                                         FontSize="12" Padding="10,5" MinWidth="115" TextAlignment="Center"
+                                         PreviewKeyDown="LensHotkeyBox_PreviewKeyDown"
+                                         GotFocus="LensHotkeyBox_GotFocus" LostFocus="LensHotkeyBox_LostFocus"/>
+                                <Button Content="X" Width="28" Height="28" Margin="6,0,0,0"
+                                        FontSize="11" Click="ClearLensHotkey_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
 
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="Choose which tools appear in the capture toolbar" FontSize="12" Opacity="0.4" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="ShowToolNumberBadgesCheck" Content="Show numbered tool badges on hover" FontSize="12"
+                                      Margin="0,0,0,8" Checked="ShowToolNumberBadgesCheck_Changed" Unchecked="ShowToolNumberBadgesCheck_Changed"/>
                             <WrapPanel x:Name="ToolTogglePanel" Orientation="Horizontal"/>
                         </StackPanel>
                     </Border>

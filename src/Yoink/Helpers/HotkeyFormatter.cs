@@ -6,6 +6,7 @@ public static class HotkeyFormatter
 {
     public static string Format(uint mod, uint key)
     {
+        if (mod == 0 || key == 0) return "Disabled";
         var parts = new List<string>();
         if ((mod & Native.User32.MOD_CONTROL) != 0) parts.Add("Ctrl");
         if ((mod & Native.User32.MOD_ALT) != 0) parts.Add("Alt");

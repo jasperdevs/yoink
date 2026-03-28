@@ -28,7 +28,17 @@ public sealed class SettingsService
             var json = File.ReadAllText(SettingsPath);
             var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
             if (loaded is not null)
+            {
                 Settings = loaded;
+
+                // Migrate older settings to include newly added default tools.
+                if (Settings.EnabledTools is { Count: > 0 })
+                {
+                    foreach (var tool in ToolDef.DefaultEnabledIds())
+                        if (!Settings.EnabledTools.Contains(tool))
+                            Settings.EnabledTools.Add(tool);
+                }
+            }
         }
         catch
         {

@@ -91,15 +91,21 @@ public partial class SettingsWindow : Window
         HotkeyBox.Text = HotkeyFormatter.Format(s.HotkeyModifiers, s.HotkeyKey);
         OcrHotkeyBox.Text = HotkeyFormatter.Format(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
         PickerHotkeyBox.Text = HotkeyFormatter.Format(s.PickerHotkeyModifiers, s.PickerHotkeyKey);
+        ScanHotkeyBox.Text = HotkeyFormatter.Format(s.ScanHotkeyModifiers, s.ScanHotkeyKey);
+        RulerHotkeyBox.Text = HotkeyFormatter.Format(s.RulerHotkeyModifiers, s.RulerHotkeyKey);
+        LensHotkeyBox.Text = HotkeyFormatter.Format(s.LensHotkeyModifiers, s.LensHotkeyKey);
+        DefaultCaptureModeCombo.SelectedIndex = s.DefaultCaptureMode == Yoink.Models.CaptureMode.Freeform ? 1 : 0;
         AfterCaptureCombo.SelectedIndex = (int)s.AfterCapture;
         SaveToFileCheck.IsChecked = s.SaveToFile;
         SaveDirBox.Text = s.SaveDirectory;
         SaveDirPanel.Visibility = s.SaveToFile ? Visibility.Visible : Visibility.Collapsed;
         StartWithWindowsCheck.IsChecked = s.StartWithWindows;
         SaveHistoryCheck.IsChecked = s.SaveHistory;
+        HistoryRetentionCombo.SelectedIndex = (int)s.HistoryRetention;
         MuteSoundsCheck.IsChecked = s.MuteSounds;
         CompressHistoryCheck.IsChecked = s.CompressHistory;
         CrosshairGuidesCheck.IsChecked = s.ShowCrosshairGuides;
+        ShowToolNumberBadgesCheck.IsChecked = s.ShowToolNumberBadges;
         ToastPositionCombo.SelectedIndex = (int)s.ToastPosition;
         PopulateToolToggles();
     }
@@ -139,6 +145,13 @@ public partial class SettingsWindow : Window
             return;
         }
         _settingsService.Settings.EnabledTools = enabledIds;
+        _settingsService.Save();
+    }
+
+    private void ShowToolNumberBadgesCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.ShowToolNumberBadges = ShowToolNumberBadgesCheck.IsChecked == true;
         _settingsService.Save();
     }
 
@@ -195,6 +208,15 @@ public partial class SettingsWindow : Window
         RecordHotkey(PickerHotkeyBox,
             s => s.PickerHotkeyModifiers, s => s.PickerHotkeyKey,
             (s, m, k) => { s.PickerHotkeyModifiers = m; s.PickerHotkeyKey = k; });
+        RecordHotkey(ScanHotkeyBox,
+            s => s.ScanHotkeyModifiers, s => s.ScanHotkeyKey,
+            (s, m, k) => { s.ScanHotkeyModifiers = m; s.ScanHotkeyKey = k; });
+        RecordHotkey(RulerHotkeyBox,
+            s => s.RulerHotkeyModifiers, s => s.RulerHotkeyKey,
+            (s, m, k) => { s.RulerHotkeyModifiers = m; s.RulerHotkeyKey = k; });
+        RecordHotkey(LensHotkeyBox,
+            s => s.LensHotkeyModifiers, s => s.LensHotkeyKey,
+            (s, m, k) => { s.LensHotkeyModifiers = m; s.LensHotkeyKey = k; });
     }
 
     private void RecordHotkey(
@@ -241,6 +263,69 @@ public partial class SettingsWindow : Window
     private void PickerHotkeyBox_GotFocus(object sender, RoutedEventArgs e) { }
     private void PickerHotkeyBox_LostFocus(object sender, RoutedEventArgs e) { }
     private void PickerHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e) { }
+    private void ScanHotkeyBox_GotFocus(object sender, RoutedEventArgs e) { }
+    private void ScanHotkeyBox_LostFocus(object sender, RoutedEventArgs e) { }
+    private void ScanHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e) { }
+    private void RulerHotkeyBox_GotFocus(object sender, RoutedEventArgs e) { }
+    private void RulerHotkeyBox_LostFocus(object sender, RoutedEventArgs e) { }
+    private void RulerHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e) { }
+    private void LensHotkeyBox_GotFocus(object sender, RoutedEventArgs e) { }
+    private void LensHotkeyBox_LostFocus(object sender, RoutedEventArgs e) { }
+    private void LensHotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e) { }
+
+    private void ClearCaptureHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsService.Settings.HotkeyModifiers = 0;
+        _settingsService.Settings.HotkeyKey = 0;
+        _settingsService.Save();
+        HotkeyBox.Text = HotkeyFormatter.Format(0, 0);
+        HotkeyChanged?.Invoke();
+    }
+
+    private void ClearOcrHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsService.Settings.OcrHotkeyModifiers = 0;
+        _settingsService.Settings.OcrHotkeyKey = 0;
+        _settingsService.Save();
+        OcrHotkeyBox.Text = HotkeyFormatter.Format(0, 0);
+        HotkeyChanged?.Invoke();
+    }
+
+    private void ClearPickerHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsService.Settings.PickerHotkeyModifiers = 0;
+        _settingsService.Settings.PickerHotkeyKey = 0;
+        _settingsService.Save();
+        PickerHotkeyBox.Text = HotkeyFormatter.Format(0, 0);
+        HotkeyChanged?.Invoke();
+    }
+
+    private void ClearScanHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsService.Settings.ScanHotkeyModifiers = 0;
+        _settingsService.Settings.ScanHotkeyKey = 0;
+        _settingsService.Save();
+        ScanHotkeyBox.Text = HotkeyFormatter.Format(0, 0);
+        HotkeyChanged?.Invoke();
+    }
+
+    private void ClearRulerHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsService.Settings.RulerHotkeyModifiers = 0;
+        _settingsService.Settings.RulerHotkeyKey = 0;
+        _settingsService.Save();
+        RulerHotkeyBox.Text = HotkeyFormatter.Format(0, 0);
+        HotkeyChanged?.Invoke();
+    }
+
+    private void ClearLensHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsService.Settings.LensHotkeyModifiers = 0;
+        _settingsService.Settings.LensHotkeyKey = 0;
+        _settingsService.Save();
+        LensHotkeyBox.Text = HotkeyFormatter.Format(0, 0);
+        HotkeyChanged?.Invoke();
+    }
 
     private static bool IsModifierOnly(Key k) =>
         k is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
@@ -262,6 +347,16 @@ public partial class SettingsWindow : Window
         if (!IsLoaded) return;
         _settingsService.Settings.AfterCapture = (AfterCaptureAction)AfterCaptureCombo.SelectedIndex;
         _settingsService.Save();
+    }
+
+    private void DefaultCaptureModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.DefaultCaptureMode = DefaultCaptureModeCombo.SelectedIndex == 1
+            ? Yoink.Models.CaptureMode.Freeform
+            : Yoink.Models.CaptureMode.Rectangle;
+        _settingsService.Save();
+        HotkeyChanged?.Invoke();
     }
 
     private void SaveToFileCheck_Changed(object sender, RoutedEventArgs e)
@@ -307,6 +402,14 @@ public partial class SettingsWindow : Window
         if (!IsLoaded) return;
         _settingsService.Settings.SaveHistory = SaveHistoryCheck.IsChecked == true;
         _settingsService.Save();
+    }
+
+    private void HistoryRetentionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.HistoryRetention = (HistoryRetentionPeriod)HistoryRetentionCombo.SelectedIndex;
+        _settingsService.Save();
+        _historyService.PruneByRetention(_settingsService.Settings.HistoryRetention);
     }
 
     private void MuteSoundsCheck_Changed(object sender, RoutedEventArgs e)

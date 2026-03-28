@@ -14,6 +14,15 @@ public enum ToastPosition
     TopRight
 }
 
+public enum HistoryRetentionPeriod
+{
+    Never,
+    OneDay,
+    SevenDays,
+    ThirtyDays,
+    NinetyDays
+}
+
 public sealed class AppSettings
 {
     public uint HotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
@@ -26,6 +35,14 @@ public sealed class AppSettings
     // Color picker hotkey: Alt+C
     public uint PickerHotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
     public uint PickerHotkeyKey { get; set; } = 0x43; // VK_C
+
+    // Optional custom-tool hotkeys (disabled by default)
+    public uint ScanHotkeyModifiers { get; set; }
+    public uint ScanHotkeyKey { get; set; }
+    public uint RulerHotkeyModifiers { get; set; }
+    public uint RulerHotkeyKey { get; set; }
+    public uint LensHotkeyModifiers { get; set; }
+    public uint LensHotkeyKey { get; set; }
 
     public AfterCaptureAction AfterCapture { get; set; } = AfterCaptureAction.ShowPreview;
     public bool SaveToFile { get; set; } = true;
@@ -40,6 +57,9 @@ public sealed class AppSettings
     public int JpegQuality { get; set; } = 85;
     public bool HasCompletedSetup { get; set; }
     public ToastPosition ToastPosition { get; set; } = ToastPosition.Right;
+    public CaptureMode DefaultCaptureMode { get; set; } = CaptureMode.Rectangle;
+    public bool ShowToolNumberBadges { get; set; } = true;
+    public HistoryRetentionPeriod HistoryRetention { get; set; } = HistoryRetentionPeriod.Never;
 
     // Toolbar customization: which tools appear in the dock
     // null = all tools enabled (default). List of tool IDs from ToolDef.AllTools.
@@ -54,10 +74,15 @@ public sealed record ToolDef(string Id, string Label, char Icon, CaptureMode? Mo
     {
         new("rect",        "Rectangle",    '\uF551', CaptureMode.Rectangle,   0),
         new("free",        "Freeform",     '\uF564', CaptureMode.Freeform,    0),
-        new("ocr",         "OCR",          '\uF561', CaptureMode.Ocr,         0),
         new("picker",      "Color Picker", '\uF3C9', CaptureMode.ColorPicker, 0),
-        new("draw",        "Draw",         '\uF513', CaptureMode.Draw,        1),
+        new("ocr",         "OCR",          '\uF561', CaptureMode.Ocr,         0),
+        new("scan",        "QR Code/Barcode Scanner", '\uF8C5', CaptureMode.Scan, 0),
+        new("lens",        "Google Lens",  '\uF4AC', CaptureMode.GoogleLens,  0),
+        new("ruler",       "Ruler",        '\uE6B8', CaptureMode.Ruler,       1),
         new("highlight",   "Highlight",    '\uF466', CaptureMode.Highlight,   1),
+        new("rectShape",   "Rectangle Shape", '\uE3F0', CaptureMode.RectShape, 1),
+        new("circleShape", "Circle Shape", '\uE18A', CaptureMode.CircleShape, 1),
+        new("draw",        "Draw",         '\uF513', CaptureMode.Draw,        1),
         new("line",        "Line",         '\uF48D', CaptureMode.Line,        1),
         new("arrow",       "Arrow",        '\uF2A0', CaptureMode.Arrow,       1),
         new("curvedArrow", "Curved Arrow", '\uF2DB', CaptureMode.CurvedArrow, 1),

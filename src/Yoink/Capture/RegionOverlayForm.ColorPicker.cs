@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -9,26 +10,46 @@ namespace Yoink.Capture;
 public sealed partial class RegionOverlayForm
 {
     private bool _pickerReady;
-
     private bool _pickerBusy;
+    private int _lastPickedArgb;
+    private PickerMagnifierForm? _pickerForm;
 
     private void OnPickerTick(object? sender, EventArgs e)
     {
+        // Timer path disabled; picker is now driven directly from OnMouseMove.
+    }
+
+    private void EnsurePickerForm()
+    {
+        if (_pickerForm != null) return;
+        _pickerForm = new PickerMagnifierForm();
+        _pickerForm.Show(this);
+    }
+
+    internal void UpdateColorPicker(Point overlayPoint)
+    {
         if (_pickerBusy) return;
-        Native.User32.GetCursorPos(out var pt);
-        var np = new Point(pt.X - _virtualBounds.X, pt.Y - _virtualBounds.Y);
-        if (_pickerReady && np == _pickerCursorPos) return;
+        if (_pickerReady && overlayPoint == _pickerCursorPos) return;
 
         _pickerBusy = true;
         _pickerReady = true;
-        _pickerCursorPos = np;
+        _pickerCursorPos = overlayPoint;
         BuildMagnifier();
+        EnsurePickerForm();
 
-        var newDirty = PickerDirtyRect(_pickerCursorPos);
-        if (!_pickerPrevDirty.IsEmpty) Invalidate(_pickerPrevDirty);
-        Invalidate(newDirty);
-        _pickerPrevDirty = newDirty;
+        var (mx, my) = MagPos(_pickerCursorPos);
+        _pickerForm!.UpdateMagnifier(_magBitmap, _pickerCursorPos, _pickedColor, _hexStr, _rgbStr);
+        _pickerForm.Left = mx + _virtualBounds.X - 4;
+        _pickerForm.Top = my + _virtualBounds.Y - 4;
+
         _pickerBusy = false;
+    }
+
+    private void CloseMagWindow()
+    {
+        _pickerForm?.Close();
+        _pickerForm?.Dispose();
+        _pickerForm = null;
     }
 
     private void BuildMagnifier()
@@ -36,12 +57,17 @@ public sealed partial class RegionOverlayForm
         int cx = Math.Clamp(_pickerCursorPos.X, 0, _bmpW - 1);
         int cy = Math.Clamp(_pickerCursorPos.Y, 0, _bmpH - 1);
         int argb = _pixelData[cy * _bmpW + cx];
+        bool colorChanged = argb != _lastPickedArgb;
+        _lastPickedArgb = argb;
         _pickedColor = Color.FromArgb(argb);
-        _hexStr = $"{_pickedColor.R:X2}{_pickedColor.G:X2}{_pickedColor.B:X2}";
-        _rgbStr = $"{_pickedColor.R}, {_pickedColor.G}, {_pickedColor.B}";
+        if (colorChanged)
+        {
+            _hexStr = $"{_pickedColor.R:X2}{_pickedColor.G:X2}{_pickedColor.B:X2}";
+            _rgbStr = $"{_pickedColor.R}, {_pickedColor.G}, {_pickedColor.B}";
+        }
 
-        // Opaque background for speed
-        Array.Fill(_magPixels, unchecked((int)0xFF0F0F0F));
+        // Fill grid pixels directly into the mag bitmap buffer
+        Array.Fill(_magPixels, unchecked((int)0xFF202020));
 
         int half = Grid / 2;
         for (int gy = 0; gy < Grid; gy++)
@@ -60,10 +86,10 @@ public sealed partial class RegionOverlayForm
                     int row = (oy + py) * PW + ox;
                     for (int px = 0; px < Cell - 1; px++)
                         _magPixels[row + px] = c;
-                    _magPixels[row + Cell - 1] = Lighten(c, 20);
+                    _magPixels[row + Cell - 1] = Lighten(c, 15);
                 }
                 int bot = (oy + Cell - 1) * PW + ox;
-                int gl = Lighten(c, 20);
+                int gl = Lighten(c, 15);
                 for (int px = 0; px < Cell; px++)
                     _magPixels[bot + px] = gl;
             }
@@ -93,38 +119,16 @@ public sealed partial class RegionOverlayForm
         Marshal.Copy(_magPixels, 0, bitsLock.Scan0, _magPixels.Length);
         _magBitmap.UnlockBits(bitsLock);
 
+        // Draw the text layer AFTER copying the pixel buffer, every frame.
+        // The buffer copy overwrites the lower info area, so conditional redraw caused blank panels.
         int ty = PPad + Mag + 8;
+        using var clearBrush = new SolidBrush(Color.FromArgb(255, 32, 32, 32));
+        _magGfx.FillRectangle(clearBrush, PPad + 30, ty - 4, PW - PPad - 32, InfoH);
         _magGfx.DrawString(_hexStr, _hexFont, Brushes.White, PPad + 32, ty - 2);
         _magGfx.DrawString(_rgbStr, _rgbFont, _mutedBrush, PPad + 32, ty + 15);
     }
 
-    private void PaintMagnifier(Graphics g)
-    {
-        var (px, py) = MagPos(_pickerCursorPos);
-        var magRect = new Rectangle(px, py, PW, PH);
-
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = RRect(magRect, 14);
-
-        // Solid background only (no blur)
-        using (var tint = new SolidBrush(Color.FromArgb(230, 15, 15, 15)))
-            g.FillPath(tint, path);
-
-        // Magnifier pixels on top
-        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-        g.DrawImageUnscaled(_magBitmap, px, py);
-
-        // Border
-        using var pen = new Pen(Color.FromArgb(50, 255, 255, 255), 1f);
-        g.DrawPath(pen, path);
-        g.SmoothingMode = SmoothingMode.Default;
-
-        int mx = _pickerCursorPos.X, my = _pickerCursorPos.Y;
-        g.DrawLine(_crossPen, mx - 10, my, mx - 3, my);
-        g.DrawLine(_crossPen, mx + 3, my, mx + 10, my);
-        g.DrawLine(_crossPen, mx, my - 10, mx, my - 3);
-        g.DrawLine(_crossPen, mx, my + 3, mx, my + 10);
-    }
+    // Overlay no longer paints the color picker or its crosshair.
 
     private void SetMagPx(int x, int y, int v)
     {
@@ -146,15 +150,5 @@ public sealed partial class RegionOverlayForm
         if (px + PW > ClientSize.Width) px = c.X - MagOff - PW;
         if (py + PH > ClientSize.Height) py = c.Y - MagOff - PH;
         return (Math.Max(4, px), Math.Max(4, py));
-    }
-
-    private Rectangle PickerDirtyRect(Point cur)
-    {
-        var (px, py) = MagPos(cur);
-        int left = Math.Min(px, cur.X - 14) - MagMargin;
-        int top = Math.Min(py, cur.Y - 14) - MagMargin;
-        int right = Math.Max(px + PW, cur.X + 14) + MagMargin;
-        int bottom = Math.Max(py + PH, cur.Y + 14) + MagMargin;
-        return new Rectangle(left, top, right - left, bottom - top);
     }
 }

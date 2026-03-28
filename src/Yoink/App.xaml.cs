@@ -8,6 +8,7 @@ using Yoink.Models;
 using Yoink.Services;
 using Yoink.Helpers;
 using Yoink.UI;
+using System.Diagnostics;
 
 namespace Yoink;
 
@@ -38,6 +39,7 @@ public partial class App : Application
         _historyService.Load();
         _historyService.CompressHistory = _settingsService.Settings.CompressHistory;
         _historyService.JpegQuality = _settingsService.Settings.JpegQuality;
+        _historyService.PruneByRetention(_settingsService.Settings.HistoryRetention);
 
         // Show setup wizard on first run
         if (!_settingsService.Settings.HasCompletedSetup)
@@ -64,11 +66,17 @@ public partial class App : Application
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
         _hotkeyService.OcrHotkeyPressed += OnOcrHotkeyPressed;
         _hotkeyService.PickerHotkeyPressed += OnPickerHotkeyPressed;
+        _hotkeyService.ScanHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.Scan);
+        _hotkeyService.RulerHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.Ruler);
+        _hotkeyService.LensHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.GoogleLens);
 
         var s = _settingsService!.Settings;
         bool ok = _hotkeyService.Register(s.HotkeyModifiers, s.HotkeyKey);
         _hotkeyService.RegisterOcr(s.OcrHotkeyModifiers, s.OcrHotkeyKey);
         _hotkeyService.RegisterPicker(s.PickerHotkeyModifiers, s.PickerHotkeyKey);
+        _hotkeyService.RegisterScan(s.ScanHotkeyModifiers, s.ScanHotkeyKey);
+        _hotkeyService.RegisterRuler(s.RulerHotkeyModifiers, s.RulerHotkeyKey);
+        _hotkeyService.RegisterLens(s.LensHotkeyModifiers, s.LensHotkeyKey);
 
         var name = HotkeyFormatter.Format(s.HotkeyModifiers, s.HotkeyKey);
         if (!ok)
@@ -85,7 +93,16 @@ public partial class App : Application
         _isCapturing = true;
         PreviewWindow.DismissCurrent();
         ToastWindow.DismissCurrent();
-        Dispatcher.BeginInvoke(() => LaunchOverlay(CaptureMode.Rectangle));
+        Dispatcher.BeginInvoke(() => LaunchOverlay(_settingsService!.Settings.DefaultCaptureMode));
+    }
+
+    private void OnToolHotkeyPressed(CaptureMode mode)
+    {
+        if (_isCapturing) return;
+        _isCapturing = true;
+        PreviewWindow.DismissCurrent();
+        ToastWindow.DismissCurrent();
+        Dispatcher.BeginInvoke(() => LaunchOverlay(mode));
     }
 
     private void OnOcrHotkeyPressed()
@@ -114,20 +131,21 @@ public partial class App : Application
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            Bitmap? screenshot = null;
-            try
+            var thread = new Thread(() =>
             {
-                var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
-                screenshot = bmp;
-
-                var thread = new Thread(() =>
+                Bitmap? screenshot = null;
+                try
                 {
                     System.Windows.Forms.Application.EnableVisualStyles();
+                    var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
+                    screenshot = bmp;
+
                     var overlay = new RegionOverlayForm(screenshot, bounds, initialMode)
                     {
                         ShowCrosshairGuides = _settingsService!.Settings.ShowCrosshairGuides
                     };
                     overlay.SetEnabledTools(_settingsService.Settings.EnabledTools);
+                    overlay.SetShowToolNumberBadges(_settingsService.Settings.ShowToolNumberBadges);
 
                     // Screenshot capture (rect / fullscreen)
                     overlay.RegionSelected += sel =>
@@ -159,6 +177,54 @@ public partial class App : Application
                         using var cropped = ScreenCapture.CropRegion(annotated, sel);
                         var clone = new Bitmap(cropped);
                         HandleOcrResult(clone);
+                        overlay.Close();
+                        System.Windows.Forms.Application.ExitThread();
+                    };
+
+                    // Barcode / QR scan
+                    overlay.ScanRegionSelected += sel =>
+                    {
+                        overlay.Hide();
+                        using var annotated = overlay.RenderAnnotatedBitmap();
+                        using var cropped = ScreenCapture.CropRegion(annotated, sel);
+                        var clone = new Bitmap(cropped);
+                        bool useLens = overlay.CurrentMode == CaptureMode.GoogleLens;
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            try
+                            {
+                                if (useLens)
+                                {
+                                    var tempPath = Path.Combine(Path.GetTempPath(), $"yoink_lens_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+                                    clone.Save(tempPath, ImageFormat.Png);
+                                    Process.Start(new ProcessStartInfo
+                                    {
+                                        FileName = tempPath,
+                                        UseShellExecute = true
+                                    });
+                                    ToastWindow.Show("Google Lens", "Saved temp image; upload it in browser");
+                                }
+                                else
+                                {
+                                    var text = BarcodeService.Decode(clone);
+                                    if (!string.IsNullOrWhiteSpace(text))
+                                    {
+                                        SoundService.PlayTextSound();
+                                        System.Windows.Clipboard.SetText(text);
+                                        var prev = text.Length > 100 ? text[..100] + "..." : text;
+                                        ToastWindow.Show("Code copied", prev);
+                                    }
+                                    else
+                                    {
+                                        ToastWindow.Show("Scan", "No QR/barcode found");
+                                    }
+                                }
+                            }
+                            finally
+                            {
+                                clone.Dispose();
+                            }
+                        });
                         overlay.Close();
                         System.Windows.Forms.Application.ExitThread();
                     };
@@ -208,22 +274,31 @@ public partial class App : Application
                             });
                         }
 
-                        screenshot.Dispose();
                         Dispatcher.BeginInvoke(() => _isCapturing = false);
                     };
 
-                    System.Windows.Forms.Application.Run(overlay);
-                });
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.IsBackground = true;
-                thread.Start();
-            }
-            catch
-            {
-                screenshot?.Dispose();
-                _isCapturing = false;
-                throw;
-            }
+                    try
+                    {
+                        System.Windows.Forms.Application.Run(overlay);
+                    }
+                    finally
+                    {
+                        screenshot.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    screenshot?.Dispose();
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        _isCapturing = false;
+                        ToastWindow.Show("Capture error", ex.Message);
+                    });
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.IsBackground = true;
+            thread.Start();
         };
         timer.Start();
     }

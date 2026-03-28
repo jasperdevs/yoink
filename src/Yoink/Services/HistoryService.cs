@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Text.Json;
+using Yoink.Models;
 
 namespace Yoink.Services;
 
@@ -79,10 +80,13 @@ public sealed class HistoryService
             }
             catch { _colorEntries = new(); }
         }
+
+        PruneByRetention(HistoryRetentionPeriod.Never);
     }
 
     public bool CompressHistory { get; set; }
     public int JpegQuality { get; set; } = 85;
+    public HistoryRetentionPeriod RetentionPeriod { get; set; } = HistoryRetentionPeriod.Never;
 
     public HistoryEntry SaveCapture(Bitmap screenshot)
     {
@@ -182,6 +186,32 @@ public sealed class HistoryService
             try { File.Delete(e.FilePath); } catch { }
         _entries.Clear();
         SaveIndex();
+    }
+
+    public void PruneByRetention(HistoryRetentionPeriod retention)
+    {
+        RetentionPeriod = retention;
+        var cutoff = retention switch
+        {
+            HistoryRetentionPeriod.OneDay => DateTime.Now.AddDays(-1),
+            HistoryRetentionPeriod.SevenDays => DateTime.Now.AddDays(-7),
+            HistoryRetentionPeriod.ThirtyDays => DateTime.Now.AddDays(-30),
+            HistoryRetentionPeriod.NinetyDays => DateTime.Now.AddDays(-90),
+            _ => DateTime.MinValue
+        };
+
+        if (retention == HistoryRetentionPeriod.Never) return;
+
+        foreach (var e in _entries.Where(e => e.CapturedAt < cutoff).ToList())
+        {
+            _entries.Remove(e);
+            try { File.Delete(e.FilePath); } catch { }
+        }
+        _ocrEntries.RemoveAll(e => e.CapturedAt < cutoff);
+        _colorEntries.RemoveAll(e => e.CapturedAt < cutoff);
+        SaveIndex();
+        SaveOcrIndex();
+        SaveColorIndex();
     }
 
     private void SaveIndex() =>

@@ -23,6 +23,16 @@ public sealed partial class RegionOverlayForm
             var pts = _freeformPoints.Select(p => new Point(p.X - minX, p.Y - minY)).ToArray();
             using var cp = new GraphicsPath(); cp.AddPolygon(pts); g.SetClip(cp);
             g.DrawImage(annotated, new Rectangle(0, 0, bb.Width, bb.Height), bb, GraphicsUnit.Pixel);
+            g.ResetClip();
+            using var pen = new Pen(Color.FromArgb(220, 255, 255, 255), 2f)
+            {
+                DashStyle = DashStyle.Dash,
+                DashPattern = new[] { 6f, 4f }
+            };
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.DrawLines(pen, pts);
+            if (pts.Length > 2)
+                g.DrawLine(pen, pts[^1], pts[0]);
         }
         annotated.Dispose();
         FreeformSelected?.Invoke(r);
@@ -33,7 +43,13 @@ public sealed partial class RegionOverlayForm
     /// </summary>
     public Bitmap RenderAnnotatedBitmap()
     {
-        var result = new Bitmap(_screenshot);
+        var result = new Bitmap(_bmpW, _bmpH, PixelFormat.Format32bppPArgb);
+        using (var copy = Graphics.FromImage(result))
+        {
+            copy.CompositingMode = CompositingMode.SourceCopy;
+            copy.DrawImageUnscaled(_screenshot, 0, 0);
+            copy.CompositingMode = CompositingMode.SourceOver;
+        }
         using var g = Graphics.FromImage(result);
         RenderAnnotationsTo(g);
         return result;
@@ -62,8 +78,17 @@ public sealed partial class RegionOverlayForm
                 case HighlightAnnotation h:
                     SketchRenderer.DrawHighlightRect(g, h.Rect, h.Color);
                     break;
+                case RectShapeAnnotation rs:
+                    SketchRenderer.DrawRectShape(g, rs.Rect, rs.Color);
+                    break;
+                case CircleShapeAnnotation cs:
+                    SketchRenderer.DrawCircleShape(g, cs.Rect, cs.Color);
+                    break;
                 case LineAnnotation ln:
                     SketchRenderer.DrawLine(g, ln.From, ln.To, _toolColor, ln.From.GetHashCode());
+                    break;
+                case RulerAnnotation ra:
+                    PaintRuler(g, ra.From, ra.To);
                     break;
                 case ArrowAnnotation a:
                     SketchRenderer.DrawArrow(g, a.From, a.To, _toolColor, a.From.GetHashCode());

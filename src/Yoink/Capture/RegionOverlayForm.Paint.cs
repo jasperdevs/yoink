@@ -11,37 +11,27 @@ namespace Yoink.Capture;
 
 public sealed partial class RegionOverlayForm
 {
-    // Cached base layer: screenshot + annotations. Only rebuilt when annotations change.
-    private Bitmap? _cachedBase;
-    private int _cachedAnnotationCount = -1;
-
-    private void EnsureCachedBase()
-    {
-        if (_cachedBase != null && _cachedAnnotationCount == _undoStack.Count) return;
-        _cachedBase?.Dispose();
-        _cachedBase = new Bitmap(_screenshot);
-        using var g = Graphics.FromImage(_cachedBase);
-        RenderAnnotationsTo(g);
-        _cachedAnnotationCount = _undoStack.Count;
-    }
-
     protected override void OnPaint(PaintEventArgs e)
     {
-        EnsureCachedBase();
         var g = e.Graphics;
         g.InterpolationMode = InterpolationMode.NearestNeighbor;
 
         g.PixelOffsetMode = PixelOffsetMode.None;
         g.SmoothingMode = SmoothingMode.None;
 
-        // Cached screenshot + annotations (fast blit)
+        // Direct screenshot blit
         var clip = e.ClipRectangle;
         g.CompositingMode = CompositingMode.SourceCopy;
-        g.DrawImage(_cachedBase!, clip, clip, GraphicsUnit.Pixel);
+        g.DrawImage(_screenshot, clip, clip, GraphicsUnit.Pixel);
         g.CompositingMode = CompositingMode.SourceOver;
 
+        // Draw committed annotations directly on top
+        RenderAnnotationsTo(g);
+
         bool isOcr = _mode == CaptureMode.Ocr;
-        bool isSelectionMode = _mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr;
+        bool isScan = _mode == CaptureMode.Scan;
+        bool isLens = _mode == CaptureMode.GoogleLens;
+        bool isSelectionMode = _mode == CaptureMode.Rectangle || _mode == CaptureMode.Ocr || _mode == CaptureMode.Scan || _mode == CaptureMode.GoogleLens;
 
         // Screen dim: dark outside selection, clear inside, light dim when no selection
         if (_hasSelection && isSelectionMode)
@@ -67,11 +57,7 @@ public sealed partial class RegionOverlayForm
         PaintAnnotations(g);
 
         if (_mode == CaptureMode.ColorPicker)
-        {
-            PaintToolbar(g);
-            if (_pickerReady) PaintMagnifier(g);
-            return;
-        }
+            return; // magnifier is its own layered window, overlay stays static
 
         // Auto-detect: show detected window border when hovering
         if (isSelectionMode && !_isSelecting && _autoDetectActive && _autoDetectRect.Width > 0)
@@ -94,6 +80,8 @@ public sealed partial class RegionOverlayForm
         {
             case CaptureMode.Rectangle when _hasSelection:
             case CaptureMode.Ocr when _hasSelection:
+            case CaptureMode.Scan when _hasSelection:
+            case CaptureMode.GoogleLens when _hasSelection:
                 // Subtle outer shadow
                 using (var shadowPen = new Pen(Color.FromArgb(40, 0, 0, 0), 4f))
                 {
@@ -106,19 +94,114 @@ public sealed partial class RegionOverlayForm
                 {
                     g.DrawRectangle(marchPen, _selectionRect);
                 }
-                DrawLabel(g, _selectionRect, isOcr);
+                DrawLabel(g, _selectionRect, isOcr, isScan, isLens);
                 _lastSelectionRect = _selectionRect;
                 break;
 
             case CaptureMode.Freeform when _freeformPoints.Count >= 2:
-                using (var pen = new Pen(Color.White, 2f))
+                var pts = _freeformPoints.ToArray();
+
+                // Find the most recent closed loop anywhere in the path.
+                // The old logic only checked "latest point near earlier point", which breaks
+                // if the user keeps drawing after closing a loop. We instead scan segment
+                // intersections across the whole stroke and use the latest valid one.
+                int loopStart = -1;
+                int loopEnd = -1;
+                if (pts.Length > 6)
                 {
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                    g.DrawLines(pen, _freeformPoints.ToArray());
-                    if (!_isSelecting && _freeformPoints.Count > 2)
-                        g.DrawLine(pen, _freeformPoints[^1], _freeformPoints[0]);
-                    g.SmoothingMode = SmoothingMode.Default;
+                    for (int i = 0; i < pts.Length - 3; i++)
+                    {
+                        var a1 = pts[i];
+                        var a2 = pts[i + 1];
+                        for (int j = i + 2; j < pts.Length - 1; j++)
+                        {
+                            // Skip adjacent segments that share endpoints
+                            if (j == i || j == i + 1) continue;
+                            var b1 = pts[j];
+                            var b2 = pts[j + 1];
+                            if (SegmentsIntersect(a1, a2, b1, b2))
+                            {
+                                loopStart = i + 1;
+                                loopEnd = j;
+                            }
+                        }
+                    }
+
+                    // Fallback: if the current tail returns near any earlier point, keep dimming
+                    // while the user continues drawing after a closed loop.
+                    if (loopStart < 0 && _isSelecting)
+                    {
+                        var last = pts[^1];
+                        for (int ci = 0; ci < pts.Length - 15; ci++)
+                        {
+                            if (Math.Abs(last.X - pts[ci].X) + Math.Abs(last.Y - pts[ci].Y) < 30)
+                            {
+                                loopStart = ci;
+                                loopEnd = pts.Length - 1;
+                            }
+                        }
+                    }
                 }
+
+                // Dim outside closed loop
+                bool hasClosed = loopStart >= 0 || !_isSelecting;
+                Point[]? closedLoopPts = null;
+                if (hasClosed && pts.Length > 2)
+                {
+                    int from = loopStart >= 0 ? loopStart : 0;
+                    int to = loopEnd >= from ? loopEnd + 1 : pts.Length;
+                    int count = to - from;
+                    if (count >= 3)
+                    {
+                        var loopPts = new Point[count];
+                        Array.Copy(pts, from, loopPts, 0, loopPts.Length);
+
+                        // Remove adjacent duplicates and collapse degenerate runs.
+                        loopPts = DeduplicateAdjacent(loopPts);
+
+                        // Guard against pathological loops (e.g. degenerate/near-collinear triangles)
+                        if (loopPts.Length >= 3 && PolygonArea(loopPts) >= 4f)
+                        {
+                            closedLoopPts = loopPts;
+                            try
+                            {
+                                using var path = new GraphicsPath();
+                                path.AddPolygon(loopPts);
+                                using var region = new Region(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
+                                region.Exclude(path);
+                                using var dimBrush = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+                                g.FillRegion(dimBrush, region);
+                            }
+                            catch (ArgumentException)
+                            {
+                                hasClosed = false;
+                                closedLoopPts = null;
+                            }
+                        }
+                        else
+                        {
+                            hasClosed = false;
+                        }
+                    }
+                    else
+                    {
+                        hasClosed = false;
+                    }
+                }
+
+                // Dashed border matching rectangle selection style
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (var shadowPen = new Pen(Color.FromArgb(30, 0, 0, 0), 4f))
+                    g.DrawLines(shadowPen, pts);
+                using (var pen = DashedPen(220))
+                {
+                    g.DrawLines(pen, pts);
+                    if (hasClosed && closedLoopPts is { Length: >= 3 })
+                    {
+                        g.DrawLine(pen, closedLoopPts[^1], closedLoopPts[0]);
+                    }
+                }
+                g.SmoothingMode = SmoothingMode.Default;
                 break;
         }
 
@@ -128,7 +211,9 @@ public sealed partial class RegionOverlayForm
         // Crosshair guidelines
         if (ShowCrosshairGuides && _mode != CaptureMode.ColorPicker)
         {
-            var cur = PointToClient(System.Windows.Forms.Cursor.Position);
+            var cur = _lastCursorPos == Point.Empty
+                ? PointToClient(System.Windows.Forms.Cursor.Position)
+                : _lastCursorPos;
             // Soft shadow for visibility on light backgrounds
             using var chShadow = new Pen(Color.FromArgb(20, 0, 0, 0), 3f);
             g.DrawLine(chShadow, cur.X + 1, 0, cur.X + 1, ClientSize.Height);
@@ -137,8 +222,6 @@ public sealed partial class RegionOverlayForm
             g.DrawLine(chPen, cur.X, 0, cur.X, ClientSize.Height);
             g.DrawLine(chPen, 0, cur.Y, ClientSize.Width, cur.Y);
         }
-
-        PaintToolbar(g);
 
         g.SmoothingMode = SmoothingMode.Default;
     }
@@ -149,6 +232,69 @@ public sealed partial class RegionOverlayForm
         DashStyle = DashStyle.Dash,
         DashPattern = new[] { 6f, 4f }
     };
+
+    private static bool SegmentsIntersect(Point p1, Point p2, Point q1, Point q2)
+    {
+        static long Cross(Point a, Point b, Point c)
+            => (long)(b.X - a.X) * (c.Y - a.Y) - (long)(b.Y - a.Y) * (c.X - a.X);
+
+        static bool OnSegment(Point a, Point b, Point p)
+            => Math.Min(a.X, b.X) <= p.X && p.X <= Math.Max(a.X, b.X)
+            && Math.Min(a.Y, b.Y) <= p.Y && p.Y <= Math.Max(a.Y, b.Y);
+
+        long d1 = Cross(p1, p2, q1);
+        long d2 = Cross(p1, p2, q2);
+        long d3 = Cross(q1, q2, p1);
+        long d4 = Cross(q1, q2, p2);
+
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+            ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)))
+            return true;
+
+        if (d1 == 0 && OnSegment(p1, p2, q1)) return true;
+        if (d2 == 0 && OnSegment(p1, p2, q2)) return true;
+        if (d3 == 0 && OnSegment(q1, q2, p1)) return true;
+        if (d4 == 0 && OnSegment(q1, q2, p2)) return true;
+
+        return false;
+    }
+
+    private static float PolygonArea(Point[] pts)
+    {
+        if (pts.Length < 3) return 0f;
+        long sum = 0;
+        for (int i = 0; i < pts.Length; i++)
+        {
+            var a = pts[i];
+            var b = pts[(i + 1) % pts.Length];
+            sum += (long)a.X * b.Y - (long)b.X * a.Y;
+        }
+        return Math.Abs(sum) * 0.5f;
+    }
+
+    private static Point[] DeduplicateAdjacent(Point[] pts)
+    {
+        if (pts.Length <= 1) return pts;
+        var list = new List<Point>(pts.Length) { pts[0] };
+        for (int i = 1; i < pts.Length; i++)
+        {
+            if (pts[i] != list[^1])
+                list.Add(pts[i]);
+        }
+        if (list.Count > 1 && list[0] == list[^1])
+            list.RemoveAt(list.Count - 1);
+        return list.ToArray();
+    }
+
+    private static void PaintShadow(Graphics g, RectangleF rect, float radius, int alpha = 52, float yOffset = 1f)
+    {
+        var shadowRect = rect;
+        shadowRect.Inflate(2f, 2f);
+        shadowRect.Offset(0, yOffset);
+        using var path = RRect(shadowRect, radius + 2f);
+        using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
+        g.FillPath(brush, path);
+    }
 
     // Annotations are now rendered into the cached base bitmap.
     // This method is kept for the active-tool previews (live drawing).
@@ -182,10 +328,27 @@ public sealed partial class RegionOverlayForm
             if (pr.Width > 1 && pr.Height > 1)
                 SketchRenderer.DrawHighlightRect(g, pr, DefaultHighlightColor);
         }
+        if (_mode == CaptureMode.RectShape && _isRectShapeDragging)
+        {
+            var pr = GetShapeRect(PointToClient(System.Windows.Forms.Cursor.Position));
+            if (pr.Width > 1 && pr.Height > 1)
+                SketchRenderer.DrawRectShape(g, pr, _toolColor);
+        }
+        if (_mode == CaptureMode.CircleShape && _isCircleShapeDragging)
+        {
+            var pr = GetShapeRect(PointToClient(System.Windows.Forms.Cursor.Position));
+            if (pr.Width > 1 && pr.Height > 1)
+                SketchRenderer.DrawCircleShape(g, pr, _toolColor);
+        }
         if (_mode == CaptureMode.Line && _isLineDragging)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
             SketchRenderer.DrawLine(g, _lineStart, cur, _toolColor, _lineStart.GetHashCode());
+        }
+        if (_mode == CaptureMode.Ruler && _isRulerDragging)
+        {
+            var cur = GetRulerEnd(PointToClient(System.Windows.Forms.Cursor.Position));
+            PaintRuler(g, _rulerStart, cur);
         }
         if (_mode == CaptureMode.Arrow && _isArrowDragging)
         {
@@ -257,17 +420,7 @@ public sealed partial class RegionOverlayForm
                 _selectedEmoji, _emojiPlaceSize, 0.6f);
         }
 
-        // Color picker popup
-        if (_colorPickerOpen)
-            PaintColorPicker(g);
-
-        // Emoji picker popup
-        if (_emojiPickerOpen)
-            PaintEmojiPicker(g);
-
-        // Font picker popup
-        if (_fontPickerOpen)
-            PaintFontPicker(g);
+        // Color/emoji/font picker popups are painted on the separate ToolbarForm
     }
 
     /// <summary>Excalidraw-style text: clean font, soft shadow, subtle stroke outline.</summary>
@@ -393,6 +546,7 @@ public sealed partial class RegionOverlayForm
         _fontPickerRect = new Rectangle(px, py, pw, ph);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        PaintShadow(g, _fontPickerRect, 10f, 58, 1f);
         using (var bgPath = RRect(_fontPickerRect, 10))
         {
             using var bg = new SolidBrush(Color.FromArgb(235, 18, 18, 18));
@@ -482,6 +636,7 @@ public sealed partial class RegionOverlayForm
         _emojiPickerRect = new Rectangle(px, py, pw, ph);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        PaintShadow(g, _emojiPickerRect, 12f, 58, 1f);
         using (var bgPath = RRect(_emojiPickerRect, 12))
         {
             using var bg = new SolidBrush(Color.FromArgb(230, 32, 32, 32));
@@ -578,6 +733,7 @@ public sealed partial class RegionOverlayForm
         _colorPickerRect = new Rectangle(px, py, pw, ph);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        PaintShadow(g, _colorPickerRect, 8f, 58, 1f);
         using (var bgPath = RRect(_colorPickerRect, 8))
         {
             using var bg = new SolidBrush(Color.FromArgb(220, 20, 20, 20));
@@ -604,19 +760,29 @@ public sealed partial class RegionOverlayForm
 
     private void PaintToolbar(Graphics g)
     {
-        float t = 1f - MathF.Pow(1f - _toolbarAnim, 3f);
-        int oy = (int)((1f - t) * -30);
-
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y + oy,
+        var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y,
             _toolbarRect.Width, _toolbarRect.Height);
 
-        using (var p = RRect(r, 22))
+        // Pill background -- solid dark, barely-visible border like Windows Snipping Tool
+        PaintShadow(g, r, ToolbarHeight / 2f, 58, 1f);
+        using (var p = RRect(r, ToolbarHeight / 2))
         {
-            using var baseFill = new SolidBrush(Color.FromArgb((int)(t * 240), 28, 28, 28));
+            using var baseFill = new SolidBrush(Color.FromArgb(255, 32, 32, 32));
             g.FillPath(baseFill, p);
-            using var bp = new Pen(Color.FromArgb((int)(t * 25), 255, 255, 255), 1f);
+            using var bp = new Pen(Color.FromArgb(18, 255, 255, 255), 1f);
             g.DrawPath(bp, p);
+        }
+
+        // Separator lines at group boundaries
+        int sepY1 = r.Y + 12;
+        int sepY2 = r.Bottom - 12;
+        foreach (int idx in _sepAfter)
+        {
+            if (idx < 0 || idx >= _toolbarButtons.Length - 1) continue;
+            int sx = _toolbarButtons[idx].Right + (ButtonSpacing + GroupGap) / 2;
+            using var sepPen = new Pen(Color.FromArgb(32, 255, 255, 255), 1f);
+            g.DrawLine(sepPen, sx, sepY1, sx, sepY2);
         }
 
         // Build dynamic arrays from visible tools + fixed buttons
@@ -636,66 +802,96 @@ public sealed partial class RegionOverlayForm
 
         for (int i = 0; i < BtnCount; i++)
         {
-            var btn = new Rectangle(_toolbarButtons[i].X, _toolbarButtons[i].Y + oy,
-                ButtonSize, ButtonSize);
+            var btn = _toolbarButtons[i];
             bool active = modes[i] is { } m && _mode == m;
             bool hover = _hoveredButton == i;
 
-            // Color dot button: draw filled circle with current tool color
+            // Color dot button
             if (icons[i] == "color")
             {
+                if (hover)
+                    g.FillEllipse(new SolidBrush(Color.FromArgb(18, 255, 255, 255)),
+                        btn.X, btn.Y, btn.Width, btn.Height);
                 int dotSize = 16;
                 int dx = btn.X + (btn.Width - dotSize) / 2;
                 int dy = btn.Y + (btn.Height - dotSize) / 2;
-                using var cBrush = new SolidBrush(Color.FromArgb((int)(t * 255), _toolColor.R, _toolColor.G, _toolColor.B));
+                using var cBrush = new SolidBrush(_toolColor);
                 g.FillEllipse(cBrush, dx, dy, dotSize, dotSize);
-                if (hover)
-                {
-                    using var cPen = new Pen(Color.FromArgb((int)(t * 120), 255, 255, 255), 1.5f);
-                    g.DrawEllipse(cPen, dx, dy, dotSize, dotSize);
-                }
                 continue;
             }
 
-            if (active)
-            {
-                using var p = RRect(btn, 7);
-                using var bfill = new SolidBrush(Color.FromArgb((int)(t * 50), 255, 255, 255));
-                g.FillPath(bfill, p);
-            }
-            else if (hover)
-            {
-                using var p = RRect(btn, 7);
-                using var bfill = new SolidBrush(Color.FromArgb((int)(t * 25), 255, 255, 255));
-                g.FillPath(bfill, p);
-            }
-            int ia = (int)(t * (active ? 255 : hover ? 230 : i >= BtnCount - 2 ? 160 : 200));
+            // Hover: pill-shaped highlight matching the dock radius
+            if (hover)
+                g.FillEllipse(new SolidBrush(Color.FromArgb(18, 255, 255, 255)),
+                    btn.X, btn.Y, btn.Width, btn.Height);
+
+            // Active = full white icon, default = dimmed, hover = mid
+            int ia = active ? 255 : hover ? 220 : i >= BtnCount - 2 ? 130 : 160;
             DrawIcon(g, icons[i], btn, Color.FromArgb(ia, 255, 255, 255));
         }
 
-        if (_hoveredButton >= 0 && _hoveredButton < labels.Length && t > 0.5f)
+        // Tooltip
+        if (_hoveredButton >= 0 && _hoveredButton < labels.Length)
         {
             string label = labels[_hoveredButton];
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            using var tipFont = new Font("Segoe UI", 9f, FontStyle.Regular);
+            using var tipFont = new Font("Segoe UI Semibold", 8.25f, FontStyle.Regular);
             var sz = g.MeasureString(label, tipFont);
             var btnRect = _toolbarButtons[_hoveredButton];
             float tx = btnRect.X + btnRect.Width / 2f - sz.Width / 2f;
-            float ty = r.Bottom + 8 + oy;
-            var tipRect = new RectangleF(tx - 8, ty - 3, sz.Width + 16, sz.Height + 6);
-            using (var tipPath = RRect(tipRect, 8))
+            float ty = r.Bottom + 6;
+            var tipRect = new RectangleF(tx - 10, ty - 4, sz.Width + 20, sz.Height + 8);
+            PaintShadow(g, tipRect, tipRect.Height / 2f, 52, 1f);
+            using (var tipPath = RRect(tipRect, tipRect.Height / 2f))
             {
-                using var tipBg = new SolidBrush(Color.FromArgb((int)(t * 230), 32, 32, 32));
+                using var tipBg = new SolidBrush(Color.FromArgb(240, 24, 24, 24));
                 g.FillPath(tipBg, tipPath);
-                using var tipBorder = new Pen(Color.FromArgb((int)(t * 35), 255, 255, 255), 1f);
+                using var tipBorder = new Pen(Color.FromArgb(28, 255, 255, 255), 1f);
                 g.DrawPath(tipBorder, tipPath);
             }
-            using var tipBrush = new SolidBrush(Color.FromArgb((int)(t * 220), 255, 255, 255));
+            using var tipBrush = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
             g.DrawString(label, tipFont, tipBrush, tx, ty);
             g.TextRenderingHint = TextRenderingHint.SystemDefault;
         }
 
+        if (_showToolNumberBadges && _hoveredButton >= 0)
+        {
+            // Annotation tool hotkey badges: Ruler through Emoji
+            int badgeIndex = 1;
+            for (int i = 0; i < toolCount; i++)
+            {
+                var mode = modes[i];
+                if (mode is null) continue;
+                if (!IsAnnotationNumberBadgeMode(mode.Value)) continue;
+
+                var btn = _toolbarButtons[i];
+                var badgeRect = new RectangleF(btn.Right - 9, btn.Bottom - 9, 12, 12);
+                using var badgeBg = new SolidBrush(Color.FromArgb(235, 24, 24, 24));
+                using var badgeBorder = new Pen(Color.FromArgb(30, 255, 255, 255), 1f);
+                using var badgeText = new SolidBrush(Color.FromArgb(185, 255, 255, 255));
+                using var badgeFont = new Font("Segoe UI", 6.5f, FontStyle.Bold);
+                g.FillEllipse(badgeBg, badgeRect);
+                g.DrawEllipse(badgeBorder, badgeRect);
+                g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                g.DrawString(badgeIndex.ToString(), badgeFont, badgeText, badgeRect, _iconFmt);
+                g.TextRenderingHint = TextRenderingHint.SystemDefault;
+                badgeIndex++;
+            }
+        }
+
         g.SmoothingMode = SmoothingMode.Default;
+    }
+
+    /// <summary>
+    /// Called by the separate ToolbarForm to paint toolbar, tooltips, and popups.
+    /// Graphics is already translated so overlay coordinates map correctly.
+    /// </summary>
+    public void PaintToolbarTo(Graphics g, Rectangle clip, Point unused)
+    {
+        PaintToolbar(g);
+        if (_colorPickerOpen) PaintColorPicker(g);
+        if (_emojiPickerOpen) PaintEmojiPicker(g);
+        if (_fontPickerOpen) PaintFontPicker(g);
     }
 
     // PaintTopFade removed - always-on dim provides sufficient contrast for toolbar
@@ -724,6 +920,13 @@ public sealed partial class RegionOverlayForm
         return _phosphorFamily;
     }
 
+    private static readonly StringFormat _iconFmt = new(StringFormat.GenericTypographic)
+    {
+        Alignment = StringAlignment.Center,
+        LineAlignment = StringAlignment.Center,
+        FormatFlags = StringFormatFlags.NoClip
+    };
+
     private static void DrawIcon(Graphics g, string icon, Rectangle b, Color c)
     {
         if (icon == "color") return;
@@ -740,17 +943,18 @@ public sealed partial class RegionOverlayForm
         using var font = new Font(GetPhosphorFamily(), 14f, FontStyle.Regular, GraphicsUnit.Point);
         using var brush = new SolidBrush(c);
 
-        string text = glyph.ToString();
-        var sz = g.MeasureString(text, font);
-        float x = b.X + (b.Width - sz.Width) / 2f;
-        float y = b.Y + (b.Height - sz.Height) / 2f;
-        g.DrawString(text, font, brush, x, y);
+        // Use GenericTypographic + center alignment for pixel-accurate centering
+        var rect = new RectangleF(b.X, b.Y, b.Width, b.Height);
+        g.DrawString(glyph.ToString(), font, brush, rect, _iconFmt);
         g.TextRenderingHint = TextRenderingHint.SystemDefault;
     }
 
-    private void DrawLabel(Graphics g, Rectangle rect, bool isOcr)
+    private void DrawLabel(Graphics g, Rectangle rect, bool isOcr, bool isScan = false, bool isLens = false)
     {
-        string text = isOcr ? $"OCR  {rect.Width} x {rect.Height}" : $"{rect.Width} x {rect.Height}";
+        string text = isOcr ? $"OCR  {rect.Width} x {rect.Height}"
+            : isScan ? $"SCAN  {rect.Width} x {rect.Height}"
+            : isLens ? $"LENS  {rect.Width} x {rect.Height}"
+            : $"{rect.Width} x {rect.Height}";
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         using var font = new Font("Segoe UI", 10f);
         var sz = g.MeasureString(text, font);
@@ -769,6 +973,40 @@ public sealed partial class RegionOverlayForm
         using var fg = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
         g.DrawString(text, font, fg, lx, ly);
         g.TextRenderingHint = TextRenderingHint.SystemDefault;
+    }
+
+    private void PaintRuler(Graphics g, Point from, Point to)
+    {
+        float dx = to.X - from.X;
+        float dy = to.Y - from.Y;
+        float dist = MathF.Sqrt(dx * dx + dy * dy);
+        float angle = MathF.Atan2(dy, dx) * 180f / MathF.PI;
+
+        using var shadowPen = new Pen(Color.FromArgb(45, 0, 0, 0), 4f)
+        { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        using var pen = new Pen(Color.FromArgb(235, 255, 255, 255), 2f)
+        { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.DrawLine(shadowPen, from.X + 1, from.Y + 1, to.X + 1, to.Y + 1);
+        g.DrawLine(pen, from, to);
+        using var dotBrush = new SolidBrush(Color.White);
+        g.FillEllipse(dotBrush, from.X - 3, from.Y - 3, 6, 6);
+        g.FillEllipse(dotBrush, to.X - 3, to.Y - 3, 6, 6);
+
+        string text = $"{(int)dist}px   {Math.Abs(dx):0}px x {Math.Abs(dy):0}px   {angle:0.#} deg";
+        using var font = new Font("Segoe UI", 10f, FontStyle.Regular);
+        var sz = g.MeasureString(text, font);
+        var mid = new PointF((from.X + to.X) / 2f, (from.Y + to.Y) / 2f);
+        var label = new RectangleF(mid.X - sz.Width / 2f - 8, mid.Y - sz.Height - 16, sz.Width + 16, sz.Height + 8);
+        PaintShadow(g, label, 8f, 48, 1f);
+        using var path = RRect(label, 8f);
+        using var bg = new SolidBrush(Color.FromArgb(235, 32, 32, 32));
+        using var border = new Pen(Color.FromArgb(28, 255, 255, 255), 1f);
+        using var fg = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
+        g.FillPath(bg, path);
+        g.DrawPath(border, path);
+        g.DrawString(text, font, fg, label.X + 8, label.Y + 4);
+        g.SmoothingMode = SmoothingMode.Default;
     }
 
     private void PaintBlurRect(Graphics g, Rectangle rect)

@@ -228,6 +228,27 @@ public static class SketchRenderer
         g.SmoothingMode = SmoothingMode.Default;
     }
 
+    public static void DrawRectShape(Graphics g, Rectangle rect, Color color)
+    {
+        if (rect.Width < 1 || rect.Height < 1) return;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var path = RoundedRect(rect, 3);
+        DrawSoftPathShadow(g, path);
+        using var pen = new Pen(color, 2.2f) { LineJoin = LineJoin.Round };
+        g.DrawPath(pen, path);
+        g.SmoothingMode = SmoothingMode.Default;
+    }
+
+    public static void DrawCircleShape(Graphics g, Rectangle rect, Color color)
+    {
+        if (rect.Width < 1 || rect.Height < 1) return;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        DrawSoftEllipseShadow(g, rect.X, rect.Y, rect.Width, rect.Height);
+        using var pen = new Pen(color, 2.2f) { LineJoin = LineJoin.Round };
+        g.DrawEllipse(pen, rect);
+        g.SmoothingMode = SmoothingMode.Default;
+    }
+
     // ─── Variable-width stroke outline (perfect-freehand style) ────
 
     public static PointF[] GetStrokeOutline(List<PointF> input, float size,

@@ -94,51 +94,30 @@ public partial class PreviewWindow : Window
         ImageBorder.Width = fitW;
         ImageBorder.Height = fitH;
         ImageClip.Rect = new System.Windows.Rect(0, 0, fitW, fitH);
-        ImageBorder.Background = new ImageBrush(BuildBlurredPreviewImage())
-        {
-            Stretch = Stretch.UniformToFill,
-            Opacity = 0.9
-        };
-    }
-
-    private ImageSource BuildBlurredPreviewImage()
-    {
-        using var small = new Bitmap(Math.Max(2, _screenshot.Width / 24), Math.Max(2, _screenshot.Height / 24), System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(small))
-        {
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
-            g.DrawImage(_screenshot, new Rectangle(0, 0, small.Width, small.Height));
-        }
-        using var up = new Bitmap(_screenshot.Width, _screenshot.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(up))
-        {
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
-            g.DrawImage(small, new Rectangle(0, 0, up.Width, up.Height));
-        }
-        using var ms = new MemoryStream();
-        up.Save(ms, ImageFormat.Png);
-        ms.Position = 0;
-        var bmp = new BitmapImage();
-        bmp.BeginInit();
-        bmp.StreamSource = ms;
-        bmp.CacheOption = BitmapCacheOption.OnLoad;
-        bmp.EndInit();
-        bmp.Freeze();
-        return bmp;
     }
 
     private void SetThumbnail()
     {
-        using var ms = new MemoryStream();
-        _screenshot.Save(ms, ImageFormat.Png);
-        ms.Position = 0;
-        var bmp = new BitmapImage();
-        bmp.BeginInit();
-        bmp.StreamSource = ms;
-        bmp.CacheOption = BitmapCacheOption.OnLoad;
-        bmp.EndInit();
-        bmp.Freeze();
-        ThumbnailImage.Source = bmp;
+        ThumbnailImage.Source = BitmapToSource(_screenshot);
+    }
+
+    private static BitmapSource BitmapToSource(Bitmap bitmap)
+    {
+        var hBitmap = bitmap.GetHbitmap();
+        try
+        {
+            var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                hBitmap,
+                IntPtr.Zero,
+                Int32Rect.Empty,
+                BitmapSizeOptions.FromEmptyOptions());
+            source.Freeze();
+            return source;
+        }
+        finally
+        {
+            Native.User32.DeleteObject(hBitmap);
+        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
