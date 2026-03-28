@@ -277,6 +277,7 @@ public sealed partial class RegionOverlayForm
             needsRepaint = true;
             crosshairOnly = true;
         }
+        _prevCursorPos = _lastCursorPos;
         _lastCursorPos = e.Location;
 
         switch (_mode)
@@ -379,6 +380,11 @@ public sealed partial class RegionOverlayForm
         {
             if (crosshairOnly && _lastCursorPos != Point.Empty)
             {
+                if (_prevCursorPos != Point.Empty && _prevCursorPos != _lastCursorPos)
+                {
+                    Invalidate(new Rectangle(_prevCursorPos.X - 3, 0, 7, ClientSize.Height));
+                    Invalidate(new Rectangle(0, _prevCursorPos.Y - 3, ClientSize.Width, 7));
+                }
                 Invalidate(new Rectangle(_lastCursorPos.X - 3, 0, 7, ClientSize.Height));
                 Invalidate(new Rectangle(0, _lastCursorPos.Y - 3, ClientSize.Width, 7));
             }
@@ -486,6 +492,12 @@ public sealed partial class RegionOverlayForm
     {
         base.OnMouseLeave(e);
         _hoveredButton = -1;
+        if (_lastCursorPos != Point.Empty)
+        {
+            Invalidate(new Rectangle(_lastCursorPos.X - 3, 0, 7, ClientSize.Height));
+            Invalidate(new Rectangle(0, _lastCursorPos.Y - 3, ClientSize.Width, 7));
+        }
+        _prevCursorPos = _lastCursorPos;
         _lastCursorPos = Point.Empty;
         _lastAutoDetectRect = Rectangle.Empty;
         _autoDetectRect = Rectangle.Empty;
@@ -498,11 +510,21 @@ public sealed partial class RegionOverlayForm
     {
         if (keyData == Keys.Escape)
         {
-            if (_emojiPickerOpen) { _emojiPickerOpen = false; Invalidate(); return true; }
-            if (_fontPickerOpen) { _fontPickerOpen = false; Invalidate(); return true; }
-            if (_colorPickerOpen) { _colorPickerOpen = false; Invalidate(); return true; }
-            if (_isPlacingEmoji) { _isPlacingEmoji = false; _selectedEmoji = null; Invalidate(); return true; }
-            if (_isTyping) { _isTyping = false; _textBuffer = ""; Invalidate(); return true; }
+            bool anyClosed = false;
+            if (_emojiPickerOpen) { _emojiPickerOpen = false; anyClosed = true; }
+            if (_fontPickerOpen) { _fontPickerOpen = false; anyClosed = true; }
+            if (_colorPickerOpen) { _colorPickerOpen = false; anyClosed = true; }
+            if (_isPlacingEmoji) { _isPlacingEmoji = false; _selectedEmoji = null; anyClosed = true; }
+            if (_isTyping)
+            {
+                if (_textBuffer.Length > 0)
+                    _undoStack.Add(new TextAnnotation(_textPos, _textBuffer, _textFontSize, _toolColor, _textBold, _textFontFamily));
+                _isTyping = false;
+                _textBuffer = "";
+                _fontPickerOpen = false;
+                anyClosed = true;
+            }
+            if (anyClosed) { Invalidate(); return true; }
             if (_mode != CaptureMode.Rectangle && _mode != CaptureMode.Freeform
                 && _mode != CaptureMode.Ocr)
             { SetMode(CaptureMode.Rectangle); return true; }
@@ -514,15 +536,18 @@ public sealed partial class RegionOverlayForm
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (_emojiPickerOpen) e.SuppressKeyPress = true;
-
-
-        // Emoji picker search input
+        // Emoji picker search input - handle backspace only, let printable chars go to OnKeyPress
         if (_emojiPickerOpen)
         {
             if (e.KeyCode == Keys.Back && _emojiSearch.Length > 0)
             {
                 _emojiSearch = _emojiSearch[..^1]; _emojiScrollOffset = 0; Invalidate();
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+            }
+            else
+            {
+                e.Handled = true; // Mark as handled but don't suppress KeyPress for printable chars
             }
             return;
         }
@@ -757,6 +782,7 @@ public sealed partial class RegionOverlayForm
             _selectedEmoji = filtered[idx].emoji;
             _isPlacingEmoji = true;
             _emojiPickerOpen = false;
+            _fontPickerOpen = false;
             Invalidate();
             return true;
         }

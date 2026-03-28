@@ -38,6 +38,7 @@ public sealed partial class RegionOverlayForm : Form
 
     private float _toolbarAnim;
     private Point _lastCursorPos;
+    private Point _prevCursorPos; // crosshair ghosting fix
     private Rectangle _lastSelectionRect;
     private Rectangle _lastAutoDetectRect;
     private readonly System.Windows.Forms.Timer _animTimer;
