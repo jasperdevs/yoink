@@ -75,9 +75,34 @@ public sealed partial class RegionOverlayForm
             return;
         }
 
-        // If typing text: check if clicking a resize handle first
+        // If typing text: check toolbar buttons, resize handles, drag, or commit
         if (_isTyping)
         {
+            // Text formatting toolbar buttons
+            if (_textBoldBtnRect.Contains(e.Location))
+            {
+                _textBold = !_textBold;
+                Invalidate();
+                return;
+            }
+            if (_textItalicBtnRect.Contains(e.Location))
+            {
+                _textItalic = !_textItalic;
+                Invalidate();
+                return;
+            }
+            if (_textFontBtnRect.Contains(e.Location))
+            {
+                _fontPickerOpen = !_fontPickerOpen;
+                _fontPickerScroll = 0; _fontSearch = ""; _filteredFonts = null;
+                Invalidate();
+                RefreshToolbar();
+                return;
+            }
+            // Absorb click on the toolbar background
+            if (_textToolbarRect.Contains(e.Location))
+                return;
+
             int handle = GetTextHandle(e.Location);
             if (handle >= 0)
             {
@@ -113,6 +138,7 @@ public sealed partial class RegionOverlayForm
                 _textFontSize = ta.FontSize;
                 _toolColor = ta.Color;
                 _textBold = ta.Bold;
+                _textItalic = ta.Italic;
                 _textFontFamily = ta.FontFamily;
                 Invalidate();
                 return;
@@ -225,6 +251,7 @@ public sealed partial class RegionOverlayForm
             _textFontSize = ta.FontSize;
             _toolColor = ta.Color;
             _textBold = ta.Bold;
+            _textItalic = ta.Italic;
             _textFontFamily = ta.FontFamily;
             Invalidate();
         }
@@ -604,14 +631,6 @@ public sealed partial class RegionOverlayForm
             {
                 _textBuffer = _textBuffer[..^1]; Invalidate(); return;
             }
-            if (e.KeyCode == Keys.B && e.Control)
-            {
-                _textBold = !_textBold; Invalidate(); return;
-            }
-            if (e.KeyCode == Keys.F && e.Control)
-            {
-                _fontPickerOpen = !_fontPickerOpen; _fontPickerScroll = 0; _fontSearch = ""; _filteredFonts = null; Invalidate(); return;
-            }
             return;
         }
         if (TryHandleAnnotationToolNumber(e.KeyCode))
@@ -667,7 +686,7 @@ public sealed partial class RegionOverlayForm
     private void CommitText()
     {
         if (_isTyping && _textBuffer.Length > 0)
-            _undoStack.Add(new TextAnnotation(_textPos, _textBuffer, _textFontSize, _toolColor, _textBold, _textFontFamily));
+            _undoStack.Add(new TextAnnotation(_textPos, _textBuffer, _textFontSize, _toolColor, _textBold, _textItalic, _textFontFamily));
         _isTyping = false;
         _textBuffer = "";
         _fontPickerOpen = false;

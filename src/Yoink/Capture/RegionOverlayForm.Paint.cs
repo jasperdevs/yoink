@@ -365,10 +365,11 @@ public sealed partial class RegionOverlayForm
         // Active text input with selection box
         if (_isTyping)
         {
-            var fontStyle = _textBold ? FontStyle.Bold : FontStyle.Regular;
+            var fontStyle = FontStyle.Regular;
+            if (_textBold) fontStyle |= FontStyle.Bold;
+            if (_textItalic) fontStyle |= FontStyle.Italic;
             using var font = new Font(_textFontFamily, _textFontSize, fontStyle);
             string display = _textBuffer.Length > 0 ? _textBuffer : "Type here...";
-            string boldIndicator = _textBold ? "B" : "b";
             var textSize = g.MeasureString(display, font);
 
             // Dashed selection border
@@ -403,11 +404,8 @@ public sealed partial class RegionOverlayForm
                 g.DrawLine(cursorPen, cursorX, _textPos.Y + 2, cursorX, _textPos.Y + textSize.Height - 4);
             }
 
-            // Font info + font picker button
-            using var sizeFont = new Font("Segoe UI", 8f);
-            using var sizeBrush = new SolidBrush(Color.FromArgb(120, 255, 255, 255));
-            string fontInfo = $"{_textFontFamily}  {(int)_textFontSize}px {boldIndicator}  Ctrl+B  Ctrl+F=Font";
-            g.DrawString(fontInfo, sizeFont, sizeBrush, textRect.Right + 4, textRect.Y);
+            // Inline text formatting toolbar above text
+            PaintTextToolbar(g, textRect);
         }
 
         // Emoji placing preview (follow cursor)
@@ -422,12 +420,14 @@ public sealed partial class RegionOverlayForm
     }
 
     /// <summary>Excalidraw-style text: clean font, soft shadow, subtle stroke outline.</summary>
-    private static void PaintExcalidrawText(Graphics g, Point pos, string text, float fontSize, Color color, bool bold = true, string fontFamily = "Segoe UI")
+    private static void PaintExcalidrawText(Graphics g, Point pos, string text, float fontSize, Color color, bool bold = true, bool italic = false, string fontFamily = "Segoe UI")
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-        var style = bold ? FontStyle.Bold : FontStyle.Regular;
+        var style = FontStyle.Regular;
+        if (bold) style |= FontStyle.Bold;
+        if (italic) style |= FontStyle.Italic;
         using var font = new Font(fontFamily, fontSize, style);
 
         // Build text path for shadow + fill
@@ -1010,6 +1010,86 @@ public sealed partial class RegionOverlayForm
         using var fg = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
         g.DrawString(text, font, fg, lx, ly);
         g.TextRenderingHint = TextRenderingHint.SystemDefault;
+    }
+
+    private void PaintTextToolbar(Graphics g, RectangleF textRect)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+
+        float btnH = 26, btnPad = 3, pad = 5;
+
+        // Measure font name for button width
+        using var uiFont = new Font("Segoe UI", 9f);
+        using var uiFontBold = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        using var uiFontItalic = new Font("Segoe UI", 9.5f, FontStyle.Italic);
+
+        // Truncate font name if too long
+        string fontLabel = _textFontFamily.Length > 16 ? _textFontFamily[..15] + "..." : _textFontFamily;
+        var fontLabelSize = g.MeasureString(fontLabel, uiFont);
+
+        float boldW = 26, italicW = 26;
+        float fontW = fontLabelSize.Width + 18;
+        float sepW = 8;
+        float totalW = boldW + btnPad + italicW + sepW + fontW + pad * 2;
+        float totalH = btnH + pad * 2;
+
+        // Position above text rect, centered
+        float tx = textRect.X;
+        float ty = textRect.Y - totalH - 6;
+        if (ty < 4) ty = textRect.Bottom + 6; // flip below if no room
+
+        _textToolbarRect = new RectangleF(tx, ty, totalW, totalH);
+
+        // Background pill
+        PaintShadow(g, _textToolbarRect, 8f, 48, 1f);
+        using (var bgPath = RRect(_textToolbarRect, 8))
+        {
+            using var bg = new SolidBrush(Color.FromArgb(245, 28, 28, 28));
+            g.FillPath(bg, bgPath);
+            using var border = new Pen(Color.FromArgb(25, 255, 255, 255), 1f);
+            g.DrawPath(border, bgPath);
+        }
+
+        float cx = tx + pad;
+        float cy = ty + pad;
+
+        // Bold button
+        _textBoldBtnRect = new RectangleF(cx, cy, boldW, btnH);
+        using (var btnPath = RRect(_textBoldBtnRect, 5))
+        {
+            using var btnBg = new SolidBrush(_textBold ? Color.FromArgb(50, 255, 255, 255) : Color.FromArgb(12, 255, 255, 255));
+            g.FillPath(btnBg, btnPath);
+        }
+        using var boldBrush = new SolidBrush(Color.FromArgb(_textBold ? 255 : 140, 255, 255, 255));
+        g.DrawString("B", uiFontBold, boldBrush, _textBoldBtnRect, _iconFmt);
+
+        cx += boldW + btnPad;
+
+        // Italic button
+        _textItalicBtnRect = new RectangleF(cx, cy, italicW, btnH);
+        using (var btnPath = RRect(_textItalicBtnRect, 5))
+        {
+            using var btnBg = new SolidBrush(_textItalic ? Color.FromArgb(50, 255, 255, 255) : Color.FromArgb(12, 255, 255, 255));
+            g.FillPath(btnBg, btnPath);
+        }
+        using var italicBrush = new SolidBrush(Color.FromArgb(_textItalic ? 255 : 140, 255, 255, 255));
+        g.DrawString("I", uiFontItalic, italicBrush, _textItalicBtnRect, _iconFmt);
+
+        cx += italicW + sepW;
+
+        // Font selector button
+        _textFontBtnRect = new RectangleF(cx, cy, fontW, btnH);
+        using (var btnPath = RRect(_textFontBtnRect, 5))
+        {
+            using var btnBg = new SolidBrush(_fontPickerOpen ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(12, 255, 255, 255));
+            g.FillPath(btnBg, btnPath);
+        }
+        using var fontBrush = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
+        g.DrawString(fontLabel, uiFont, fontBrush, _textFontBtnRect, _iconFmt);
+
+        g.TextRenderingHint = TextRenderingHint.SystemDefault;
+        g.SmoothingMode = SmoothingMode.Default;
     }
 
     private void PaintRuler(Graphics g, Point from, Point to)
