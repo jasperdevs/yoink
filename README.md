@@ -74,3 +74,20 @@ Availability depends on the target service and your credentials.
 ## License
 
 [MIT](LICENSE)
+
+<a href="https://www.star-history.com/#jasperdevs/yoink&Date">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Date&theme=dark"
+    />
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Date"
+    />
+    <img
+      alt="Star History Chart"
+      src="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Date"
+    />
+  </picture>
+</a>
