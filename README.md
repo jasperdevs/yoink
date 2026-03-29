@@ -11,10 +11,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jasperdevs/yoink/releases/latest"><img src="https://img.shields.io/github/v/release/jasperdevs/yoink?style=flat-square&color=1962F4" alt="Release"/></a>
-[![Total downloads](https://img.shields.io/github/downloads/jasperdevs/yoink/total.svg?style=flat-square)](https://github.com/jasperdevs/yoink/releases)
-  <a href="https://github.com/jasperdevs/yoink/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jasperdevs/yoink?style=flat-square" alt="License"/></a>
-  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square" alt="Platform"/>
+  <a href="https://github.com/jasperdevs/yoink/releases/latest">
+    <img src="https://img.shields.io/github/v/release/jasperdevs/yoink?style=flat-square&color=1962F4" alt="Release" />
+  </a>
+  <a href="https://github.com/jasperdevs/yoink/releases">
+    <img src="https://img.shields.io/github/downloads/jasperdevs/yoink/total.svg?style=flat-square" alt="Total downloads" />
+  </a>
+  <a href="https://github.com/jasperdevs/yoink/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/jasperdevs/yoink?style=flat-square" alt="License" />
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square" alt="Platform" />
 </p>
 
 <img width="947" height="490" alt="image" src="https://github.com/user-attachments/assets/9609fa02-b030-46ed-8f20-cf0b116bd9e0" />
