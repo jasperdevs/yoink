@@ -225,7 +225,9 @@ public partial class App : Application
 
                     var overlay = new RegionOverlayForm(screenshot, bounds, initialMode)
                     {
-                        ShowCrosshairGuides = _settingsService!.Settings.ShowCrosshairGuides
+                        ShowCrosshairGuides = _settingsService!.Settings.ShowCrosshairGuides,
+                        DetectWindows = _settingsService.Settings.DetectWindows,
+                        DetectControls = _settingsService.Settings.DetectControls
                     };
                     overlay.SetEnabledTools(_settingsService.Settings.EnabledTools);
                     overlay.SetShowToolNumberBadges(_settingsService.Settings.ShowToolNumberBadges);

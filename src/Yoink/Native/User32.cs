@@ -25,6 +25,7 @@ internal static partial class User32
     public const uint GA_ROOTOWNER = 3;
 
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    public delegate bool EnumChildProc(IntPtr hWnd, IntPtr lParam);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -101,6 +102,22 @@ internal static partial class User32
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool DestroyWindow(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool EnumChildWindows(IntPtr hWndParent, EnumChildProc lpEnumFunc, IntPtr lParam);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsZoomed(IntPtr hWnd);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT

@@ -106,6 +106,9 @@ public partial class SettingsWindow : Window
         MuteSoundsCheck.IsChecked = s.MuteSounds;
         CompressHistoryCheck.IsChecked = s.CompressHistory;
         CrosshairGuidesCheck.IsChecked = s.ShowCrosshairGuides;
+        DetectWindowsCheck.IsChecked = s.DetectWindows;
+        DetectControlsCheck.IsChecked = s.DetectControls;
+        DetectControlsCheck.IsEnabled = s.DetectWindows;
         ShowToolNumberBadgesCheck.IsChecked = s.ShowToolNumberBadges;
         ToastPositionCombo.SelectedIndex = (int)s.ToastPosition;
 
@@ -489,6 +492,27 @@ public partial class SettingsWindow : Window
     {
         if (!IsLoaded) return;
         _settingsService.Settings.ShowCrosshairGuides = CrosshairGuidesCheck.IsChecked == true;
+        _settingsService.Save();
+    }
+
+    private void DetectWindowsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        bool enabled = DetectWindowsCheck.IsChecked == true;
+        _settingsService.Settings.DetectWindows = enabled;
+        DetectControlsCheck.IsEnabled = enabled;
+        if (!enabled)
+        {
+            DetectControlsCheck.IsChecked = false;
+            _settingsService.Settings.DetectControls = false;
+        }
+        _settingsService.Save();
+    }
+
+    private void DetectControlsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.DetectControls = DetectControlsCheck.IsChecked == true;
         _settingsService.Save();
     }
 

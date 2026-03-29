@@ -404,7 +404,14 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Rectangle when !_isSelecting:
             case CaptureMode.Ocr when !_isSelecting:
             case CaptureMode.Scan when !_isSelecting:
-                var detected = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
+                Rectangle detected;
+                if (_windowEnumDone && _detectedWindows != null)
+                    detected = WindowDetector.FindWindowAt(e.Location, _detectedWindows, _virtualBounds);
+                else if (DetectWindows)
+                    detected = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
+                else
+                    detected = Rectangle.Empty;
+
                 if (detected != _autoDetectRect)
                 {
                     _autoDetectRect = detected;

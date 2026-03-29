@@ -57,6 +57,8 @@ public sealed class AppSettings
     public bool SaveHistory { get; set; } = true;
     public bool MuteSounds { get; set; }
     public bool ShowCrosshairGuides { get; set; } // off by default
+    public bool DetectWindows { get; set; } = true;
+    public bool DetectControls { get; set; } = true;
     public bool CompressHistory { get; set; }
     public int JpegQuality { get; set; } = 85;
     public bool HasCompletedSetup { get; set; }

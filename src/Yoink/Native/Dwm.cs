@@ -4,6 +4,8 @@ namespace Yoink.Native;
 
 internal static partial class Dwm
 {
+    public const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+    public const int DWMWA_CLOAKED = 14;
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     public const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
@@ -28,4 +30,34 @@ internal static partial class Dwm
     [LibraryImport("dwmapi.dll")]
     public static partial int DwmSetWindowAttribute(
         IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    [LibraryImport("dwmapi.dll")]
+    public static partial int DwmGetWindowAttribute(
+        IntPtr hwnd, int dwAttribute, out User32.RECT pvAttribute, int cbAttribute);
+
+    [LibraryImport("dwmapi.dll")]
+    public static partial int DwmGetWindowAttribute(
+        IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+    /// <summary>Get the visual (DWM extended) frame bounds, falling back to GetWindowRect.</summary>
+    public static System.Drawing.Rectangle GetExtendedFrameBounds(IntPtr hwnd)
+    {
+        int hr = DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS,
+            out User32.RECT rect, System.Runtime.InteropServices.Marshal.SizeOf<User32.RECT>());
+        if (hr == 0)
+            return rect.ToRectangle();
+
+        if (User32.GetWindowRect(hwnd, out var wr))
+            return wr.ToRectangle();
+
+        return System.Drawing.Rectangle.Empty;
+    }
+
+    /// <summary>Check if a window is cloaked (hidden UWP/virtual-desktop window).</summary>
+    public static bool IsWindowCloaked(IntPtr hwnd)
+    {
+        int hr = DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED,
+            out int cloaked, sizeof(int));
+        return hr == 0 && cloaked != 0;
+    }
 }
