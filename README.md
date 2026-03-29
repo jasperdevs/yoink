@@ -35,7 +35,7 @@
 </p>
 
 <p align="center">
-<img width="947" height="490" alt="image" src="https://github.com/user-attachments/assets/9609fa02-b030-46ed-8f20-cf0b116bd9e0" />
+<img width="947" height="490" alt="image" src="assets/banner3333.png" />
 </p>
 
 Yoink is a free, open-source screenshot tool that stays out of the way until you need it. Capture part of the screen, mark it up, copy it, save it, drag it out, or upload it without breaking your flow.
