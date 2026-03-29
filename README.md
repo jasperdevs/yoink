@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>All-in-one open-source screenshot tool for Windows.</strong>
+  <strong>Yoink: All-in-one open-source screenshot tool for Windows.</strong>
 </p>
 
 <p align="center">
