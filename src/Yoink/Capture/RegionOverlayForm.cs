@@ -45,6 +45,7 @@ public sealed partial class RegionOverlayForm : Form
     private readonly System.Windows.Forms.Timer _animTimer;
     private DateTime _showTime;
     private ToolbarForm? _toolbarForm;
+    private bool _allowDeactivation;
 
     private const int TopBarHeight = 110;
 
@@ -430,6 +431,24 @@ public sealed partial class RegionOverlayForm : Form
         Invalidate();
     }
 
+    protected override void OnDeactivate(EventArgs e)
+    {
+        base.OnDeactivate(e);
+
+        if (_allowDeactivation || IsDisposed || Disposing || !Visible)
+            return;
+
+        BeginInvoke(new Action(() =>
+        {
+            if (_allowDeactivation || IsDisposed || Disposing || !Visible)
+                return;
+
+            Activate();
+            Focus();
+            Native.User32.SetForegroundWindow(Handle);
+        }));
+    }
+
     internal void PositionToolbarForm()
     {
         if (_toolbarForm is null) return;
@@ -611,7 +630,11 @@ public sealed partial class RegionOverlayForm : Form
         return new Cursor(bmp.GetHicon());
     }
 
-    private void Cancel() => SelectionCancelled?.Invoke();
+    private void Cancel()
+    {
+        _allowDeactivation = true;
+        SelectionCancelled?.Invoke();
+    }
 
     private bool IsPointInOverlayUi(Point p)
     {
