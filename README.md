@@ -42,7 +42,7 @@ Yoink is a free, open-source screenshot tool that stays out of the way until you
 
 ## Download
 
-Grab the latest release from the [**Releases page**](https://github.com/jasperdevs/yoink/releases/latest). Extract the zip and run `Yoink.exe`.
+Grab the latest release from the [**Releases page**](https://github.com/jasperdevs/yoink/releases/latest)
 
 ## Why Yoink
 
