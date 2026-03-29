@@ -23,7 +23,9 @@
 </p>
 
 <p align="center">
-  <img src="https://custom-icon-badges.demolab.com/badge/windows-ready-0078D4?style=for-the-badge&logo=windows" alt="Windows Ready" />
+  <a href="https://github.com/jasperdevs/yoink/releases/latest">
+    <img src="https://img.shields.io/github/v/release/jasperdevs/yoink?style=for-the-badge&label=windows" alt="Latest Release" />
+  </a>
   <img src="https://img.shields.io/badge/macos-planned-6b7280?style=for-the-badge&logo=apple&logoColor=white" alt="macOS Planned" />
   <img src="https://img.shields.io/badge/linux-planned-6b7280?style=for-the-badge&logo=linux&logoColor=white" alt="Linux Planned" />
 </p>
