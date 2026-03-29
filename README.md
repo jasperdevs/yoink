@@ -17,6 +17,8 @@
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square" alt="Platform"/>
 </p>
 
+<img width="960" height="496" alt="image" src="https://github.com/user-attachments/assets/a11bea90-18af-4cc3-b996-16f69225948d" />
+
 Yoink is a free, open-source screenshot tool for Windows that stays out of the way until you need it. Capture part of the screen, mark it up, copy it, save it, drag it out, or upload it without breaking your flow.
 
 ## Download
