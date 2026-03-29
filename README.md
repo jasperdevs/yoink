@@ -20,7 +20,12 @@
   <a href="https://github.com/jasperdevs/yoink/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/jasperdevs/yoink?style=flat-square" alt="License" />
   </a>
-  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square" alt="Platform" />
+</p>
+
+<p align="center">
+  <img src="https://custom-icon-badges.demolab.com/badge/windows-ready-0078D4?style=for-the-badge&logo=windows" alt="Windows Ready" />
+  <img src="https://img.shields.io/badge/macos-planned-6b7280?style=for-the-badge&logo=apple&logoColor=white" alt="macOS Planned" />
+  <img src="https://img.shields.io/badge/linux-planned-6b7280?style=for-the-badge&logo=linux&logoColor=white" alt="Linux Planned" />
 </p>
 
 <img width="947" height="490" alt="image" src="https://github.com/user-attachments/assets/9609fa02-b030-46ed-8f20-cf0b116bd9e0" />
