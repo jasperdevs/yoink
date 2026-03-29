@@ -1,6 +1,9 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Yoink.Models;
 
@@ -959,20 +962,56 @@ public sealed partial class RegionOverlayForm
 
     private static System.Drawing.Text.PrivateFontCollection? _iconFontCollection;
     private static Font? _iconFontCached;
+    private static byte[]? _iconFontData;
 
     private static Font GetIconFont()
     {
         if (_iconFontCached != null) return _iconFontCached;
+
         _iconFontCollection = new System.Drawing.Text.PrivateFontCollection();
-        string dir = AppContext.BaseDirectory;
-        string path = System.IO.Path.Combine(dir, "lucide.ttf");
-        if (System.IO.File.Exists(path))
-            _iconFontCollection.AddFontFile(path);
+
+        if (!TryLoadEmbeddedIconFont(_iconFontCollection))
+        {
+            string dir = AppContext.BaseDirectory;
+            string path = Path.Combine(dir, "lucide.ttf");
+            if (File.Exists(path))
+                _iconFontCollection.AddFontFile(path);
+        }
+
         var family = _iconFontCollection.Families.Length > 0
             ? _iconFontCollection.Families[0]
             : new FontFamily("Segoe UI");
         _iconFontCached = new Font(family, 14f, FontStyle.Regular, GraphicsUnit.Point);
         return _iconFontCached;
+    }
+
+    private static bool TryLoadEmbeddedIconFont(PrivateFontCollection fonts)
+    {
+        const string resourceName = "Yoink.lucide.ttf";
+
+        using Stream? stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+        if (stream is null)
+            return false;
+
+        _iconFontData = new byte[checked((int)stream.Length)];
+        int offset = 0;
+        while (offset < _iconFontData.Length)
+        {
+            int read = stream.Read(_iconFontData, offset, _iconFontData.Length - offset);
+            if (read <= 0)
+                return false;
+            offset += read;
+        }
+
+        unsafe
+        {
+            fixed (byte* ptr = _iconFontData)
+            {
+                fonts.AddMemoryFont((nint)ptr, _iconFontData.Length);
+            }
+        }
+
+        return fonts.Families.Length > 0;
     }
 
     private static readonly StringFormat _iconFmt = new(StringFormat.GenericTypographic)
