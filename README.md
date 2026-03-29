@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner-minimal.svg" alt="Yoink" width="100%"/>
+  <img src="assets/fa5a39fb77114705bedf595b6eeabafa.png" alt="Yoink" width="95%"/>
 </p>
 
 <p align="center">
@@ -34,8 +34,9 @@
   <img src="https://img.shields.io/badge/linux-planned-6b7280?style=for-the-badge&logo=linux&logoColor=white" alt="Linux Planned" />
 </p>
 
+<p align="center">
 <img width="947" height="490" alt="image" src="https://github.com/user-attachments/assets/9609fa02-b030-46ed-8f20-cf0b116bd9e0" />
-
+</p>
 
 Yoink is a free, open-source screenshot tool that stays out of the way until you need it. Capture part of the screen, mark it up, copy it, save it, drag it out, or upload it without breaking your flow.
 
