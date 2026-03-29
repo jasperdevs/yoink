@@ -42,7 +42,6 @@ Grab the latest release from the [**Releases page**](https://github.com/jasperde
 | Screenshot | `Alt + `` ` |
 | OCR | `Alt + Shift + `` ` |
 | Color picker | `Alt + C` |
-*(More hotkeys you can change/add)*
 
 Hotkeys can be changed in settings.
 
