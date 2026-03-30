@@ -46,12 +46,24 @@ Grab the latest release from the [**Releases page**](https://github.com/jasperde
 
 ## Why Yoink
 
-- Fast region capture with window snapping and a tray-first workflow
+- Fast region, fullscreen, and active-window capture with window snapping and a tray-first workflow
 - Built-in annotation tools for quick explanations and feedback
-- OCR, color picking, QR scanning, and local GIF recording
+- OCR, color picking, QR/barcode scanning, stickers, and local GIF recording
 - Drag-and-drop preview plus local history that stays easy to browse
 - Optional screenshot uploads to public hosts, cloud storage, or self-hosted targets
 - More to come (and more i didnt mention lol)
+
+## Stickers
+
+Yoink can turn captures into stickers by removing the background, then saving, previewing, copying, and uploading them like normal images.
+
+<p align="center">
+  <img src="assets/sticker-showcase.png" alt="Before and after sticker example" width="92%" />
+</p>
+
+- Cloud sticker providers: `remove.bg`, `Photoroom`
+- Local sticker models: `U2Netp`, `BRIA RMBG`
+- Optional sticker finishing: drop shadow and white stroke
 
 ## Default hotkeys
 
@@ -60,6 +72,12 @@ Grab the latest release from the [**Releases page**](https://github.com/jasperde
 | Screenshot | `Alt + `` ` |
 | OCR | `Alt + Shift + `` ` |
 | Color picker | `Alt + C` |
+| QR/barcode scanner | `N/A` |
+| Sticker | `N/A` |
+| Fullscreen capture | `N/A` |
+| Active window capture | `N/A` |
+| Ruler | `N/A` |
+| GIF recording | `N/A` |
 
 Hotkeys can be changed in settings.
 
