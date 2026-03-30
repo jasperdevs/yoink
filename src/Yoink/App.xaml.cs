@@ -26,20 +26,22 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        _mutex = new Mutex(true, "YoinkScreenshotTool_SingleInstance", out bool isNew);
-        if (!isNew) { Shutdown(); return; }
-
-        base.OnStartup(e);
-
         if (e.Args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase) || a.Equals("/uninstall", StringComparison.OrdinalIgnoreCase)))
         {
+            base.OnStartup(e);
             try { UninstallService.RemoveInstalledAppEntry(); } catch { }
+            try { UninstallService.RemoveStartMenuShortcut(); } catch { }
             try { UninstallService.RemoveStartupEntry(); } catch { }
             try { UninstallService.RemoveAppData(); } catch { }
             try { UninstallService.ScheduleInstallFolderRemoval(); } catch { }
             Shutdown();
             return;
         }
+
+        _mutex = new Mutex(true, "YoinkScreenshotTool_SingleInstance", out bool isNew);
+        if (!isNew) { Shutdown(); return; }
+
+        base.OnStartup(e);
 
         try { UninstallService.RegisterInstalledAppEntry(); } catch { }
         try { UninstallService.EnsureStartMenuShortcut(); } catch { }

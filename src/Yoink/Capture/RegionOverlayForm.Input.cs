@@ -203,6 +203,8 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Ocr:
             case CaptureMode.Scan:
             case CaptureMode.Sticker:
+                _autoDetectRect = WindowDetector.GetDetectionRectAtPoint(e.Location, _virtualBounds, _windowDetectionMode);
+                _autoDetectActive = _autoDetectRect.Width > 0 && _autoDetectRect.Height > 0;
                 _isSelecting = true;
                 _selectionStart = _selectionEnd = e.Location;
                 _hasSelection = false;
@@ -619,8 +621,12 @@ public sealed partial class RegionOverlayForm
                 bool isSticker = _mode == CaptureMode.Sticker;
                 if (!_hasDragged)
                 {
+                    var detectedAtRelease = WindowDetector.GetDetectionRectAtPoint(e.Location, _virtualBounds, _windowDetectionMode);
+                    if (detectedAtRelease.Width > 0 && detectedAtRelease.Height > 0)
+                        _autoDetectRect = detectedAtRelease;
+
                     // Use auto-detected window region if available, else fullscreen
-                    var clickRect = (_autoDetectActive && _autoDetectRect.Width > 0)
+                    var clickRect = (_autoDetectRect.Width > 0 && _autoDetectRect.Height > 0)
                         ? _autoDetectRect
                         : new Rectangle(0, 0, _screenshot.Width, _screenshot.Height);
                     if (isOcr) OcrRegionSelected?.Invoke(clickRect);
