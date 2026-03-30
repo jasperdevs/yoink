@@ -202,6 +202,7 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Rectangle:
             case CaptureMode.Ocr:
             case CaptureMode.Scan:
+            case CaptureMode.Sticker:
                 _isSelecting = true;
                 _selectionStart = _selectionEnd = e.Location;
                 _hasSelection = false;
@@ -404,7 +405,8 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Rectangle when !_isSelecting:
             case CaptureMode.Ocr when !_isSelecting:
             case CaptureMode.Scan when !_isSelecting:
-                var detected = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
+            case CaptureMode.Sticker when !_isSelecting:
+                var detected = WindowDetector.GetDetectionRectAtPoint(e.Location, _virtualBounds, _windowDetectionMode);
                 if (detected != _autoDetectRect)
                 {
                     _autoDetectRect = detected;
@@ -415,6 +417,7 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
             case CaptureMode.Scan when _isSelecting:
+            case CaptureMode.Sticker when _isSelecting:
                 _autoDetectActive = false;
                 _selectionEnd = e.Location;
                 _selectionRect = NormRect(_selectionStart, _selectionEnd);
@@ -440,7 +443,21 @@ public sealed partial class RegionOverlayForm
                 needsRepaint = true;
                 break;
             case CaptureMode.Draw when _isSelecting:
-                _currentStroke?.Add(e.Location);
+                if (_currentStroke is { Count: > 0 })
+                {
+                    if ((ModifierKeys & Keys.Shift) != 0)
+                    {
+                        var start = _currentStroke[0];
+                        var constrained = GetConstrainedDrawPoint(e.Location);
+                        _currentStroke.Clear();
+                        _currentStroke.Add(start);
+                        _currentStroke.Add(constrained);
+                    }
+                    else
+                    {
+                        _currentStroke.Add(e.Location);
+                    }
+                }
                 needsRepaint = true;
                 break;
             case CaptureMode.CurvedArrow when _isCurvedArrowDragging:
@@ -531,7 +548,17 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Draw when _isSelecting:
                 _isSelecting = false;
                 if (_currentStroke is { Count: >= 2 })
+                {
+                    if ((ModifierKeys & Keys.Shift) != 0)
+                    {
+                        var start = _currentStroke[0];
+                        var constrainedEnd = GetConstrainedDrawPoint(e.Location);
+                        _currentStroke.Clear();
+                        _currentStroke.Add(start);
+                        _currentStroke.Add(constrainedEnd);
+                    }
                     _undoStack.Add(new DrawStroke(_currentStroke));
+                }
                 _currentStroke = null;
                 break;
             case CaptureMode.Line when _isLineDragging:
@@ -585,9 +612,11 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Rectangle when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
             case CaptureMode.Scan when _isSelecting:
+            case CaptureMode.Sticker when _isSelecting:
                 _isSelecting = false;
                 bool isOcr = _mode == CaptureMode.Ocr;
                 bool isScan = _mode == CaptureMode.Scan;
+                bool isSticker = _mode == CaptureMode.Sticker;
                 if (!_hasDragged)
                 {
                     // Use auto-detected window region if available, else fullscreen
@@ -596,12 +625,14 @@ public sealed partial class RegionOverlayForm
                         : new Rectangle(0, 0, _screenshot.Width, _screenshot.Height);
                     if (isOcr) OcrRegionSelected?.Invoke(clickRect);
                     else if (isScan) ScanRegionSelected?.Invoke(clickRect);
+                    else if (isSticker) StickerRegionSelected?.Invoke(clickRect);
                     else RegionSelected?.Invoke(clickRect);
                 }
                 else if (_selectionRect.Width > 2 && _selectionRect.Height > 2)
                 {
                     if (isOcr) OcrRegionSelected?.Invoke(_selectionRect);
                     else if (isScan) ScanRegionSelected?.Invoke(_selectionRect);
+                    else if (isSticker) StickerRegionSelected?.Invoke(_selectionRect);
                     else RegionSelected?.Invoke(_selectionRect);
                 }
                 else { _hasSelection = false; Invalidate(); }
@@ -769,9 +800,12 @@ public sealed partial class RegionOverlayForm
     {
         _emojiPickerOpen = false;
         _fontPickerOpen = false;
+        HideEmojiSearchBox();
+        HideFontSearchBox();
         _isPlacingEmoji = false;
         _colorPickerOpen = !_colorPickerOpen;
         Invalidate();
+        RefreshToolbar();
     }
 
     private bool HandleColorPickerClick(Point p)
@@ -788,6 +822,7 @@ public sealed partial class RegionOverlayForm
             _toolColorIndex = col;
             _colorPickerOpen = false;
             Invalidate();
+            RefreshToolbar();
             return true;
         }
         return false;
@@ -888,6 +923,7 @@ public sealed partial class RegionOverlayForm
         if (_isTyping) CommitText();
         _colorPickerOpen = false;
         _fontPickerOpen = false;
+        HideFontSearchBox();
         _emojiHovered = -1;
         _mode = m;
         _hasSelection = false;
@@ -932,6 +968,7 @@ public sealed partial class RegionOverlayForm
             int py = _toolbarRect.Bottom + 8;
             _emojiPickerRect = new Rectangle(px, py, pw, ph);
             ShowEmojiSearchBox();
+            PrimeVisibleEmojiCache();
         }
         else
         {
@@ -953,6 +990,19 @@ public sealed partial class RegionOverlayForm
         if (Math.Abs(dx) >= Math.Abs(dy))
             return new Point(current.X, _rulerStart.Y);
         return new Point(_rulerStart.X, current.Y);
+    }
+
+    private Point GetConstrainedDrawPoint(Point current)
+    {
+        if ((ModifierKeys & Keys.Shift) == 0 || _currentStroke is not { Count: > 0 })
+            return current;
+
+        var start = _currentStroke[0];
+        int dx = current.X - start.X;
+        int dy = current.Y - start.Y;
+        return Math.Abs(dx) >= Math.Abs(dy)
+            ? new Point(current.X, start.Y)
+            : new Point(start.X, current.Y);
     }
 
     private Rectangle GetShapeRect(Point current)
