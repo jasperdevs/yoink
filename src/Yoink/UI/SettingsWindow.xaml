@@ -529,6 +529,16 @@
 
                             <Border Height="1" Background="#0AFFFFFF" Margin="0,10,0,10"/>
 
+                            <CheckBox x:Name="DetectWindowsCheck" Content="Auto-detect windows" FontSize="13"
+                                      Checked="DetectWindowsCheck_Changed" Unchecked="DetectWindowsCheck_Changed"/>
+                            <TextBlock Text="Snap selection to visible windows on hover" FontSize="11" Opacity="0.25" Margin="0,2,0,0"/>
+
+                            <CheckBox x:Name="DetectControlsCheck" Content="Auto-detect UI controls" FontSize="13" Margin="0,8,0,0"
+                                      Checked="DetectControlsCheck_Changed" Unchecked="DetectControlsCheck_Changed"/>
+                            <TextBlock Text="Also detect buttons, panels, and other UI elements within windows" FontSize="11" Opacity="0.25" Margin="0,2,0,0"/>
+
+                            <Border Height="1" Background="#0AFFFFFF" Margin="0,10,0,10"/>
+
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>

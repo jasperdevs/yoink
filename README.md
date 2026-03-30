@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/fa5a39fb77114705bedf595b6eeabafa.png" alt="Yoink" width="95%"/>
+  <img src="assets/banner-minimal.svg" alt="Yoink" width="95%"/>
 </p>
 
 <p align="center">
@@ -64,7 +64,6 @@ Yoink can turn captures into stickers by removing the background, then saving, p
 - Cloud sticker providers: `remove.bg`, `Photoroom`
 - Local sticker models: `U2Netp`, `BRIA RMBG`
 - Optional sticker finishing: drop shadow and white stroke
-- Sticker history gets its own tab
 
 ## Default hotkeys
 

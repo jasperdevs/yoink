@@ -108,6 +108,8 @@ public sealed partial class RegionOverlayForm : Form
     // Region auto-detect
     private Rectangle _autoDetectRect;
     private bool _autoDetectActive;
+    private List<DetectedWindow>? _detectedWindows;
+    private volatile bool _windowEnumDone;
 
     // Color picker popup state
     private bool _colorPickerOpen;
@@ -315,6 +317,12 @@ public sealed partial class RegionOverlayForm : Form
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool ShowCrosshairGuides { get; set; }
 
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public bool DetectWindows { get; set; } = true;
+
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public bool DetectControls { get; set; } = true;
+
     public void SetEnabledTools(List<string>? enabledIds)
     {
         _visibleTools = enabledIds == null
@@ -406,11 +414,26 @@ public sealed partial class RegionOverlayForm : Form
             Native.User32.SWP_NOMOVE | Native.User32.SWP_NOSIZE | Native.User32.SWP_SHOWWINDOW);
         Native.User32.SetForegroundWindow(Handle);
 
+        // Pre-enumerate visible windows (and optionally child controls) on a background thread
+        if (DetectWindows)
+        {
+            var overlayHandle = Handle;
+            var includeChildren = DetectControls;
+            Task.Run(() =>
+            {
+                _detectedWindows = WindowDetector.EnumerateWindows(overlayHandle, includeChildren, 5000);
+                _windowEnumDone = true;
+            });
+        }
+
         _toolbarForm = new ToolbarForm(this);
         PositionToolbarForm();
         _toolbarForm.Show(this);
         WindowDetector.RegisterIgnoredWindow(_toolbarForm.Handle);
         _toolbarForm.UpdateSurface();
+
+        // Ensure overlay keeps keyboard focus after showing toolbar
+        Focus();
         Invalidate();
     }
 
