@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/fa5a39fb77114705bedf595b6eeabafa.png" alt="Yoink" width="95%"/>
+  <img src="assets/banner-minimal.svg" alt="Yoink" width="95%"/>
 </p>
 
 <p align="center">
