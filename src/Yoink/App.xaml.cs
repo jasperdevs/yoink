@@ -264,16 +264,13 @@ public partial class App : Application
                         {
                             try { EnsureHistoryService().SaveGifEntry(path); } catch { }
 
-                            // Copy file to clipboard
-                            if (_settingsService!.Settings.AfterCapture == AfterCaptureAction.CopyToClipboard)
+                            // Always copy file to clipboard
+                            try
                             {
-                                try
-                                {
-                                    var files = new System.Collections.Specialized.StringCollection { path };
-                                    System.Windows.Clipboard.SetFileDropList(files);
-                                }
-                                catch { }
+                                var files = new System.Collections.Specialized.StringCollection { path };
+                                System.Windows.Clipboard.SetFileDropList(files);
                             }
+                            catch { }
 
                             // Show toast with first-frame preview if available
                             if (firstFrame != null)
@@ -643,19 +640,16 @@ public partial class App : Application
         SoundService.PlayCaptureSound();
 
         var settings = _settingsService!.Settings;
-        string? requestedPath = null;
-        if (settings.SaveToFile)
+        var ext = CaptureOutputService.GetExtension(settings.CaptureImageFormat);
+        var defaultPath = Path.Combine(settings.SaveDirectory, $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}");
+        string? requestedPath = settings.AskForFileNameOnSave
+            ? ResolveSavePath(defaultPath, settings.CaptureImageFormat)
+            : defaultPath;
+        if (requestedPath is null)
         {
-            var ext = CaptureOutputService.GetExtension(settings.CaptureImageFormat);
-            requestedPath = ResolveSavePath(
-                Path.Combine(settings.SaveDirectory, $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}"),
-                settings.CaptureImageFormat);
-            if (requestedPath is null)
-            {
-                result.Dispose();
-                _isCapturing = false;
-                return;
-            }
+            result.Dispose();
+            _isCapturing = false;
+            return;
         }
 
         _ = PersistCaptureAsync(result, requestedPath, saveHistory: settings.SaveHistory, isSticker: false, providerName: null)
@@ -675,6 +669,9 @@ public partial class App : Application
                 var persisted = task.Result;
                 Dispatcher.BeginInvoke(() =>
                 {
+                    // Always copy to clipboard
+                    ClipboardService.CopyToClipboard(persisted.Output);
+
                     var action = settings.AfterCapture;
                     if (action == AfterCaptureAction.ShowPreview)
                     {
@@ -682,7 +679,6 @@ public partial class App : Application
                     }
                     else
                     {
-                        ClipboardService.CopyToClipboard(persisted.Output);
                         var dims = $"{persisted.Output.Width}x{persisted.Output.Height}";
                         persisted.Output.Dispose();
                         ToastWindow.Show("Copied to clipboard", dims);
@@ -705,18 +701,15 @@ public partial class App : Application
         SoundService.PlayCaptureSound();
 
         var settings = _settingsService!.Settings;
-        string? requestedPath = null;
-        if (settings.SaveToFile)
+        var defaultStickerPath = Path.Combine(settings.SaveDirectory, $"yoink_sticker_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+        string? requestedPath = settings.AskForFileNameOnSave
+            ? ResolveSavePath(defaultStickerPath, CaptureImageFormat.Png)
+            : defaultStickerPath;
+        if (requestedPath is null)
         {
-            requestedPath = ResolveSavePath(
-                Path.Combine(settings.SaveDirectory, $"yoink_sticker_{DateTime.Now:yyyyMMdd_HHmmss}.png"),
-                CaptureImageFormat.Png);
-            if (requestedPath is null)
-            {
-                result.Dispose();
-                _isCapturing = false;
-                return;
-            }
+            result.Dispose();
+            _isCapturing = false;
+            return;
         }
 
         _ = PersistCaptureAsync(result, requestedPath, saveHistory: settings.SaveHistory, isSticker: true, providerName: providerName)
@@ -736,6 +729,8 @@ public partial class App : Application
                 var persisted = task.Result;
                 Dispatcher.BeginInvoke(() =>
                 {
+                    ClipboardService.CopyToClipboard(persisted.Output);
+
                     var action = settings.AfterCapture;
                     if (action == AfterCaptureAction.ShowPreview)
                     {
@@ -743,7 +738,6 @@ public partial class App : Application
                     }
                     else
                     {
-                        ClipboardService.CopyToClipboard(persisted.Output);
                         persisted.Output.Dispose();
                         ToastWindow.Show("Sticker copied");
                     }

@@ -67,7 +67,6 @@ public partial class PreviewWindow : Window
 
         _screenshot = screenshot;
         _savedFilePath = savedFilePath;
-        ClipboardService.CopyToClipboard(screenshot);
 
         InitializeComponent();
         ApplyTheme();
