@@ -1150,6 +1150,7 @@ public sealed partial class RegionOverlayForm
         (Keys.D7, "7"), (Keys.D8, "8"), (Keys.D9, "9"),
         (Keys.D0, "0"), (Keys.OemMinus, "-"), (Keys.Oemplus, "="),
         (Keys.OemOpenBrackets, "["), (Keys.OemCloseBrackets, "]"),
+        (Keys.OemPipe, "\\"),
     };
 
     private bool TryHandleAnnotationToolNumber(Keys keyCode)
@@ -1162,7 +1163,7 @@ public sealed partial class RegionOverlayForm
         if (index < 0) return false;
 
         var modes = _visibleTools
-            .Where(t => t.Mode.HasValue && t.Group == 1 && t.Mode != CaptureMode.Select)
+            .Where(t => t.Mode.HasValue && t.Group == 1)
             .Select(t => t.Mode!.Value)
             .ToList();
 

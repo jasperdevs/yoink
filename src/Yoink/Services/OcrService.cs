@@ -10,17 +10,38 @@ namespace Yoink.Services;
 
 public static class OcrService
 {
-    public static async Task<string> RecognizeAsync(Bitmap bitmap)
+    private static readonly object LanguagesLock = new();
+    private static IReadOnlyList<Language>? _cachedLanguages;
+
+    public static IReadOnlyList<Language> GetAvailableRecognizerLanguages(bool refresh = false)
+    {
+        if (!refresh && _cachedLanguages != null)
+            return _cachedLanguages;
+
+        lock (LanguagesLock)
+        {
+            if (!refresh && _cachedLanguages != null)
+                return _cachedLanguages;
+
+            // Keep ordering stable for UI/determinism.
+            _cachedLanguages = OcrEngine.AvailableRecognizerLanguages
+                .OrderBy(l => l.LanguageTag, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return _cachedLanguages;
+        }
+    }
+
+    public static async Task<string> RecognizeAsync(Bitmap bitmap, string? languageTag = null)
     {
         using var scaled = ScaleForOcr(bitmap);
         using var prepared = PrepareForOcr(scaled);
 
-        string best = await DoOcr(scaled);
-        string enhanced = await DoOcr(prepared);
+        string best = await DoOcr(scaled, languageTag);
+        string enhanced = await DoOcr(prepared, languageTag);
         return Score(enhanced) > Score(best) ? enhanced : best;
     }
 
-    private static async Task<string> DoOcr(Bitmap bitmap)
+    private static async Task<string> DoOcr(Bitmap bitmap, string? languageTag)
     {
         var tmpPath = Path.Combine(Path.GetTempPath(), $"yoink_ocr_{Guid.NewGuid():N}.png");
 
@@ -32,51 +53,38 @@ public static class OcrService
             using var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.Read);
 
             var decoder = await BitmapDecoder.CreateAsync(stream);
-            var softwareBmp = await decoder.GetSoftwareBitmapAsync(
+            using var softwareBmp = await decoder.GetSoftwareBitmapAsync(
                 Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
                 BitmapAlphaMode.Premultiplied);
 
-            var engines = new List<OcrEngine>();
-            var profileEngine = OcrEngine.TryCreateFromUserProfileLanguages();
-            if (profileEngine != null)
-                engines.Add(profileEngine);
+            // Deterministic engine selection:
+            // - explicit language tag: use that engine only (fallback only if it can't be created)
+            // - auto: use Windows profile languages (fallback only if unavailable)
+            OcrEngine? engine = null;
 
-            var languages = OcrEngine.AvailableRecognizerLanguages;
-            foreach (var language in Windows.System.UserProfile.GlobalizationPreferences.Languages
-                         .Select(code => new Language(code))
-                         .Where(lang => languages.Any(av => av.LanguageTag.Equals(lang.LanguageTag, StringComparison.OrdinalIgnoreCase))))
+            if (!string.IsNullOrWhiteSpace(languageTag) &&
+                !languageTag.Equals("auto", StringComparison.OrdinalIgnoreCase))
             {
-                var engine = OcrEngine.TryCreateFromLanguage(language);
-                if (engine != null && engines.All(e => e.RecognizerLanguage.LanguageTag != engine.RecognizerLanguage.LanguageTag))
-                    engines.Add(engine);
+                engine = TryCreateEngineFromTag(languageTag);
             }
 
-            foreach (var language in languages)
-            {
-                var engine = OcrEngine.TryCreateFromLanguage(language);
-                if (engine != null && engines.All(e => e.RecognizerLanguage.LanguageTag != engine.RecognizerLanguage.LanguageTag))
-                    engines.Add(engine);
-            }
+            engine ??= OcrEngine.TryCreateFromUserProfileLanguages();
 
-            string bestText = "";
-            int bestScore = -1;
-
-            foreach (var engine in engines)
+            if (engine is null)
             {
-                var result = await engine.RecognizeAsync(softwareBmp);
-                var text = result.Text?.Trim() ?? "";
-                int score = result.Lines.Count * 100 + text.Length;
-                if (score > bestScore)
+                var languages = GetAvailableRecognizerLanguages();
+                if (languages.Count > 0)
                 {
-                    bestScore = score;
-                    bestText = text;
+                    try { engine = OcrEngine.TryCreateFromLanguage(languages[0]); }
+                    catch { engine = null; }
                 }
-
-                if (score > 0 && engine == profileEngine)
-                    return text;
             }
 
-            return bestText;
+            if (engine is null)
+                return "";
+
+            var result = await engine.RecognizeAsync(softwareBmp);
+            return result.Text?.Trim() ?? "";
         }
         catch
         {
@@ -86,6 +94,28 @@ public static class OcrService
         {
             try { File.Delete(tmpPath); } catch { }
         }
+    }
+
+    private static OcrEngine? TryCreateEngineFromTag(string languageTag)
+    {
+        try
+        {
+            // Use cache first, but refresh once in case the user installed a language pack while Yoink is running.
+            var lang = FindLanguage(languageTag, refresh: false) ?? FindLanguage(languageTag, refresh: true);
+            if (lang is null)
+                return null;
+            return OcrEngine.TryCreateFromLanguage(lang);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static Language? FindLanguage(string languageTag, bool refresh)
+    {
+        var languages = GetAvailableRecognizerLanguages(refresh);
+        return languages.FirstOrDefault(l => l.LanguageTag.Equals(languageTag, StringComparison.OrdinalIgnoreCase));
     }
 
     private static Bitmap ScaleForOcr(Bitmap source)

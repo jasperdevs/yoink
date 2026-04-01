@@ -201,6 +201,29 @@ public static class UploadService
         };
     }
 
+    /// <summary>Check if the destination has the required credentials configured.</summary>
+    public static bool HasCredentials(UploadDestination dest, UploadSettings settings) => dest switch
+    {
+        UploadDestination.None => false,
+        UploadDestination.Imgur => !string.IsNullOrWhiteSpace(settings.ImgurClientId),
+        UploadDestination.ImgBB => !string.IsNullOrWhiteSpace(settings.ImgBBApiKey),
+        UploadDestination.Gyazo => !string.IsNullOrWhiteSpace(settings.GyazoAccessToken),
+        UploadDestination.Dropbox => !string.IsNullOrWhiteSpace(settings.DropboxAccessToken),
+        UploadDestination.GoogleDrive => !string.IsNullOrWhiteSpace(settings.GoogleDriveAccessToken),
+        UploadDestination.OneDrive => !string.IsNullOrWhiteSpace(settings.OneDriveAccessToken),
+        UploadDestination.AzureBlob => !string.IsNullOrWhiteSpace(settings.AzureBlobSasUrl),
+        UploadDestination.S3Compatible => !string.IsNullOrWhiteSpace(settings.S3AccessKey),
+        UploadDestination.GitHub => !string.IsNullOrWhiteSpace(settings.GitHubToken),
+        UploadDestination.Immich => !string.IsNullOrWhiteSpace(settings.ImmichApiKey),
+        UploadDestination.Sftp => !string.IsNullOrWhiteSpace(settings.SftpHost),
+        UploadDestination.Ftp => !string.IsNullOrWhiteSpace(settings.FtpUrl),
+        UploadDestination.CustomHttp => !string.IsNullOrWhiteSpace(settings.CustomUploadUrl),
+        // These don't need credentials
+        UploadDestination.Catbox or UploadDestination.Litterbox or UploadDestination.FileIo
+            or UploadDestination.Uguu or UploadDestination.TransferSh => true,
+        _ => true,
+    };
+
     public static async Task<UploadResult> UploadAsync(
         string filePath, UploadDestination dest, UploadSettings settings)
     {

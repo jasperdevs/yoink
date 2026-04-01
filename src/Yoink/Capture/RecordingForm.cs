@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
+using System.IO;
 using System.Windows.Forms;
 using Yoink.Native;
 using Yoink.Services;
@@ -16,6 +17,7 @@ public sealed class RecordingForm : Form
 {
     /// <summary>Fires with (filePath, firstFrameBitmap). Caller must dispose the bitmap.</summary>
     public event Action<string, Bitmap?>? RecordingCompleted;
+    public event Action<Exception>? RecordingFailed;
     public event Action? RecordingCancelled;
 
     /// <summary>Static reference to the current recording form for external stop control.</summary>
@@ -275,9 +277,18 @@ public sealed class RecordingForm : Form
                 vidRec?.StopAndEncode(_savePath);
                 RecordingCompleted?.Invoke(_savePath, firstFrame);
             }
-            catch
+            catch (Exception ex)
             {
                 firstFrame?.Dispose();
+                try
+                {
+                    // Don't leave a zero-byte / partial file if encoding failed early.
+                    if (File.Exists(_savePath) && new FileInfo(_savePath).Length == 0)
+                        File.Delete(_savePath);
+                }
+                catch { }
+
+                RecordingFailed?.Invoke(ex);
             }
             finally
             {

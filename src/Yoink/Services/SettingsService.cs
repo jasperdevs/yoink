@@ -18,6 +18,18 @@ public sealed class SettingsService
 
     public AppSettings Settings { get; internal set; } = new();
 
+    /// <summary>Quick static load for read-only access (e.g. tooltips). Returns null on error.</summary>
+    public static AppSettings? LoadStatic()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return new AppSettings();
+            var json = File.ReadAllText(SettingsPath);
+            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+        }
+        catch { return null; }
+    }
+
     public void Load()
     {
         if (!File.Exists(SettingsPath))

@@ -123,7 +123,6 @@ public sealed partial class RegionOverlayForm : Form
     private bool _isSelectResizing;
     private int _selectResizeHandle = -1; // 0=TL,1=TR,2=BL,3=BR
     private Point _selectDragStart;
-    private Point _selectDragOffset;
     private Rectangle _selectHandleBounds; // cached bounds for handle hit-testing
     private const int SelectHandleSize = 8;
     private const int SelectHandleHitSize = 14; // larger hit area for easier clicking

@@ -12,6 +12,8 @@ public static class UninstallService
         var exe = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
             return;
+        if (LooksLikeBuildOutputPath(exe))
+            return;
 
         var programsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Microsoft", "Windows", "Start Menu", "Programs");
         Directory.CreateDirectory(programsDir);
@@ -52,6 +54,8 @@ public static class UninstallService
     {
         var exe = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
+            return;
+        if (LooksLikeBuildOutputPath(exe))
             return;
 
         var installDir = GetInstallDirectory();
@@ -128,5 +132,14 @@ public static class UninstallService
                 Directory.Delete(path, true);
         }
         catch { }
+    }
+
+    private static bool LooksLikeBuildOutputPath(string path)
+    {
+        var normalized = path.Replace('/', '\\').TrimEnd('\\');
+        return normalized.Contains(@"\bin\Debug\", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains(@"\bin\Release\", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains(@"\obj\", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains(@"\src\Yoink\bin\", StringComparison.OrdinalIgnoreCase);
     }
 }

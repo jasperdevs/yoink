@@ -16,6 +16,9 @@ jobs:
           - os: windows-latest
             rid: win-x64
             arch: x64
+          - os: windows-latest
+            rid: win-x86
+            arch: x86
           - os: windows-11-arm
             rid: win-arm64
             arch: arm64

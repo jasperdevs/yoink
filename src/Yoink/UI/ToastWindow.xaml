@@ -30,7 +30,7 @@
             <!-- Image preview area (hidden for text-only toasts) -->
             <Grid x:Name="ImageArea" Grid.Row="0" Visibility="Collapsed" MaxHeight="160">
                 <Border CornerRadius="10,10,0,0" ClipToBounds="True">
-                    <Image x:Name="PreviewImage" Stretch="UniformToFill"
+                    <Image x:Name="PreviewImage" Stretch="Uniform"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Border>
 

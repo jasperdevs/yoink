@@ -10,18 +10,20 @@ using Yoink.Services;
 namespace Yoink.Capture;
 
 /// <summary>
-/// Two-phase scrolling capture:
+/// Two-phase scrolling capture (passive, ShareX-style):
 /// 1. User selects a region on a fullscreen overlay.
-/// 2. Overlay hides, then repeatedly captures the region and sends scroll-down
-///    events until no new content is detected. All frames are stitched into a
-///    single tall image.
+/// 2. Overlay hides and a floating control bar appears. User clicks Start,
+///    then manually scrolls the content. Frames are captured at a regular
+///    interval. User clicks Stop (or presses Escape) when done.
+/// 3. Captured frames are stitched into a single tall image via overlap detection.
 /// </summary>
 public sealed class ScrollingCaptureForm : Form
 {
     public event Action<Bitmap>? CaptureCompleted;
     public event Action? CaptureCancelled;
+    public event Action<string>? CaptureFailed;
 
-    private enum State { Selecting, Scrolling, Done }
+    private enum State { Selecting, Capturing, Stitching, Done }
 
     private readonly Bitmap _screenshot;
     private readonly Rectangle _virtualBounds;
@@ -32,22 +34,20 @@ public sealed class ScrollingCaptureForm : Form
     private Point _dragStart;
     private Rectangle _selection;
 
-    // Scrolling capture
+    // Capture
     private readonly List<Bitmap> _frames = new();
     private Rectangle _screenRegion;
-    private int _scrollCount;
-    private int _duplicateCount;
-    private const int MaxScrolls = 80;
-    private const int ScrollDelayMs = 300;
-    private const int ScrollAmount = 120; // one notch = 120 WHEEL_DELTA units
+    private const int CaptureIntervalMs = 400;
     private const int MatchStripHeight = 48;
     private const double DuplicateThreshold = 0.985;
+    private int _initialCaptureFailures;
+    private string? _initialCaptureFailureMessage;
 
-    // Background worker thread for scrolling (avoids blocking UI/message pump)
-    private Thread? _scrollThread;
-    private volatile bool _cancelRequested;
+    // Control bar
+    private CaptureControlBar? _controlBar;
+    private System.Windows.Forms.Timer? _captureTimer;
 
-    // Cached GDI objects
+    // Cached GDI objects for selection overlay
     private readonly SolidBrush _dimBrush = new(Color.FromArgb(100, 0, 0, 0));
     private readonly Pen _selPen = new(Color.FromArgb(220, 100, 149, 237), 2f) { DashStyle = DashStyle.Dash };
     private readonly Font _labelFont = new("Segoe UI", 9f, FontStyle.Bold);
@@ -97,8 +97,9 @@ public sealed class ScrollingCaptureForm : Form
     {
         if (keyData == Keys.Escape)
         {
-            _cancelRequested = true;
-            if (_state == State.Selecting)
+            if (_state == State.Capturing)
+                StopCapturing();
+            else
                 Cancel();
             return true;
         }
@@ -131,103 +132,98 @@ public sealed class ScrollingCaptureForm : Form
             _isDragging = false;
             _selection = NormRect(_dragStart, e.Location);
             if (_selection.Width > 20 && _selection.Height > 20)
-                StartScrollingCapture();
+                ShowControlBar();
             else
                 Invalidate();
         }
     }
 
-    // ─── Scrolling capture ──────────────────────────────────────────
+    // ─── Control bar — starts capturing instantly (same as recording) ──
 
-    private void StartScrollingCapture()
+    private void ShowControlBar()
     {
-        _state = State.Scrolling;
-        _scrollCount = 0;
-        _duplicateCount = 0;
-        _cancelRequested = false;
-
         _screenRegion = new Rectangle(
             _selection.X + _virtualBounds.X,
             _selection.Y + _virtualBounds.Y,
             _selection.Width, _selection.Height);
 
-        // Hide overlay so we can capture the actual content
+        // Hide the overlay so the user can see the content underneath
         Hide();
 
-        // Run scrolling on a background thread to avoid blocking the message pump
-        _scrollThread = new Thread(ScrollCaptureLoop) { IsBackground = true, Name = "ScrollCapture" };
-        _scrollThread.Start();
+        _controlBar = new CaptureControlBar(_screenRegion);
+        _controlBar.StopClicked += () => StopCapturing();
+        _controlBar.CancelClicked += () => Cancel();
+        _controlBar.Show();
+
+        // Start capturing immediately (like recording)
+        _state = State.Capturing;
+        _controlBar.SetCapturing(true);
+        Services.SoundService.PlayRecordStartSound();
+
+        CaptureFrame();
+
+        _captureTimer = new System.Windows.Forms.Timer { Interval = CaptureIntervalMs };
+        _captureTimer.Tick += (_, _) => CaptureFrame();
+        _captureTimer.Start();
     }
 
-    private void ScrollCaptureLoop()
+    private void CaptureFrame()
     {
         try
         {
-            // Wait for overlay to fully hide
-            Thread.Sleep(200);
+            var frame = ScreenCapture.CaptureRegion(_screenRegion);
 
-            // Capture first frame
-            _frames.Add(ScreenCapture.CaptureRegion(_screenRegion));
-
-            while (_scrollCount < MaxScrolls && !_cancelRequested)
+            // Skip exact duplicates of the last frame (no scroll happened)
+            if (_frames.Count > 0 && AreFramesDuplicate(_frames[^1], frame))
             {
-                // Send scroll at center of region
-                int cx = _screenRegion.X + _screenRegion.Width / 2;
-                int cy = _screenRegion.Y + _screenRegion.Height / 2;
-                SendMouseScroll(cx, cy, -ScrollAmount);
+                frame.Dispose();
+                return;
+            }
 
-                // Wait for content to render after scroll
-                Thread.Sleep(ScrollDelayMs);
-                if (_cancelRequested) break;
+            _frames.Add(frame);
+            _controlBar?.SetFrameCount(_frames.Count);
+        }
+        catch (Exception ex)
+        {
+            // Capture can fail transiently; skip this tick.
+            // If we never captured a frame at all, surface a failure instead of a silent cancel.
+            if (_frames.Count == 0 && _state == State.Capturing)
+            {
+                _initialCaptureFailures++;
+                if (string.IsNullOrWhiteSpace(_initialCaptureFailureMessage))
+                    _initialCaptureFailureMessage = string.IsNullOrWhiteSpace(ex.Message)
+                        ? "Unable to capture this region."
+                        : ex.Message;
 
-                // Capture new frame
-                var frame = ScreenCapture.CaptureRegion(_screenRegion);
-                _frames.Add(frame);
-                _scrollCount++;
-
-                // Check if we've hit the bottom (consecutive duplicate detection)
-                if (_frames.Count >= 2)
-                {
-                    var prev = _frames[^2];
-                    var curr = _frames[^1];
-                    if (AreFramesDuplicate(prev, curr))
-                    {
-                        _frames.RemoveAt(_frames.Count - 1);
-                        curr.Dispose();
-                        _duplicateCount++;
-                        // Require 2 consecutive duplicates to confirm we're at the bottom
-                        // (handles cases where content briefly looks the same during animations)
-                        if (_duplicateCount >= 2)
-                            break;
-                    }
-                    else
-                    {
-                        _duplicateCount = 0;
-                    }
-                }
+                // After a few consecutive failures, stop and report a failure to the user.
+                if (_initialCaptureFailures >= 3)
+                    Fail(_initialCaptureFailureMessage);
             }
         }
-        catch
-        {
-            // Capture failed
-        }
+    }
 
-        // Finish on UI thread
-        try
-        {
-            BeginInvoke(new Action(FinishCapture));
-        }
-        catch
-        {
-            // Form may be disposed
-        }
+    private void StopCapturing()
+    {
+        _captureTimer?.Stop();
+        _captureTimer?.Dispose();
+        _captureTimer = null;
+        Services.SoundService.PlayRecordStopSound();
+
+        _state = State.Stitching;
+        _controlBar?.SetStatus("Stitching...");
+
+        FinishCapture();
     }
 
     private void FinishCapture()
     {
-        if (_cancelRequested || _frames.Count == 0)
+        _controlBar?.Close();
+        _controlBar?.Dispose();
+        _controlBar = null;
+
+        if (_frames.Count == 0)
         {
-            Cancel();
+            Fail(_initialCaptureFailureMessage ?? "No frames captured.");
             return;
         }
 
@@ -237,6 +233,7 @@ public sealed class ScrollingCaptureForm : Form
             DisposeFrames();
             SoundService.PlayCaptureSound();
             CaptureCompleted?.Invoke(clone);
+            _state = State.Done;
             Close();
             return;
         }
@@ -253,14 +250,51 @@ public sealed class ScrollingCaptureForm : Form
         {
             CaptureCancelled?.Invoke();
         }
+        _state = State.Done;
         Close();
+    }
+
+    private void Fail(string message)
+    {
+        if (_state == State.Done) return;
+
+        try
+        {
+            _captureTimer?.Stop();
+            _captureTimer?.Dispose();
+            _captureTimer = null;
+        }
+        catch { }
+
+        try
+        {
+            _controlBar?.SetStatus("Capture failed");
+        }
+        catch { }
+
+        try { _controlBar?.Close(); } catch { }
+        try { _controlBar?.Dispose(); } catch { }
+        _controlBar = null;
+
+        DisposeFrames();
+
+        try { CaptureFailed?.Invoke(message); } catch { }
+        try { CaptureCancelled?.Invoke(); } catch { }
+        _state = State.Done;
+        try { Close(); } catch { }
     }
 
     private void Cancel()
     {
-        _cancelRequested = true;
+        _captureTimer?.Stop();
+        _captureTimer?.Dispose();
+        _captureTimer = null;
+        _controlBar?.Close();
+        _controlBar?.Dispose();
+        _controlBar = null;
         DisposeFrames();
         CaptureCancelled?.Invoke();
+        _state = State.Done;
         Close();
     }
 
@@ -275,7 +309,6 @@ public sealed class ScrollingCaptureForm : Form
         int frameH = _frames[0].Height;
         int stripH = Math.Min(MatchStripHeight, frameH / 4);
 
-        // For each consecutive pair, find the overlap and compute Y offset
         var yPositions = new List<int> { 0 };
         int runningY = 0;
 
@@ -290,7 +323,7 @@ public sealed class ScrollingCaptureForm : Form
 
         int totalHeight = runningY + frameH;
 
-        // Cap at 32000 pixels tall (GDI+ limit is 65535 but let's be safe)
+        // Cap at 32000 pixels tall (GDI+ limit safety)
         if (totalHeight > 32000)
             totalHeight = 32000;
 
@@ -331,11 +364,10 @@ public sealed class ScrollingCaptureForm : Form
             int bestOverlap = 0;
             double bestScore = 0;
 
-            // Test overlaps from large to small, coarse then fine
             int maxOverlap = (int)(h * 0.85);
             int minOverlap = Math.Min(stripHeight, h / 8);
 
-            // Coarse pass: step by 8 pixels to find approximate overlap
+            // Coarse pass: step by 8 pixels
             int coarseBest = 0;
             double coarseBestScore = 0;
             for (int overlap = maxOverlap; overlap >= minOverlap; overlap -= 8)
@@ -362,7 +394,6 @@ public sealed class ScrollingCaptureForm : Form
 
                     if (score > DuplicateThreshold)
                     {
-                        // Verify with a second strip deeper in the overlap
                         int midCheck = overlap / 2;
                         if (midCheck > stripHeight)
                         {
@@ -391,7 +422,7 @@ public sealed class ScrollingCaptureForm : Form
         }
     }
 
-    /// <summary>Compares a horizontal strip between two locked bitmaps. Returns 0-1 similarity.</summary>
+    /// <summary>Compares a horizontal strip between two locked bitmaps. Returns 0..1 similarity.</summary>
     private static unsafe double CompareRegions(BitmapData prevData, BitmapData currData,
         int width, int prevY, int currY, int height)
     {
@@ -443,58 +474,6 @@ public sealed class ScrollingCaptureForm : Form
             a.UnlockBits(aData);
             b.UnlockBits(bData);
         }
-    }
-
-    // ─── Mouse scroll via SendInput ─────────────────────────────────
-
-    [DllImport("user32.dll")]
-    private static extern void SetCursorPos(int x, int y);
-
-    [DllImport("user32.dll")]
-    private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct INPUT
-    {
-        public uint type;
-        public InputUnion u;
-    }
-
-    [StructLayout(LayoutKind.Explicit)]
-    private struct InputUnion
-    {
-        [FieldOffset(0)] public MOUSEINPUT mi;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MOUSEINPUT
-    {
-        public int dx, dy;
-        public int mouseData;
-        public uint dwFlags;
-        public uint time;
-        public IntPtr dwExtraInfo;
-    }
-
-    private const uint INPUT_MOUSE = 0;
-    private const uint MOUSEEVENTF_WHEEL = 0x0800;
-
-    private static void SendMouseScroll(int screenX, int screenY, int delta)
-    {
-        SetCursorPos(screenX, screenY);
-        var input = new INPUT
-        {
-            type = INPUT_MOUSE,
-            u = new InputUnion
-            {
-                mi = new MOUSEINPUT
-                {
-                    mouseData = delta,
-                    dwFlags = MOUSEEVENTF_WHEEL
-                }
-            }
-        };
-        SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
     }
 
     // ─── Paint ───────────────────────────────────────────────────────
@@ -565,8 +544,9 @@ public sealed class ScrollingCaptureForm : Form
     {
         if (disposing)
         {
-            _cancelRequested = true;
-            _scrollThread?.Join(2000);
+            _captureTimer?.Stop();
+            _captureTimer?.Dispose();
+            _controlBar?.Dispose();
             DisposeFrames();
             _screenshot.Dispose();
             _dimBrush.Dispose();
@@ -578,5 +558,220 @@ public sealed class ScrollingCaptureForm : Form
             _textLabelBrush.Dispose();
         }
         base.Dispose(disposing);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Floating control bar that appears near the selected region
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Floating control bar matching the RecordingForm visual style:
+    /// dark background, subtle white border, red accent, custom painted.
+    /// </summary>
+    private sealed class CaptureControlBar : Form
+    {
+        public event Action? StopClicked;
+        public event Action? CancelClicked;
+
+        private const int BarWidth = 320;
+        private const int BarHeight = 48;
+        private const int CornerR = 14;
+
+        private int _frameCount;
+        private string _status = "Scroll now";
+
+        // Cached GDI objects
+        private readonly Font _statusFont = new("Segoe UI Variable Text", 10f, FontStyle.Bold);
+        private readonly Font _btnFont = new("Segoe UI Variable Text", 9.5f, FontStyle.Bold);
+
+        // Button hit-test rects
+        private Rectangle _actionBtnRect;
+        private Rectangle _cancelBtnRect;
+        private Rectangle? _hoveredBtn;
+
+        public CaptureControlBar(Rectangle captureRegion)
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            ShowInTaskbar = false;
+            TopMost = true;
+            StartPosition = FormStartPosition.Manual;
+            Size = new Size(BarWidth, BarHeight);
+            BackColor = Color.FromArgb(28, 28, 28);
+            KeyPreview = true;
+            DoubleBuffered = true;
+            Cursor = Cursors.Default;
+
+            int x = captureRegion.X + (captureRegion.Width - BarWidth) / 2;
+            int y = captureRegion.Y - BarHeight - 12;
+            if (y < 0) y = captureRegion.Bottom + 12;
+            Location = new Point(Math.Max(4, x), Math.Max(4, y));
+
+            Region = CreateRoundedRegion(BarWidth, BarHeight, CornerR);
+
+            // Button layout
+            _cancelBtnRect = new Rectangle(BarWidth - 82, 10, 68, 28);
+            _actionBtnRect = new Rectangle(BarWidth - 156, 10, 68, 28);
+        }
+
+        public void SetCapturing(bool capturing)
+        {
+            _status = "Scroll now";
+            Invalidate();
+        }
+
+        public void SetFrameCount(int count)
+        {
+            if (InvokeRequired) { BeginInvoke(() => SetFrameCount(count)); return; }
+            _frameCount = count;
+            _status = $"{count} frames";
+            Invalidate();
+        }
+
+        public void SetStatus(string text)
+        {
+            if (InvokeRequired) { BeginInvoke(() => SetStatus(text)); return; }
+            _status = text;
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+
+            // Shadow (dark rect behind, offset)
+            using (var shadowBrush = new SolidBrush(Color.FromArgb(60, 0, 0, 0)))
+            {
+                using var shadowPath = CreateRoundedPath(new RectangleF(2, 4, Width - 4, Height - 2), CornerR);
+                g.FillPath(shadowBrush, shadowPath);
+            }
+
+            // Background
+            using (var bgBrush = new SolidBrush(Color.FromArgb(252, 28, 28, 28)))
+            {
+                using var bgPath = CreateRoundedPath(new RectangleF(0, 0, Width, Height), CornerR);
+                g.FillPath(bgBrush, bgPath);
+            }
+
+            // Subtle white border
+            using (var borderPen = new Pen(Color.FromArgb(30, 255, 255, 255), 1f))
+            {
+                using var borderPath = CreateRoundedPath(new RectangleF(0.5f, 0.5f, Width - 1, Height - 1), CornerR);
+                g.DrawPath(borderPen, borderPath);
+            }
+
+            // Status text — clip before buttons
+            using var statusBrush = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
+            int maxTextW = _actionBtnRect.X - 24;
+            var statusRect = new RectangleF(16, 0, maxTextW, Height);
+            var statusFmt = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
+            g.DrawString(_status, _statusFont, statusBrush, statusRect, statusFmt);
+
+            // Draw buttons — always Stop + Discard (starts instantly like recording)
+            DrawBtn(g, _actionBtnRect, "Stop",
+                Color.FromArgb(239, 68, 68), Color.White, _hoveredBtn == _actionBtnRect);
+            DrawBtn(g, _cancelBtnRect, "Discard",
+                Color.FromArgb(18, 255, 255, 255), Color.FromArgb(180, 255, 255, 255), _hoveredBtn == _cancelBtnRect);
+        }
+
+        private void DrawBtn(Graphics g, Rectangle r, string text, Color bg, Color fg, bool hovered)
+        {
+            int alpha = hovered ? (int)(bg.A * 2.5) : bg.A;
+            alpha = Math.Min(255, alpha);
+            using var brush = new SolidBrush(Color.FromArgb(alpha, bg.R, bg.G, bg.B));
+            using var path = CreateRoundedPath(new RectangleF(r.X, r.Y, r.Width, r.Height), 8);
+            g.FillPath(brush, path);
+
+            if (hovered)
+            {
+                using var hoverBorder = new Pen(Color.FromArgb(40, 255, 255, 255), 1f);
+                g.DrawPath(hoverBorder, path);
+            }
+
+            using var textBrush = new SolidBrush(fg);
+            var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            g.DrawString(text, _btnFont, textBrush, r, sf);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            Rectangle? prev = _hoveredBtn;
+            if (_actionBtnRect.Contains(e.Location))
+                _hoveredBtn = _actionBtnRect;
+            else if (_cancelBtnRect.Contains(e.Location))
+                _hoveredBtn = _cancelBtnRect;
+            else
+                _hoveredBtn = null;
+
+            Cursor = _hoveredBtn != null ? Cursors.Hand : Cursors.Default;
+            if (_hoveredBtn != prev) Invalidate();
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            if (_hoveredBtn != null) { _hoveredBtn = null; Invalidate(); }
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            base.OnMouseClick(e);
+            if (_actionBtnRect.Contains(e.Location))
+                StopClicked?.Invoke();
+            else if (_cancelBtnRect.Contains(e.Location))
+                CancelClicked?.Invoke();
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.Escape)
+            {
+                StopClicked?.Invoke();
+                return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                cp.ExStyle |= 0x80; // WS_EX_TOOLWINDOW
+                return cp;
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { _statusFont.Dispose(); _btnFont.Dispose(); }
+            base.Dispose(disposing);
+        }
+
+        private static Region CreateRoundedRegion(int w, int h, int r)
+        {
+            using var path = new GraphicsPath();
+            int d = r * 2;
+            path.AddArc(0, 0, d, d, 180, 90);
+            path.AddArc(w - d, 0, d, d, 270, 90);
+            path.AddArc(w - d, h - d, d, d, 0, 90);
+            path.AddArc(0, h - d, d, d, 90, 90);
+            path.CloseFigure();
+            return new Region(path);
+        }
+
+        private static GraphicsPath CreateRoundedPath(RectangleF r, float radius)
+        {
+            var path = new GraphicsPath();
+            float d = radius * 2;
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
     }
 }

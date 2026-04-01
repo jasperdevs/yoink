@@ -4,15 +4,11 @@
              ThemeMode="System"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        <!-- Global Button style -->
-        <Style TargetType="Button">
-            <Setter Property="Background" Value="#15FFFFFF"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
-            <Setter Property="BorderBrush" Value="#20FFFFFF"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="FontFamily" Value="Segoe UI Variable Text"/>
+        <!-- Shared button chrome used by app-wide and page-specific styles -->
+        <Style x:Key="ChromeButtonBase" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Segoe UI Variable Text"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -25,15 +21,24 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#22FFFFFF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ChromeButtonHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#30FFFFFF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ChromeButtonPressedBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Global Button style -->
+        <Style TargetType="Button" BasedOn="{StaticResource ChromeButtonBase}">
+            <Setter Property="Background" Value="{DynamicResource ChromeButtonBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ChromeButtonForeground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ChromeButtonBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,5"/>
         </Style>
     </Application.Resources>
 </Application>

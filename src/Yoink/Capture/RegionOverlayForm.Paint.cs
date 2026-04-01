@@ -933,17 +933,45 @@ public sealed partial class RegionOverlayForm
             DrawIcon(g, icons[i], btn, Color.FromArgb(ia, 255, 255, 255));
         }
 
-        // Tooltip
+        // Tooltip with hotkey hint on hover (all tools)
         if (_hoveredButton >= 0 && _hoveredButton < labels.Length)
         {
-            string label = labels[_hoveredButton];
+            string tipText = labels[_hoveredButton];
+
+            if (_hoveredButton < toolCount)
+            {
+                var tool = _visibleTools[_hoveredButton];
+                if (tool.Group == 1)
+                {
+                    // Annotation tool — show position-based number key
+                    int keyIdx = 0;
+                    for (int j = 0; j < toolCount; j++)
+                    {
+                        if (_visibleTools[j].Group != 1) continue;
+                        if (j == _hoveredButton) { if (keyIdx < AnnotationKeyMap.Length) tipText += $"  ({AnnotationKeyMap[keyIdx].label})"; break; }
+                        keyIdx++;
+                    }
+                }
+                else if (tool.Group == 0)
+                {
+                    // Capture tool — show global hotkey from settings
+                    var hk = Services.SettingsService.LoadStatic()?.GetToolHotkey(tool.Id) ?? (0u, 0u);
+                    if (hk.key != 0)
+                        tipText += $"  ({Helpers.HotkeyFormatter.Format(hk.mod, hk.key)})";
+                }
+            }
+
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             var tipFont = GetAnnotationFont("Segoe UI Semibold", 8.25f, FontStyle.Regular);
-            var sz = g.MeasureString(label, tipFont);
+            var sz = g.MeasureString(tipText, tipFont);
             var btnRect = _toolbarButtons[_hoveredButton];
             float tx = btnRect.X + btnRect.Width / 2f - sz.Width / 2f;
             float ty = r.Bottom + 6;
-            var tipRect = new RectangleF(tx - 10, ty - 4, sz.Width + 20, sz.Height + 8);
+            // Clamp tooltip to screen bounds
+            float tipW = sz.Width + 20;
+            if (tx - 10 < 4) tx = 14;
+            if (tx - 10 + tipW > Width - 4) tx = Width - 4 - tipW + 10;
+            var tipRect = new RectangleF(tx - 10, ty - 4, tipW, sz.Height + 8);
             PaintShadow(g, tipRect, tipRect.Height / 2f, 52, 1f);
             using (var tipPath = RRect(tipRect, tipRect.Height / 2f))
             {
@@ -953,34 +981,8 @@ public sealed partial class RegionOverlayForm
                 g.DrawPath(tipBorder, tipPath);
             }
             using var tipBrush = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
-            g.DrawString(label, tipFont, tipBrush, tx, ty);
+            g.DrawString(tipText, tipFont, tipBrush, tx, ty);
             g.TextRenderingHint = TextRenderingHint.SystemDefault;
-        }
-
-        if (_showToolNumberBadges && _hoveredButton >= 0)
-        {
-            // Hotkey badges for visible annotation tools only (Group 1)
-            int badgeIndex = 0;
-            for (int i = 0; i < toolCount; i++)
-            {
-                if (modes[i] is null) continue;
-                if (_visibleTools[i].Group != 1) continue;
-                if (badgeIndex >= AnnotationKeyMap.Length) break;
-
-                string label = AnnotationKeyMap[badgeIndex].label;
-                var btn = _toolbarButtons[i];
-                var badgeRect = new RectangleF(btn.Right - 9, btn.Bottom - 9, 12, 12);
-                using var badgeBg = new SolidBrush(Color.FromArgb(235, 24, 24, 24));
-                using var badgeBorder = new Pen(Color.FromArgb(30, 255, 255, 255), 1f);
-                using var badgeText = new SolidBrush(Color.FromArgb(185, 255, 255, 255));
-                var badgeFont = GetAnnotationFont("Segoe UI", 6.5f, FontStyle.Bold);
-                g.FillEllipse(badgeBg, badgeRect);
-                g.DrawEllipse(badgeBorder, badgeRect);
-                g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-                g.DrawString(label, badgeFont, badgeText, badgeRect, _iconFmt);
-                g.TextRenderingHint = TextRenderingHint.SystemDefault;
-                badgeIndex++;
-            }
         }
 
         g.SmoothingMode = SmoothingMode.Default;
