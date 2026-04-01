@@ -119,15 +119,7 @@ public partial class PreviewWindow : Window
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_duration) };
         _fadeTimer.Tick += (_, _) => { _fadeTimer.Stop(); if (!_isHovered && !_isPinned) AnimateDismiss(); };
 
-        SourceInitialized += (_, _) =>
-        {
-            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            int exStyle = Native.User32.GetWindowLongA(hwnd, Native.User32.GWL_EXSTYLE);
-            exStyle |= 0x80;     // WS_EX_TOOLWINDOW
-            exStyle |= 0x08000000; // WS_EX_NOACTIVATE
-            Native.User32.SetWindowLongA(hwnd, Native.User32.GWL_EXSTYLE, exStyle);
-            Native.Dwm.DisableBackdrop(hwnd);
-        };
+        SourceInitialized += (_, _) => PopupWindowHelper.ApplyNoActivateChrome(this);
         Loaded += OnLoaded;
     }
 
@@ -209,7 +201,8 @@ public partial class PreviewWindow : Window
     {
         var wa = SystemParameters.WorkArea;
 
-        var (targetLeft, targetTop, startLeft, startTop, animateLeft) = GetPlacement(wa);
+        var (targetLeft, targetTop, startLeft, startTop, animateLeft) = PopupWindowHelper.GetPlacement(
+            _position, ActualWidth, ActualHeight, wa, Edge);
         Left = startLeft;
         Top = startTop;
 
@@ -422,7 +415,8 @@ public partial class PreviewWindow : Window
         var dur = TimeSpan.FromMilliseconds(280);
         var ease = new QuarticEase { EasingMode = EasingMode.EaseIn };
 
-        var (exitLeft, exitTop, animateLeft) = GetDismissPlacement(wa);
+        var (exitLeft, exitTop, animateLeft) = PopupWindowHelper.GetDismissPlacement(
+            _position, ActualWidth, ActualHeight, wa, Edge);
         if (animateLeft)
         {
             BeginAnimation(LeftProperty, new DoubleAnimation
@@ -444,32 +438,6 @@ public partial class PreviewWindow : Window
     }
 
     private const double Edge = 8;
-
-    private (double targetLeft, double targetTop, double startLeft, double startTop, bool animateLeft) GetPlacement(Rect wa)
-    {
-        return _position switch
-        {
-            Yoink.Models.ToastPosition.Left =>
-                (Edge, wa.Bottom - ActualHeight - Edge, -ActualWidth - 10, wa.Bottom - ActualHeight - Edge, true),
-            Yoink.Models.ToastPosition.TopLeft =>
-                (Edge, Edge, Edge, -ActualHeight - 10, false),
-            Yoink.Models.ToastPosition.TopRight =>
-                (wa.Right - ActualWidth - Edge, Edge, wa.Right - ActualWidth - Edge, -ActualHeight - 10, false),
-            _ =>
-                (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, wa.Right + 10, wa.Bottom - ActualHeight - Edge, true),
-        };
-    }
-
-    private (double exitLeft, double exitTop, bool animateLeft) GetDismissPlacement(Rect wa)
-    {
-        return _position switch
-        {
-            Yoink.Models.ToastPosition.Left => (-ActualWidth - 20, wa.Bottom - ActualHeight - Edge, true),
-            Yoink.Models.ToastPosition.TopLeft => (Edge, -ActualHeight - 20, false),
-            Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - Edge, -ActualHeight - 20, false),
-            _ => (wa.Right + 20, wa.Bottom - ActualHeight - Edge, true),
-        };
-    }
 
     private static bool IsChildOf(DependencyObject? child, DependencyObject parent)
     {
@@ -533,7 +501,7 @@ public partial class PreviewWindow : Window
                 FileName = Path.GetFileName(_savedFilePath ?? $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.gif"),
                 DefaultExt = ".gif"
             };
-            if (dlg.ShowDialog() == true && _savedFilePath != null)
+            if (dlg.ShowDialog(this) == true && _savedFilePath != null)
                 File.Copy(_savedFilePath, dlg.FileName, true);
         }
         else
@@ -544,7 +512,7 @@ public partial class PreviewWindow : Window
                 FileName = $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.png",
                 DefaultExt = ".png"
             };
-            if (dlg.ShowDialog() == true && _screenshot != null)
+            if (dlg.ShowDialog(this) == true && _screenshot != null)
             {
                 var fmt = dlg.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
                     ? ImageFormat.Jpeg : ImageFormat.Png;

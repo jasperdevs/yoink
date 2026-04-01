@@ -59,6 +59,15 @@ public static class Theme
 
     public static SolidColorBrush Brush(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
 
+    public static void ApplyTo(System.Windows.ResourceDictionary resources)
+    {
+        resources["ChromeButtonBackground"] = Brush(AccentSubtle);
+        resources["ChromeButtonForeground"] = Brush(TextPrimary);
+        resources["ChromeButtonBorderBrush"] = Brush(BorderSubtle);
+        resources["ChromeButtonHoverBrush"] = Brush(AccentHover);
+        resources["ChromeButtonPressedBrush"] = Brush(SelectionBg);
+    }
+
     public static void Refresh()
     {
         IsDark = DetectDarkMode();

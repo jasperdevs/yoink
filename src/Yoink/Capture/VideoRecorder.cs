@@ -32,6 +32,7 @@ public sealed class VideoRecorder : IDisposable
     private Thread? _captureThread;
     private Process? _ffmpeg;
     private Stream? _ffmpegStdin;
+    private LimitedTextBuffer? _ffmpegStderr;
     private int _frameCount;
     private DateTime _startTime;
     private bool _isPaused;
@@ -151,7 +152,14 @@ public sealed class VideoRecorder : IDisposable
                 RedirectStandardError = true,
             }
         };
+        _ffmpegStderr = new LimitedTextBuffer(32_768);
+        _ffmpeg.ErrorDataReceived += (_, e) =>
+        {
+            if (!string.IsNullOrWhiteSpace(e.Data))
+                _ffmpegStderr?.AppendLine(e.Data);
+        };
         _ffmpeg.Start();
+        _ffmpeg.BeginErrorReadLine();
         _ffmpegStdin = _ffmpeg.StandardInput.BaseStream;
 
         _captureThread = new Thread(CaptureLoop) { IsBackground = true, Name = "VideoCapture" };
@@ -285,17 +293,31 @@ public sealed class VideoRecorder : IDisposable
         _cts.Cancel();
         // Unpause if paused so capture thread can exit
         lock (_pauseLock) { _isPaused = false; Monitor.PulseAll(_pauseLock); }
-        _captureThread?.Join(5000);
+        _captureThread?.Join(10_000);
 
         // Stop audio capture
         StopAudioCapture();
 
         // Close stdin to signal EOF to FFmpeg
         try { _ffmpegStdin?.Close(); } catch { }
-        _ffmpeg?.WaitForExit(30000);
+
+        if (_ffmpeg == null)
+            throw new InvalidOperationException("Video encoder not initialized.");
+
+        if (!_ffmpeg.WaitForExit(30_000))
+        {
+            try { _ffmpeg.Kill(entireProcessTree: true); } catch { }
+            try { _ffmpeg.WaitForExit(2_000); } catch { }
+            throw new TimeoutException($"Video encoding timed out. {_ffmpegStderr}");
+        }
+
+        try { _ffmpeg.WaitForExit(500); } catch { } // allow async stderr flush
+
+        if (_ffmpeg.ExitCode != 0)
+            throw new InvalidOperationException($"Video encoding failed (exit code {_ffmpeg.ExitCode}). {_ffmpegStderr}");
 
         if (!File.Exists(outputPath) || new FileInfo(outputPath).Length == 0)
-            throw new InvalidOperationException("Video encoding failed — no output file produced.");
+            throw new InvalidOperationException($"Video encoding failed — no output file produced. {_ffmpegStderr}");
 
         // Mux audio if we captured any
         MuxAudio(outputPath);
@@ -412,5 +434,24 @@ public sealed class VideoRecorder : IDisposable
         try { _ffmpegStdin?.Dispose(); } catch { }
         try { _ffmpeg?.Dispose(); } catch { }
         _cts.Dispose();
+    }
+
+    private sealed class LimitedTextBuffer(int maxChars)
+    {
+        private readonly int _maxChars = Math.Max(256, maxChars);
+        private readonly System.Text.StringBuilder _sb = new();
+
+        public void AppendLine(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            if (_sb.Length > 0) _sb.AppendLine();
+            _sb.Append(line);
+
+            if (_sb.Length <= _maxChars) return;
+            int remove = _sb.Length - _maxChars;
+            _sb.Remove(0, remove);
+        }
+
+        public override string ToString() => _sb.ToString();
     }
 }

@@ -1,3 +1,5 @@
+using Yoink.Helpers;
+
 namespace Yoink.Models;
 
 public enum AfterCaptureAction
@@ -67,6 +69,7 @@ public sealed class AppSettings
     // OCR hotkey: Alt+Shift+`
     public uint OcrHotkeyModifiers { get; set; } = Native.User32.MOD_ALT | Native.User32.MOD_SHIFT;
     public uint OcrHotkeyKey { get; set; } = 0xC0;
+    public string OcrLanguageTag { get; set; } = "auto";
 
     // Color picker hotkey: Alt+C
     public uint PickerHotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
@@ -120,6 +123,8 @@ public sealed class AppSettings
 
     // Upload settings
     public bool AutoUploadScreenshots { get; set; }
+    public bool AutoUploadGifs { get; set; }
+    public bool AutoUploadVideos { get; set; }
     public Services.UploadDestination ImageUploadDestination { get; set; } = Services.UploadDestination.None;
     public Services.UploadSettings ImageUploadSettings { get; set; } = new();
     public Services.StickerSettings StickerUploadSettings { get; set; } = new();
@@ -140,6 +145,81 @@ public sealed class AppSettings
     // Toolbar customization: which tools appear in the dock
     // null = all tools enabled (default). List of tool IDs from ToolDef.AllTools.
     public List<string>? EnabledTools { get; set; }
+
+    // Generic hotkeys for any tool by ID. Key = tool id, Value = [modifiers, virtualKey].
+    // Tools with dedicated properties (rect, ocr, picker, etc.) are mapped to those properties instead.
+    public Dictionary<string, uint[]>? ToolHotkeys { get; set; }
+
+    // Virtual key codes for in-capture annotation shortcuts: 1-9, 0, -, =, [, ]
+    private static readonly uint[] AnnotationKeyVks =
+    {
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, // 1-9
+        0x30, 0xBD, 0xBB, 0xDB, 0xDD, 0xDC // 0, -, =, [, ], \
+    };
+
+    /// <summary>Compute annotation tool defaults dynamically from enabled tools (matches dock numbering).</summary>
+    private Dictionary<string, uint> GetAnnotationDefaults()
+    {
+        var enabled = EnabledTools ?? ToolDef.DefaultEnabledIds();
+        var result = new Dictionary<string, uint>();
+        int idx = 0;
+        foreach (var t in ToolDef.AllTools.Where(t => t.Group == 1))
+        {
+            if (!enabled.Contains(t.Id)) continue;
+            if (idx < AnnotationKeyVks.Length)
+                result[t.Id] = AnnotationKeyVks[idx++];
+        }
+        return result;
+    }
+
+    /// <summary>Get hotkey (mod, key) for a tool ID, checking named properties first then dictionary.</summary>
+    public (uint mod, uint key) GetToolHotkey(string toolId) => toolId switch
+    {
+        "rect" => (HotkeyModifiers, HotkeyKey),
+        "ocr" => (OcrHotkeyModifiers, OcrHotkeyKey),
+        "picker" => (PickerHotkeyModifiers, PickerHotkeyKey),
+        "scan" => (ScanHotkeyModifiers, ScanHotkeyKey),
+        "sticker" => (StickerHotkeyModifiers, StickerHotkeyKey),
+        "_fullscreen" => (FullscreenHotkeyModifiers, FullscreenHotkeyKey),
+        "_activeWindow" => (ActiveWindowHotkeyModifiers, ActiveWindowHotkeyKey),
+        "_scrollCapture" => (ScrollCaptureHotkeyModifiers, ScrollCaptureHotkeyKey),
+        "_record" => (GifHotkeyModifiers, GifHotkeyKey),
+        _ => GetGenericToolHotkey(toolId),
+    };
+
+    private (uint mod, uint key) GetGenericToolHotkey(string toolId)
+    {
+        // Check user-customized value first (including explicit clears stored as [0,0])
+        if (ToolHotkeys != null && ToolHotkeys.TryGetValue(toolId, out var v) && v.Length >= 2)
+            return (v[0], v[1]);
+        // Fall back to dynamic annotation tool defaults (matches dock numbering)
+        var defaults = GetAnnotationDefaults();
+        if (defaults.TryGetValue(toolId, out var defKey))
+            return (0u, defKey);
+        return (0u, 0u);
+    }
+
+    /// <summary>Set hotkey (mod, key) for a tool ID.</summary>
+    public void SetToolHotkey(string toolId, uint mod, uint key)
+    {
+        switch (toolId)
+        {
+            case "rect": HotkeyModifiers = mod; HotkeyKey = key; break;
+            case "ocr": OcrHotkeyModifiers = mod; OcrHotkeyKey = key; break;
+            case "picker": PickerHotkeyModifiers = mod; PickerHotkeyKey = key; break;
+            case "scan": ScanHotkeyModifiers = mod; ScanHotkeyKey = key; break;
+            case "sticker": StickerHotkeyModifiers = mod; StickerHotkeyKey = key; break;
+            // ruler handled by generic path (annotation tool with default key 9)
+            case "_fullscreen": FullscreenHotkeyModifiers = mod; FullscreenHotkeyKey = key; break;
+            case "_activeWindow": ActiveWindowHotkeyModifiers = mod; ActiveWindowHotkeyKey = key; break;
+            case "_scrollCapture": ScrollCaptureHotkeyModifiers = mod; ScrollCaptureHotkeyKey = key; break;
+            case "_record": GifHotkeyModifiers = mod; GifHotkeyKey = key; break;
+            default:
+                ToolHotkeys ??= new();
+                ToolHotkeys[toolId] = new[] { mod, key };
+                break;
+        }
+    }
 }
 
 /// <summary>Definition of a toolbar tool with id, label, icon, mode, and group.</summary>
@@ -151,7 +231,7 @@ public sealed record ToolDef(string Id, string Label, char Icon, CaptureMode? Mo
         new("rect",        "Rectangle Select", '\uE257', CaptureMode.Rectangle, 0), // scan-line
         new("free",        "Freeform Select",  '\uE1CE', CaptureMode.Freeform,  0), // lasso-select
         new("ocr",         "OCR",          '\uE53C', CaptureMode.Ocr,         0), // scan-text
-        new("sticker",     "Sticker",      '\uE7C5', CaptureMode.Sticker,     0), // sticker
+        new("sticker",     "Sticker",      ToolGlyphs.StickerGlyph, CaptureMode.Sticker,     0), // sticker
         new("picker",      "Color Picker", '\uE13E', CaptureMode.ColorPicker, 0), // pipette
         new("scan",        "QR/Barcode",   '\uE1DE', CaptureMode.Scan,        0), // qr-code
         new("select",      "Select",       '\uE1E3', CaptureMode.Select,      1), // cursor-click

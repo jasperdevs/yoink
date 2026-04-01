@@ -93,6 +93,7 @@ public sealed class StickerToastWindow : Window
             _timer.Start();
         };
         MouseLeftButtonDown += (_, _) => SlideAway();
+        SourceInitialized += (_, _) => PopupWindowHelper.ApplyNoActivateChrome(this);
         Loaded += OnLoaded;
     }
 
@@ -105,7 +106,8 @@ public sealed class StickerToastWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         var wa = SystemParameters.WorkArea;
-        var (targetLeft, targetTop, startLeft, startTop, animateLeft) = GetPlacement(wa);
+        var (targetLeft, targetTop, startLeft, startTop, animateLeft) = PopupWindowHelper.GetPlacement(
+            _position, ActualWidth, ActualHeight, wa);
         Left = startLeft;
         Top = startTop;
 
@@ -138,7 +140,8 @@ public sealed class StickerToastWindow : Window
         var wa = SystemParameters.WorkArea;
         var dur = TimeSpan.FromMilliseconds(220);
         var ease = new QuarticEase { EasingMode = EasingMode.EaseIn };
-        var (_, _, exitLeft, exitTop, animateLeft) = GetDismissPlacement(wa);
+        var (exitLeft, exitTop, animateLeft) = PopupWindowHelper.GetDismissPlacement(
+            _position, ActualWidth, ActualHeight, wa);
         if (animateLeft)
         {
             var anim = new DoubleAnimation { To = exitLeft, Duration = dur, EasingFunction = ease };
@@ -201,25 +204,4 @@ public sealed class StickerToastWindow : Window
         return source.Clone(rect, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
     }
 
-    private (double targetLeft, double targetTop, double startLeft, double startTop, bool animateLeft) GetPlacement(Rect wa)
-    {
-        return _position switch
-        {
-            Yoink.Models.ToastPosition.Left => (8, wa.Bottom - ActualHeight - 8, -ActualWidth - 10, wa.Bottom - ActualHeight - 8, true),
-            Yoink.Models.ToastPosition.TopLeft => (8, 8, 8, -ActualHeight - 10, false),
-            Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - 8, 8, wa.Right - ActualWidth - 8, -ActualHeight - 10, false),
-            _ => (wa.Right - ActualWidth - 8, wa.Bottom - ActualHeight - 8, wa.Right + 10, wa.Bottom - ActualHeight - 8, true),
-        };
-    }
-
-    private (double targetLeft, double targetTop, double exitLeft, double exitTop, bool animateLeft) GetDismissPlacement(Rect wa)
-    {
-        return _position switch
-        {
-            Yoink.Models.ToastPosition.Left => (8, wa.Bottom - ActualHeight - 8, -ActualWidth - 20, wa.Bottom - ActualHeight - 8, true),
-            Yoink.Models.ToastPosition.TopLeft => (8, 8, 8, -ActualHeight - 20, false),
-            Yoink.Models.ToastPosition.TopRight => (wa.Right - ActualWidth - 8, 8, wa.Right - ActualWidth - 8, -ActualHeight - 20, false),
-            _ => (wa.Right - ActualWidth - 8, wa.Bottom - ActualHeight - 8, wa.Right + 20, wa.Bottom - ActualHeight - 8, true),
-        };
-    }
 }

@@ -59,29 +59,64 @@ public static class ScreenCapture
         var bounds = new Rectangle(left, top, width, height);
         var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
-        using var graphics = Graphics.FromImage(bitmap);
-        IntPtr hdcScreen = User32.GetDC(IntPtr.Zero);
-        IntPtr hdcDest = graphics.GetHdc();
+        try
+        {
+            using var graphics = Graphics.FromImage(bitmap);
+            IntPtr hdcScreen = User32.GetDC(IntPtr.Zero);
+            IntPtr hdcDest = IntPtr.Zero;
+            try
+            {
+                hdcDest = graphics.GetHdc();
+                bool ok = Gdi32.BitBlt(hdcDest, 0, 0, width, height, hdcScreen, left, top, User32.SRCCOPY);
+                if (!ok)
+                    throw new InvalidOperationException("Screen capture failed (BitBlt returned false).");
+            }
+            finally
+            {
+                if (hdcDest != IntPtr.Zero)
+                    graphics.ReleaseHdc(hdcDest);
+                User32.ReleaseDC(IntPtr.Zero, hdcScreen);
+            }
 
-        Gdi32.BitBlt(hdcDest, 0, 0, width, height, hdcScreen, left, top, User32.SRCCOPY);
-
-        graphics.ReleaseHdc(hdcDest);
-        User32.ReleaseDC(IntPtr.Zero, hdcScreen);
-
-        return (bitmap, bounds);
+            return (bitmap, bounds);
+        }
+        catch
+        {
+            bitmap.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Captures a specific screen region directly via BitBlt. Used by GIF recorder.</summary>
     private static Bitmap CaptureRegionLegacy(Rectangle region)
     {
         var bmp = new Bitmap(region.Width, region.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
-        IntPtr hdcScreen = User32.GetDC(IntPtr.Zero);
-        IntPtr hdcDest = g.GetHdc();
-        Gdi32.BitBlt(hdcDest, 0, 0, region.Width, region.Height, hdcScreen, region.X, region.Y, User32.SRCCOPY);
-        g.ReleaseHdc(hdcDest);
-        User32.ReleaseDC(IntPtr.Zero, hdcScreen);
-        return bmp;
+        try
+        {
+            using var g = Graphics.FromImage(bmp);
+            IntPtr hdcScreen = User32.GetDC(IntPtr.Zero);
+            IntPtr hdcDest = IntPtr.Zero;
+            try
+            {
+                hdcDest = g.GetHdc();
+                bool ok = Gdi32.BitBlt(hdcDest, 0, 0, region.Width, region.Height, hdcScreen, region.X, region.Y, User32.SRCCOPY);
+                if (!ok)
+                    throw new InvalidOperationException("Screen capture failed (BitBlt returned false).");
+            }
+            finally
+            {
+                if (hdcDest != IntPtr.Zero)
+                    g.ReleaseHdc(hdcDest);
+                User32.ReleaseDC(IntPtr.Zero, hdcScreen);
+            }
+
+            return bmp;
+        }
+        catch
+        {
+            bmp.Dispose();
+            throw;
+        }
     }
 
     public static Bitmap CropRegion(Bitmap fullScreenshot, Rectangle selection)

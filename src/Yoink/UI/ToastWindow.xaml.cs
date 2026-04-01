@@ -70,23 +70,21 @@ public partial class ToastWindow : Window
             _timer.Interval = TimeSpan.FromSeconds(remaining);
             _timer.Start();
         };
-        MouseLeftButtonDown += (_, _) => { if (!_hasImagePreview) SlideAway(); };
-        SourceInitialized += (_, _) =>
+        MouseLeftButtonDown += (_, _) =>
         {
-            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            int exStyle = Native.User32.GetWindowLongA(hwnd, Native.User32.GWL_EXSTYLE);
-            exStyle |= 0x80;       // WS_EX_TOOLWINDOW
-            exStyle |= 0x08000000; // WS_EX_NOACTIVATE
-            Native.User32.SetWindowLongA(hwnd, Native.User32.GWL_EXSTYLE, exStyle);
-            Native.Dwm.DisableBackdrop(hwnd);
+            if (_hasImagePreview) return; // image toasts handle clicks on the image/text
+            if (_savedFilePath != null) { OpenFileLocation(_savedFilePath); return; }
+            SlideAway();
         };
+        SourceInitialized += (_, _) => PopupWindowHelper.ApplyNoActivateChrome(this);
         Loaded += OnLoaded;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         var wa = SystemParameters.WorkArea;
-        var (targetLeft, targetTop, startLeft, startTop, animateLeft) = GetPlacement(wa);
+        var (targetLeft, targetTop, startLeft, startTop, animateLeft) = PopupWindowHelper.GetPlacement(
+            _position, ActualWidth, ActualHeight, wa, Edge);
         Left = startLeft;
         Top = startTop;
 
@@ -135,7 +133,8 @@ public partial class ToastWindow : Window
         var dur = TimeSpan.FromMilliseconds(220);
         var ease = new QuarticEase { EasingMode = EasingMode.EaseIn };
 
-        var (_, _, exitLeft, exitTop, animateLeft) = GetDismissPlacement(wa);
+        var (exitLeft, exitTop, animateLeft) = PopupWindowHelper.GetDismissPlacement(
+            _position, ActualWidth, ActualHeight, wa, Edge);
         Timeline slide;
         if (animateLeft)
         {
@@ -187,11 +186,18 @@ public partial class ToastWindow : Window
     public static void SetDuration(double seconds) => _durationSeconds = Math.Clamp(seconds, 1, 10);
     public static double GetDuration() => _durationSeconds;
 
-    public static void Show(string title, string body = "")
+    public static void Show(string title, string body = "", string? filePath = null)
     {
+        Services.SoundService.PlayCaptureSound();
         _currentSticker?.ForceClose(); _currentSticker = null;
         _current?.ForceClose();
         var toast = new ToastWindow(title, body, null);
+        if (filePath != null)
+        {
+            toast._savedFilePath = filePath;
+            toast.Cursor = System.Windows.Input.Cursors.Hand;
+            toast.MouseLeftButtonDown += (_, _) => OpenFileLocation(filePath);
+        }
         _current = toast;
         toast.Show();
     }
@@ -208,6 +214,7 @@ public partial class ToastWindow : Window
 
     public static void ShowWithColor(string title, string body, Color color)
     {
+        Services.SoundService.PlayCaptureSound();
         _currentSticker?.ForceClose(); _currentSticker = null;
         _current?.ForceClose();
         var toast = new ToastWindow(title, body, color);
@@ -215,14 +222,29 @@ public partial class ToastWindow : Window
         toast.Show();
     }
 
-    public static void ShowError(string title, string body = "")
+    public static void ShowError(string title, string body = "", string? filePath = null)
     {
         Services.SoundService.PlayErrorSound();
         _currentSticker?.ForceClose(); _currentSticker = null;
         _current?.ForceClose();
         var toast = new ToastWindow(title, body, null);
-        toast.ProgressBar.Background = Theme.Brush(System.Windows.Media.Color.FromArgb(120, 239, 68, 68));
-        toast.Root.BorderBrush = Theme.Brush(System.Windows.Media.Color.FromArgb(60, 239, 68, 68));
+
+        // Red-tinted error styling — clearly different from normal toasts
+        var red = System.Windows.Media.Color.FromRgb(239, 68, 68);
+        toast.Root.Background = Theme.Brush(Theme.IsDark
+            ? System.Windows.Media.Color.FromRgb(60, 28, 28)
+            : System.Windows.Media.Color.FromRgb(255, 240, 240));
+        toast.Root.BorderBrush = Theme.Brush(System.Windows.Media.Color.FromArgb(100, red.R, red.G, red.B));
+        toast.Root.BorderThickness = new Thickness(1.5);
+        toast.ProgressBar.Background = Theme.Brush(System.Windows.Media.Color.FromArgb(180, red.R, red.G, red.B));
+        toast.TitleText.Foreground = Theme.Brush(red);
+
+        if (filePath != null)
+        {
+            toast._savedFilePath = filePath;
+            toast.Cursor = System.Windows.Input.Cursors.Hand;
+            toast.MouseLeftButtonDown += (_, _) => OpenFileLocation(filePath);
+        }
         _current = toast;
         toast.Show();
     }
@@ -238,18 +260,20 @@ public partial class ToastWindow : Window
         toast._savedFilePath = filePath;
         toast._hasImagePreview = true;
 
-        // Set image thumbnail (decode at reduced size for memory efficiency)
+        // Set image thumbnail — preserve aspect ratio, adapt toast width to image shape
         toast.ImageArea.Visibility = Visibility.Visible;
-        toast.Root.MaxWidth = 280;
-        toast.Root.MinWidth = 220;
+        double aspect = (double)screenshot.Width / screenshot.Height;
+        // Wide images get a wider toast, tall images get a narrower one
+        int toastW = (int)Math.Clamp(180 * aspect, 200, 340);
+        toast.Root.MaxWidth = toastW;
+        toast.Root.MinWidth = Math.Min(200, toastW);
+        toast.ImageArea.MaxHeight = (int)Math.Clamp(toastW / aspect, 80, 200);
         var hBmp = screenshot.GetHbitmap();
         try
         {
             var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
                 hBmp, IntPtr.Zero, System.Windows.Int32Rect.Empty,
-                BitmapSizeOptions.FromWidthAndHeight(
-                    Math.Min(280, screenshot.Width),
-                    Math.Min(160, (int)(280.0 / screenshot.Width * screenshot.Height))));
+                BitmapSizeOptions.FromEmptyOptions());
             src.Freeze();
             toast.PreviewImage.Source = src;
         }
@@ -326,12 +350,16 @@ public partial class ToastWindow : Window
         toast.SaveBtn.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
+            // Pin the toast so it doesn't auto-dismiss while the dialog is open
+            toast._timer.Stop();
+            toast._isPinned = true;
+            toast.ProgressBar.Visibility = Visibility.Collapsed;
             var dlg = new Microsoft.Win32.SaveFileDialog
             {
                 FileName = filePath != null ? System.IO.Path.GetFileName(filePath) : "screenshot.png",
                 Filter = "PNG|*.png|JPEG|*.jpg|BMP|*.bmp"
             };
-            if (dlg.ShowDialog() == true && screenshot != null)
+            if (dlg.ShowDialog(toast) == true && screenshot != null)
             {
                 var fmt = dlg.FilterIndex switch { 2 => System.Drawing.Imaging.ImageFormat.Jpeg, 3 => System.Drawing.Imaging.ImageFormat.Bmp, _ => System.Drawing.Imaging.ImageFormat.Png };
                 screenshot.Save(dlg.FileName, fmt);
@@ -379,10 +407,29 @@ public partial class ToastWindow : Window
                 toast.Root.BorderThickness = new Thickness(1);
             }
         };
-        toast.PreviewImage.MouseLeftButtonUp += (_, _) => { mouseIsDown = false; };
+        toast.PreviewImage.MouseLeftButtonUp += (_, e) =>
+        {
+            if (!mouseIsDown) return;
+            mouseIsDown = false;
+            // Click (no drag) — open file location
+            OpenFileLocation(filePath);
+        };
+
+        // Click on text area also opens file location
+        toast.TitleText.Cursor = System.Windows.Input.Cursors.Hand;
+        toast.BodyText.Cursor = System.Windows.Input.Cursors.Hand;
+        toast.TitleText.MouseLeftButtonDown += (_, _) => OpenFileLocation(filePath);
+        toast.BodyText.MouseLeftButtonDown += (_, _) => OpenFileLocation(filePath);
 
         _current = toast;
         toast.Show();
+    }
+
+    private static void OpenFileLocation(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath)) return;
+        try { System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\""); }
+        catch { }
     }
 
     public static void DismissCurrent()
@@ -430,33 +477,4 @@ public partial class ToastWindow : Window
         return source.Clone(rect, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
     }
 
-    private (double targetLeft, double targetTop, double startLeft, double startTop, bool animateLeft) GetPlacement(Rect wa)
-    {
-        return _position switch
-        {
-            Yoink.Models.ToastPosition.Left =>
-                (Edge, wa.Bottom - ActualHeight - Edge, -ActualWidth - 10, wa.Bottom - ActualHeight - Edge, true),
-            Yoink.Models.ToastPosition.TopLeft =>
-                (Edge, Edge, Edge, -ActualHeight - 10, false),
-            Yoink.Models.ToastPosition.TopRight =>
-                (wa.Right - ActualWidth - Edge, Edge, wa.Right - ActualWidth - Edge, -ActualHeight - 10, false),
-            _ =>
-                (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, wa.Right + 10, wa.Bottom - ActualHeight - Edge, true),
-        };
-    }
-
-    private (double targetLeft, double targetTop, double exitLeft, double exitTop, bool animateLeft) GetDismissPlacement(Rect wa)
-    {
-        return _position switch
-        {
-            Yoink.Models.ToastPosition.Left =>
-                (Edge, wa.Bottom - ActualHeight - Edge, -ActualWidth - 20, wa.Bottom - ActualHeight - Edge, true),
-            Yoink.Models.ToastPosition.TopLeft =>
-                (Edge, Edge, Edge, -ActualHeight - 20, false),
-            Yoink.Models.ToastPosition.TopRight =>
-                (wa.Right - ActualWidth - Edge, Edge, wa.Right - ActualWidth - Edge, -ActualHeight - 20, false),
-            _ =>
-                (wa.Right - ActualWidth - Edge, wa.Bottom - ActualHeight - Edge, wa.Right + 20, wa.Bottom - ActualHeight - Edge, true),
-        };
-    }
 }
