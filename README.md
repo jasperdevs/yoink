@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  Capture, annotate, OCR, drag out, record, save locally, and move on.
+  Capture, annotate, OCR, make stickers, record video, drag out, save locally, and move on.
 </p>
 
 <p align="center">
