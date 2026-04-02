@@ -16,6 +16,26 @@ public sealed class UploadServiceTests
         Assert.Equal(expected, UploadService.GetName(destination));
     }
 
+    [Theory]
+    [InlineData("imgur", "Assets/imgur_sq.png")]
+    [InlineData("Google Drive", "Assets/gdrive_sq.png")]
+    [InlineData("S3", "Assets/aws_sq.png")]
+    [InlineData(null, "")]
+    public void GetHistoryLogoPath_ReturnsExpectedAssets(string? provider, string expected)
+    {
+        Assert.Equal(expected, UploadService.GetHistoryLogoPath(provider));
+    }
+
+    [Theory]
+    [InlineData(UploadDestination.Imgur, "Assets/imgur_sq.png")]
+    [InlineData(UploadDestination.GoogleDrive, "Assets/gdrive_sq.png")]
+    [InlineData(UploadDestination.S3Compatible, "Assets/aws_sq.png")]
+    [InlineData(UploadDestination.None, "")]
+    public void GetUploadsLogoPath_ReturnsExpectedAssets(UploadDestination destination, string expected)
+    {
+        Assert.Equal(expected, UploadService.GetUploadsLogoPath(destination));
+    }
+
     [Fact]
     public void HasCredentials_HandlesCredentialedAndCredentiallessTargets()
     {

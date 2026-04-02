@@ -130,46 +130,65 @@ public static class UploadService
         _ => ""
     };
 
+    private const string ImgurLogoPath = "Assets/imgur_sq.png";
+    private const string ImgBbLogoPath = "Assets/imgbb_sq.png";
+    private const string CatboxLogoPath = "Assets/catbox_sq.png";
+    private const string LitterboxLogoPath = "Assets/litterbox_sq.png";
+    private const string GyazoLogoPath = "Assets/gyazo_sq.png";
+    private const string FileIoLogoPath = "Assets/fileio_sq.png";
+    private const string UguuLogoPath = "Assets/uguu_sq.png";
+    private const string TransferLogoPath = "Assets/transfer_sq.png";
+    private const string DropboxLogoPath = "Assets/dropbox_sq.png";
+    private const string GoogleDriveLogoPath = "Assets/gdrive_sq.png";
+    private const string OneDriveLogoPath = "Assets/onedrive_sq.png";
+    private const string AzureLogoPath = "Assets/azure_sq.png";
+    private const string GitHubLogoPath = "Assets/github_sq.png";
+    private const string ImmichLogoPath = "Assets/immich_sq.png";
+    private const string S3LogoPath = "Assets/aws_sq.png";
+
     public static string GetHistoryLogoPath(string? provider)
     {
-        return (provider ?? string.Empty).ToLowerInvariant() switch
-        {
-            "imgur" => "Assets/imgur_sq.png",
-            "imgbb" => "Assets/imgbb_sq.png",
-            "catbox" => "Assets/catbox_sq.png",
-            "litterbox" => "Assets/litterbox_sq.png",
-            "gyazo" => "Assets/gyazo_sq.png",
-            "file.io" => "Assets/fileio_sq.png",
-            "uguu" => "Assets/uguu_sq.png",
-            "transfer.sh" => "Assets/transfer_sq.png",
-            "dropbox" => "Assets/dropbox_sq.png",
-            "google drive" => "Assets/gdrive_sq.png",
-            "onedrive" => "Assets/onedrive_sq.png",
-            "azure blob" => "Assets/azure_sq.png",
-            "github" => "Assets/github_sq.png",
-            "immich" => "Assets/immich_sq.png",
-            "s3" => "Assets/aws_sq.png",
-            _ => string.Empty
-        };
+        if (string.IsNullOrWhiteSpace(provider))
+            return string.Empty;
+
+        provider = provider.Trim();
+
+        if (provider.Equals("imgur", StringComparison.OrdinalIgnoreCase)) return ImgurLogoPath;
+        if (provider.Equals("imgbb", StringComparison.OrdinalIgnoreCase)) return ImgBbLogoPath;
+        if (provider.Equals("catbox", StringComparison.OrdinalIgnoreCase)) return CatboxLogoPath;
+        if (provider.Equals("litterbox", StringComparison.OrdinalIgnoreCase)) return LitterboxLogoPath;
+        if (provider.Equals("gyazo", StringComparison.OrdinalIgnoreCase)) return GyazoLogoPath;
+        if (provider.Equals("file.io", StringComparison.OrdinalIgnoreCase)) return FileIoLogoPath;
+        if (provider.Equals("uguu", StringComparison.OrdinalIgnoreCase)) return UguuLogoPath;
+        if (provider.Equals("transfer.sh", StringComparison.OrdinalIgnoreCase)) return TransferLogoPath;
+        if (provider.Equals("dropbox", StringComparison.OrdinalIgnoreCase)) return DropboxLogoPath;
+        if (provider.Equals("google drive", StringComparison.OrdinalIgnoreCase)) return GoogleDriveLogoPath;
+        if (provider.Equals("onedrive", StringComparison.OrdinalIgnoreCase)) return OneDriveLogoPath;
+        if (provider.Equals("azure blob", StringComparison.OrdinalIgnoreCase)) return AzureLogoPath;
+        if (provider.Equals("github", StringComparison.OrdinalIgnoreCase)) return GitHubLogoPath;
+        if (provider.Equals("immich", StringComparison.OrdinalIgnoreCase)) return ImmichLogoPath;
+        if (provider.Equals("s3", StringComparison.OrdinalIgnoreCase)) return S3LogoPath;
+
+        return string.Empty;
     }
 
     public static string GetUploadsLogoPath(UploadDestination dest) => dest switch
     {
-        UploadDestination.Imgur => "Assets/imgur_sq.png",
-        UploadDestination.ImgBB => "Assets/imgbb_sq.png",
-        UploadDestination.Catbox => "Assets/catbox_sq.png",
-        UploadDestination.Litterbox => "Assets/litterbox_sq.png",
-        UploadDestination.Gyazo => "Assets/gyazo_sq.png",
-        UploadDestination.FileIo => "Assets/fileio_sq.png",
-        UploadDestination.Uguu => "Assets/uguu_sq.png",
-        UploadDestination.TransferSh => "Assets/transfer_sq.png",
-        UploadDestination.Dropbox => "Assets/dropbox_sq.png",
-        UploadDestination.GoogleDrive => "Assets/gdrive_sq.png",
-        UploadDestination.OneDrive => "Assets/onedrive_sq.png",
-        UploadDestination.AzureBlob => "Assets/azure_sq.png",
-        UploadDestination.GitHub => "Assets/github_sq.png",
-        UploadDestination.Immich => "Assets/immich_sq.png",
-        UploadDestination.S3Compatible => "Assets/aws_sq.png",
+        UploadDestination.Imgur => ImgurLogoPath,
+        UploadDestination.ImgBB => ImgBbLogoPath,
+        UploadDestination.Catbox => CatboxLogoPath,
+        UploadDestination.Litterbox => LitterboxLogoPath,
+        UploadDestination.Gyazo => GyazoLogoPath,
+        UploadDestination.FileIo => FileIoLogoPath,
+        UploadDestination.Uguu => UguuLogoPath,
+        UploadDestination.TransferSh => TransferLogoPath,
+        UploadDestination.Dropbox => DropboxLogoPath,
+        UploadDestination.GoogleDrive => GoogleDriveLogoPath,
+        UploadDestination.OneDrive => OneDriveLogoPath,
+        UploadDestination.AzureBlob => AzureLogoPath,
+        UploadDestination.GitHub => GitHubLogoPath,
+        UploadDestination.Immich => ImmichLogoPath,
+        UploadDestination.S3Compatible => S3LogoPath,
         _ => string.Empty
     };
 
