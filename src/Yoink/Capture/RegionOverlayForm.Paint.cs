@@ -1018,10 +1018,7 @@ public sealed partial class RegionOverlayForm
     public void PaintToolbarTo(Graphics g, Rectangle clip, Point unused)
     {
         ApplyUiGraphics(g);
-        float eased = 1f - MathF.Pow(1f - _toolbarAnim, 3f);
-        int slide = (int)Math.Round((eased - 1f) * 8f);
         var state = g.Save();
-        g.TranslateTransform(0, slide);
         PaintToolbar(g);
         if (_colorPickerOpen) PaintColorPicker(g);
         if (_emojiPickerOpen) PaintEmojiPicker(g);

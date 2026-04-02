@@ -16,6 +16,7 @@ public sealed class GifRecorder : IDisposable
     private readonly Rectangle _region;
     private readonly int _fps;
     private readonly int _maxDurationMs;
+    private readonly bool _showCursor;
     private readonly string _tempDir;
     private readonly CancellationTokenSource _cts = new();
     private readonly BlockingCollection<(Bitmap frame, int index)> _frameQueue = new(boundedCapacity: 60);
@@ -30,11 +31,12 @@ public sealed class GifRecorder : IDisposable
     public TimeSpan Elapsed => DateTime.UtcNow - _startTime;
     public bool IsRecording => _captureThread?.IsAlive == true;
 
-    public GifRecorder(Rectangle region, int fps = 15, int maxDurationSeconds = 30)
+    public GifRecorder(Rectangle region, int fps = 15, int maxDurationSeconds = 30, bool showCursor = false)
     {
         _region = region;
         _fps = Math.Clamp(fps, 5, 30);
         _maxDurationMs = maxDurationSeconds * 1000;
+        _showCursor = showCursor;
         _tempDir = Path.Combine(Path.GetTempPath(), $"yoink_gif_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDir);
     }
@@ -67,7 +69,7 @@ public sealed class GifRecorder : IDisposable
             var sw = Stopwatch.StartNew();
             try
             {
-                var frame = ScreenCapture.CaptureRegionForRecording(_region);
+                var frame = ScreenCapture.CaptureRegionForRecording(_region, _showCursor);
                 if (_frameQueue.TryAdd((frame, index), 100, ct))
                 {
                     Interlocked.Increment(ref _frameCount);

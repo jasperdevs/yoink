@@ -57,11 +57,20 @@ jobs:
           $checksumPath = "$zipPath.sha256.txt"
           Set-Content -Path $checksumPath -Value "$hash  $zipName" -NoNewline
 
+          $exeName = "Yoink-${{ matrix.rid }}.exe"
+          $exePath = Join-Path $PWD $exeName
+          Copy-Item -Path (Join-Path $PWD 'publish\Yoink.exe') -Destination $exePath -Force
+          $exeHash = (Get-FileHash -Algorithm SHA256 $exePath).Hash.ToLowerInvariant()
+          $exeChecksumPath = "$exePath.sha256.txt"
+          Set-Content -Path $exeChecksumPath -Value "$exeHash  $exeName" -NoNewline
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Yoink-${{ matrix.rid }}
           path: |
+            Yoink-${{ matrix.rid }}.exe
+            Yoink-${{ matrix.rid }}.exe.sha256.txt
             Yoink-${{ matrix.rid }}.zip
             Yoink-${{ matrix.rid }}.zip.sha256.txt
           if-no-files-found: error
@@ -113,7 +122,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/**/*.exe
+            dist/**/*.exe.sha256.txt
             dist/**/*.zip
             dist/**/*.sha256.txt
             dist/winget-manifests/**/*.yaml
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md

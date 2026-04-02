@@ -112,8 +112,6 @@ public sealed partial class RegionOverlayForm : Form
     // Region auto-detect
     private Rectangle _autoDetectRect;
     private bool _autoDetectActive;
-    private List<DetectedWindow>? _detectedWindows;
-    private volatile bool _windowEnumDone;
 
     // Color picker popup state
     private bool _colorPickerOpen;
@@ -338,9 +336,6 @@ public sealed partial class RegionOverlayForm : Form
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool DetectWindows { get; set; } = true;
 
-    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
-    public bool DetectControls { get; set; } = true;
-
     public void SetEnabledTools(List<string>? enabledIds)
     {
         _visibleTools = enabledIds == null
@@ -388,7 +383,6 @@ public sealed partial class RegionOverlayForm : Form
         SetupForm();
         CalcToolbar();
 
-        // Timer only for toolbar slide-in animation (~180ms), then stops
         _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _animTimer.Tick += (_, _) =>
         {
@@ -426,24 +420,12 @@ public sealed partial class RegionOverlayForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        _toolbarAnim = 0f;
+        _toolbarAnim = 1f;
         WindowDetector.RegisterIgnoredWindow(Handle);
         Native.User32.SetWindowPos(Handle, Native.User32.HWND_TOPMOST,
             0, 0, 0, 0,
             Native.User32.SWP_NOMOVE | Native.User32.SWP_NOSIZE | Native.User32.SWP_SHOWWINDOW);
         Native.User32.SetForegroundWindow(Handle);
-
-        // Pre-enumerate visible windows (and optionally child controls) on a background thread
-        if (DetectWindows)
-        {
-            var overlayHandle = Handle;
-            var includeChildren = DetectControls;
-            Task.Run(() =>
-            {
-                _detectedWindows = WindowDetector.EnumerateWindows(overlayHandle, includeChildren, 5000);
-                _windowEnumDone = true;
-            });
-        }
 
         _toolbarForm = new ToolbarForm(this);
         PositionToolbarForm();
@@ -454,8 +436,6 @@ public sealed partial class RegionOverlayForm : Form
         Focus();
         Invalidate(new Rectangle(_toolbarRect.X - 12, _toolbarRect.Y - 48,
             _toolbarRect.Width + 24, _toolbarRect.Height + 96));
-        _showTime = DateTime.UtcNow;
-        _animTimer.Start();
     }
 
     protected override void OnDeactivate(EventArgs e)
@@ -646,6 +626,16 @@ public sealed partial class RegionOverlayForm : Form
     internal void RefreshToolbar()
     {
         _toolbarForm?.UpdateSurface();
+    }
+
+    private void HideToolbarImmediately()
+    {
+        if (_toolbarForm is null || _toolbarForm.IsDisposed)
+            return;
+
+        _animTimer.Stop();
+        _toolbarAnim = 1f;
+        _toolbarForm.Hide();
     }
 
     private Rectangle GetOverlayUiBounds()

@@ -23,6 +23,7 @@ public sealed class VideoRecorder : IDisposable
     private readonly int _maxDurationMs;
     private readonly Format _format;
     private readonly int _maxHeight; // 0 = original
+    private readonly bool _showCursor;
     private readonly bool _recordMic;
     private readonly string? _micDeviceId;
     private readonly bool _recordDesktop;
@@ -55,6 +56,7 @@ public sealed class VideoRecorder : IDisposable
 
     public VideoRecorder(Rectangle region, Format format = Format.MP4, int fps = 30,
                          int maxDurationSeconds = 300, int maxHeight = 0,
+                         bool showCursor = false,
                          bool recordMic = false, string? micDeviceId = null,
                          bool recordDesktop = false, string? desktopDeviceId = null)
     {
@@ -63,6 +65,7 @@ public sealed class VideoRecorder : IDisposable
         _fps = Math.Clamp(fps, 5, 60);
         _maxDurationMs = maxDurationSeconds * 1000;
         _maxHeight = maxHeight;
+        _showCursor = showCursor;
         _recordMic = recordMic;
         _micDeviceId = micDeviceId;
         _recordDesktop = recordDesktop;
@@ -262,7 +265,7 @@ public sealed class VideoRecorder : IDisposable
             var sw = Stopwatch.StartNew();
             try
             {
-                using var bmp = ScreenCapture.CaptureRegionForRecording(_region);
+                using var bmp = ScreenCapture.CaptureRegionForRecording(_region, _showCursor);
                 var data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height),
                     ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                 try

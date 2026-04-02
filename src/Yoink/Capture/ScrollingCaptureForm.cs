@@ -28,6 +28,7 @@ public sealed class ScrollingCaptureForm : Form
 
     private readonly Bitmap _screenshot;
     private readonly Rectangle _virtualBounds;
+    private readonly bool _showCursor;
     private State _state = State.Selecting;
 
     // Selection
@@ -57,10 +58,11 @@ public sealed class ScrollingCaptureForm : Form
     private readonly SolidBrush _bgLabelBrush = new(Color.FromArgb(220, 24, 24, 24));
     private readonly SolidBrush _textLabelBrush = new(Color.FromArgb(220, 100, 149, 237));
 
-    public ScrollingCaptureForm(Bitmap screenshot, Rectangle virtualBounds)
+    public ScrollingCaptureForm(Bitmap screenshot, Rectangle virtualBounds, bool showCursor = false)
     {
         _screenshot = screenshot;
         _virtualBounds = virtualBounds;
+        _showCursor = showCursor;
 
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
@@ -174,7 +176,7 @@ public sealed class ScrollingCaptureForm : Form
     {
         try
         {
-            var frame = ScreenCapture.CaptureRegion(_screenRegion);
+            var frame = ScreenCapture.CaptureRegion(_screenRegion, _showCursor);
 
             // Skip exact duplicates of the last frame (no scroll happened)
             if (_frames.Count > 0 && AreFramesDuplicate(_frames[^1], frame))

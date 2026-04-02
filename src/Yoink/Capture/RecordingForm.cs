@@ -42,6 +42,7 @@ public sealed class RecordingForm : Form
     private readonly int _maxDuration;
     private readonly Models.RecordingFormat _format;
     private readonly int _maxHeight;
+    private readonly bool _showCursor;
     private readonly bool _recordMic;
     private readonly string? _micDeviceId;
     private readonly bool _recordDesktop;
@@ -87,6 +88,7 @@ public sealed class RecordingForm : Form
 
     public RecordingForm(Bitmap screenshot, Rectangle virtualBounds, int fps, string savePath,
                          Models.RecordingFormat format = Models.RecordingFormat.GIF, int maxHeight = 0,
+                         bool showCursor = false,
                          bool recordMic = false, string? micDeviceId = null,
                          bool recordDesktop = false, string? desktopDeviceId = null)
     {
@@ -97,6 +99,7 @@ public sealed class RecordingForm : Form
         _savePath = savePath;
         _format = format;
         _maxHeight = maxHeight;
+        _showCursor = showCursor;
         _recordMic = recordMic;
         _micDeviceId = micDeviceId;
         _recordDesktop = recordDesktop;
@@ -214,7 +217,7 @@ public sealed class RecordingForm : Form
 
         if (_format == Models.RecordingFormat.GIF)
         {
-            _recorder = new GifRecorder(screenRegion, _fps, _maxDuration);
+            _recorder = new GifRecorder(screenRegion, _fps, _maxDuration, _showCursor);
         }
         else
         {
@@ -225,7 +228,7 @@ public sealed class RecordingForm : Form
                 _ => VideoRecorder.Format.MP4
             };
             _videoRecorder = new VideoRecorder(screenRegion, vfmt, _fps, _maxDuration, _maxHeight,
-                _recordMic, _micDeviceId, _recordDesktop, _desktopDeviceId);
+                _showCursor, _recordMic, _micDeviceId, _recordDesktop, _desktopDeviceId);
             _videoRecorder.Start(_savePath);
         }
         _state = State.Recording;

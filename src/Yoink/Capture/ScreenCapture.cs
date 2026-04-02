@@ -8,13 +8,17 @@ namespace Yoink.Capture;
 
 public static class ScreenCapture
 {
-    public static (Bitmap Bitmap, Rectangle Bounds) CaptureAllScreens()
+    public static (Bitmap Bitmap, Rectangle Bounds) CaptureAllScreens(bool includeCursor = false)
     {
         try
         {
             var capture = DxgiScreenCapture.CaptureAllScreens();
             if (!IsLikelyInvalidCapture(capture.Bitmap))
+            {
+                if (includeCursor)
+                    DrawCursor(capture.Bitmap, capture.Bounds);
                 return capture;
+            }
 
             capture.Bitmap.Dispose();
         }
@@ -22,16 +26,20 @@ public static class ScreenCapture
         {
         }
 
-        return CaptureAllScreensLegacy();
+        return CaptureAllScreensLegacy(includeCursor);
     }
 
-    public static Bitmap CaptureRegion(Rectangle region)
+    public static Bitmap CaptureRegion(Rectangle region, bool includeCursor = false)
     {
         try
         {
             var capture = DxgiScreenCapture.CaptureRegion(region);
             if (!IsLikelyInvalidCapture(capture))
+            {
+                if (includeCursor)
+                    DrawCursor(capture, region);
                 return capture;
+            }
 
             capture.Dispose();
         }
@@ -39,16 +47,17 @@ public static class ScreenCapture
         {
         }
 
-        return CaptureRegionLegacy(region);
+        return CaptureRegionLegacy(region, includeCursor);
     }
 
     /// <summary>
     /// Uses BitBlt directly for sustained frame capture workloads. The current DXGI path
     /// recreates device/duplication resources per call, which is too expensive for recording.
     /// </summary>
-    public static Bitmap CaptureRegionForRecording(Rectangle region) => CaptureRegionLegacy(region);
+    public static Bitmap CaptureRegionForRecording(Rectangle region, bool includeCursor = false)
+        => CaptureRegionLegacy(region, includeCursor);
 
-    private static (Bitmap Bitmap, Rectangle Bounds) CaptureAllScreensLegacy()
+    private static (Bitmap Bitmap, Rectangle Bounds) CaptureAllScreensLegacy(bool includeCursor)
     {
         // Use GetSystemMetrics for physical pixel bounds (DPI-unaware coordinates)
         int left = User32.GetSystemMetrics(User32.SM_XVIRTUALSCREEN);
@@ -78,6 +87,9 @@ public static class ScreenCapture
                 User32.ReleaseDC(IntPtr.Zero, hdcScreen);
             }
 
+            if (includeCursor)
+                DrawCursor(bitmap, bounds);
+
             return (bitmap, bounds);
         }
         catch
@@ -88,7 +100,7 @@ public static class ScreenCapture
     }
 
     /// <summary>Captures a specific screen region directly via BitBlt. Used by GIF recorder.</summary>
-    private static Bitmap CaptureRegionLegacy(Rectangle region)
+    private static Bitmap CaptureRegionLegacy(Rectangle region, bool includeCursor)
     {
         var bmp = new Bitmap(region.Width, region.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         try
@@ -109,6 +121,9 @@ public static class ScreenCapture
                     g.ReleaseHdc(hdcDest);
                 User32.ReleaseDC(IntPtr.Zero, hdcScreen);
             }
+
+            if (includeCursor)
+                DrawCursor(bmp, region);
 
             return bmp;
         }
@@ -169,6 +184,50 @@ public static class ScreenCapture
         finally
         {
             bitmap.UnlockBits(data);
+        }
+    }
+
+    private static void DrawCursor(Bitmap bitmap, Rectangle captureBounds)
+    {
+        var cursorInfo = new User32.CURSORINFO
+        {
+            cbSize = Marshal.SizeOf<User32.CURSORINFO>()
+        };
+
+        if (!User32.GetCursorInfo(ref cursorInfo))
+            return;
+
+        if ((cursorInfo.flags & User32.CURSOR_SHOWING) == 0 || cursorInfo.hCursor == IntPtr.Zero)
+            return;
+
+        if (cursorInfo.ptScreenPos.X < captureBounds.Left || cursorInfo.ptScreenPos.X >= captureBounds.Right ||
+            cursorInfo.ptScreenPos.Y < captureBounds.Top || cursorInfo.ptScreenPos.Y >= captureBounds.Bottom)
+            return;
+
+        if (!User32.GetIconInfo(cursorInfo.hCursor, out var iconInfo))
+            return;
+
+        try
+        {
+            using var g = Graphics.FromImage(bitmap);
+            IntPtr hdc = g.GetHdc();
+            try
+            {
+                int x = cursorInfo.ptScreenPos.X - captureBounds.X - (int)iconInfo.xHotspot;
+                int y = cursorInfo.ptScreenPos.Y - captureBounds.Y - (int)iconInfo.yHotspot;
+                User32.DrawIconEx(hdc, x, y, cursorInfo.hCursor, 0, 0, 0, IntPtr.Zero, User32.DI_NORMAL);
+            }
+            finally
+            {
+                g.ReleaseHdc(hdc);
+            }
+        }
+        finally
+        {
+            if (iconInfo.hbmMask != IntPtr.Zero)
+                Gdi32.DeleteObject(iconInfo.hbmMask);
+            if (iconInfo.hbmColor != IntPtr.Zero)
+                Gdi32.DeleteObject(iconInfo.hbmColor);
         }
     }
 }

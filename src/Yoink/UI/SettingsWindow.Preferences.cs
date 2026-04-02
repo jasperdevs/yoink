@@ -1,0 +1,146 @@
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using Yoink.Models;
+using Yoink.Services;
+
+namespace Yoink.UI;
+
+public partial class SettingsWindow
+{
+    private void ExportSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json",
+                FileName = "yoink-settings.json"
+            };
+            if (dlg.ShowDialog(this) != true) return;
+
+            var json = JsonSerializer.Serialize(_settingsService.Settings, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(dlg.FileName, json);
+            ToastWindow.Show("Settings exported", dlg.FileName);
+        }
+        catch (Exception ex)
+        {
+            ToastWindow.ShowError("Export failed", ex.Message);
+        }
+    }
+
+    private void ImportSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json"
+            };
+            if (dlg.ShowDialog(this) != true) return;
+
+            var json = File.ReadAllText(dlg.FileName);
+            var imported = JsonSerializer.Deserialize<AppSettings>(json);
+            if (imported is null)
+            {
+                ToastWindow.ShowError("Import failed", "Invalid settings file.");
+                return;
+            }
+
+            _settingsService.Settings = imported;
+            _settingsService.Save();
+            LoadSettings();
+            ToastWindow.Show("Settings imported", "Settings have been applied.");
+        }
+        catch (Exception ex)
+        {
+            ToastWindow.ShowError("Import failed", ex.Message);
+        }
+    }
+
+    private void ResetSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Reset all settings to defaults?\n\nThis cannot be undone.",
+                "Reset Settings", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        if (MessageBox.Show("Are you sure? All hotkeys, upload configs, and preferences will be lost.",
+                "Confirm Reset", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        if (MessageBox.Show("Last chance — reset everything?",
+                "Final Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        _settingsService.Settings = new AppSettings();
+        _settingsService.Save();
+        HotkeyChanged?.Invoke();
+        LoadSettings();
+        PopulateToolToggles();
+    }
+
+    private void UninstallButton_Click(object sender, RoutedEventArgs e)
+    {
+        UninstallRequested?.Invoke();
+    }
+
+    private void CrosshairGuidesCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.ShowCrosshairGuides = CrosshairGuidesCheck.IsChecked == true;
+        _settingsService.Save();
+    }
+
+    private void ShowCursorCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.ShowCursor = ShowCursorCheck.IsChecked == true;
+        _settingsService.Save();
+    }
+
+    private void ToastPositionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.ToastPosition = (ToastPosition)ToastPositionCombo.SelectedIndex;
+        _settingsService.Save();
+        ToastWindow.SetPosition(_settingsService.Settings.ToastPosition);
+        PreviewWindow.SetPosition(_settingsService.Settings.ToastPosition);
+    }
+
+    private void ToastDurationCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        if (ToastDurationCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+        {
+            if (double.TryParse(tag, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double secs))
+            {
+                _settingsService.Settings.ToastDurationSeconds = secs;
+                _settingsService.Save();
+                ToastWindow.SetDuration(secs);
+            }
+        }
+    }
+
+    private void AutoPinPreviewsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.AutoPinPreviews = AutoPinPreviewsCheck.IsChecked == true;
+        _settingsService.Save();
+    }
+
+    private void WindowDetectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        if (WindowDetectionCombo.SelectedIndex < 0) WindowDetectionCombo.SelectedIndex = 1;
+        var mode = (WindowDetectionMode)WindowDetectionCombo.SelectedIndex;
+        _settingsService.Settings.WindowDetection = mode;
+        _settingsService.Settings.DetectWindows = mode != WindowDetectionMode.Off;
+        _settingsService.Save();
+    }
+
+    private void CaptureDelayCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.CaptureDelaySeconds = CaptureDelayCombo.SelectedIndex switch { 1 => 3, 2 => 5, 3 => 10, _ => 0 };
+        _settingsService.Save();
+    }
+}

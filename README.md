@@ -44,6 +44,8 @@ Yoink is a free, open-source screenshot tool that stays out of the way until you
 
 Grab the latest release from the [**Releases page**](https://github.com/jasperdevs/yoink/releases/latest)
 
+Release downloads include both direct `.exe` assets and portable `.zip` assets.
+
 ## Winget
 
 Yoink's release pipeline now generates winget manifest files alongside the Windows release archives. Once the package is published to the winget community repository, install and update with:

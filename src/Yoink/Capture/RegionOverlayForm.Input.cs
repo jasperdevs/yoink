@@ -200,6 +200,7 @@ public sealed partial class RegionOverlayForm
             int handle = GetSelectHandle(e.Location);
             if (handle >= 0 && _selectedAnnotationIndex >= 0)
             {
+                HideToolbarImmediately();
                 _isSelectResizing = true;
                 _selectResizeHandle = handle;
                 _selectDragStart = e.Location;
@@ -211,6 +212,7 @@ public sealed partial class RegionOverlayForm
             int hit = HitTestAnnotation(e.Location);
             if (hit >= 0)
             {
+                HideToolbarImmediately();
                 _selectedAnnotationIndex = hit;
                 _isSelectDragging = true;
                 _selectDragStart = e.Location;
@@ -230,17 +232,6 @@ public sealed partial class RegionOverlayForm
             return;
         }
 
-        if (_mode == CaptureMode.Eraser)
-        {
-            // Smart eraser: sample color at click point, start dragging a rect
-            int cx = Math.Clamp(e.Location.X, 0, _bmpW - 1);
-            int cy = Math.Clamp(e.Location.Y, 0, _bmpH - 1);
-            _eraserColor = Color.FromArgb(_pixelData[cy * _bmpW + cx]);
-            _eraserStart = e.Location;
-            _isEraserDragging = true;
-            return;
-        }
-
         _hasDragged = false;
         switch (_mode)
         {
@@ -248,18 +239,22 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Ocr:
             case CaptureMode.Scan:
             case CaptureMode.Sticker:
-                _autoDetectRect = WindowDetector.GetDetectionRectAtPoint(e.Location, _virtualBounds, _windowDetectionMode);
+                HideToolbarImmediately();
+                _autoDetectRect = WindowDetector.GetDetectionRectAtPoint(
+                    e.Location, _virtualBounds, _windowDetectionMode);
                 _autoDetectActive = _autoDetectRect.Width > 0 && _autoDetectRect.Height > 0;
                 _isSelecting = true;
                 _selectionStart = _selectionEnd = e.Location;
                 _hasSelection = false;
                 break;
             case CaptureMode.Freeform:
+                HideToolbarImmediately();
                 _isSelecting = true;
                 _freeformPoints.Clear();
                 _freeformPoints.Add(e.Location);
                 break;
             case CaptureMode.Text:
+                HideToolbarImmediately();
                 _isTyping = true;
                 _textPos = e.Location;
                 _textBuffer = "";
@@ -268,23 +263,28 @@ public sealed partial class RegionOverlayForm
                 Invalidate(InflateForRepaint(Rectangle.Round(MeasureTextRect(_textPos, "", _textFontSize, _textFontFamily, _textBold, _textItalic))));
                 break;
             case CaptureMode.Highlight:
+                HideToolbarImmediately();
                 _isHighlighting = true;
                 _highlightStart = e.Location;
                 break;
             case CaptureMode.RectShape:
+                HideToolbarImmediately();
                 _isRectShapeDragging = true;
                 _shapeStart = e.Location;
                 break;
             case CaptureMode.CircleShape:
+                HideToolbarImmediately();
                 _isCircleShapeDragging = true;
                 _shapeStart = e.Location;
                 break;
             case CaptureMode.StepNumber:
+                HideToolbarImmediately();
                 AddAnnotation(new StepNumberAnnotation(e.Location, _nextStepNumber, _toolColor));
                 _nextStepNumber++;
                 Invalidate(InflateForRepaint(new Rectangle(e.Location.X - 16, e.Location.Y - 16, 32, 32)));
                 break;
             case CaptureMode.Magnifier:
+                HideToolbarImmediately();
                 // Place a persistent magnifier at click point
                 int srcSz = 40;
                 int sx2 = Math.Clamp(e.Location.X - srcSz / 2, 0, _bmpW - srcSz);
@@ -293,28 +293,42 @@ public sealed partial class RegionOverlayForm
                 Invalidate(InflateForRepaint(GetMagnifierPreviewRect(e.Location)));
                 break;
             case CaptureMode.Draw:
+                HideToolbarImmediately();
                 _isSelecting = true;
                 _currentStroke = new List<Point> { e.Location };
                 break;
             case CaptureMode.Line:
+                HideToolbarImmediately();
                 _isLineDragging = true;
                 _lineStart = e.Location;
                 break;
             case CaptureMode.Ruler:
+                HideToolbarImmediately();
                 _isRulerDragging = true;
                 _rulerStart = e.Location;
                 break;
             case CaptureMode.Arrow:
+                HideToolbarImmediately();
                 _isArrowDragging = true;
                 _arrowStart = e.Location;
                 break;
             case CaptureMode.CurvedArrow:
+                HideToolbarImmediately();
                 _isCurvedArrowDragging = true;
                 _currentCurvedArrow = new List<Point> { e.Location };
                 break;
             case CaptureMode.Blur:
+                HideToolbarImmediately();
                 _isBlurring = true;
                 _blurStart = e.Location;
+                break;
+            case CaptureMode.Eraser:
+                HideToolbarImmediately();
+                int cx = Math.Clamp(e.Location.X, 0, _bmpW - 1);
+                int cy = Math.Clamp(e.Location.Y, 0, _bmpH - 1);
+                _eraserColor = Color.FromArgb(_pixelData[cy * _bmpW + cx]);
+                _eraserStart = e.Location;
+                _isEraserDragging = true;
                 break;
         }
     }
@@ -514,13 +528,8 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Ocr when !_isSelecting:
             case CaptureMode.Scan when !_isSelecting:
                 var oldDetect = _autoDetectRect;
-                Rectangle detected;
-                if (_windowEnumDone && _detectedWindows != null)
-                    detected = WindowDetector.FindWindowAt(e.Location, _detectedWindows, _virtualBounds);
-                else if (DetectWindows)
-                    detected = WindowDetector.GetWindowRectAtPoint(e.Location, _virtualBounds);
-                else
-                    detected = Rectangle.Empty;
+                var detected = WindowDetector.GetDetectionRectAtPoint(
+                    e.Location, _virtualBounds, _windowDetectionMode);
 
                 if (detected != _autoDetectRect)
                 {
@@ -754,7 +763,8 @@ public sealed partial class RegionOverlayForm
                 bool isSticker = _mode == CaptureMode.Sticker;
                 if (!_hasDragged)
                 {
-                    var detectedAtRelease = WindowDetector.GetDetectionRectAtPoint(e.Location, _virtualBounds, _windowDetectionMode);
+                    var detectedAtRelease = WindowDetector.GetDetectionRectAtPoint(
+                        e.Location, _virtualBounds, _windowDetectionMode);
                     if (detectedAtRelease.Width > 0 && detectedAtRelease.Height > 0)
                         _autoDetectRect = detectedAtRelease;
 

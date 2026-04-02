@@ -30,7 +30,8 @@ public partial class App
             {
                 try
                 {
-                    var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
+                    bool showCursor = _settingsService!.Settings.ShowCursor;
+                    var (bmp, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
                     var s = _settingsService!.Settings;
                     var fmt = s.RecordingFormat;
 
@@ -46,7 +47,7 @@ public partial class App
                     bool recMic = fmt != RecordingFormat.GIF && s.RecordMicrophone;
                     bool recDesktop = fmt != RecordingFormat.GIF && s.RecordDesktopAudio;
                     var form = new RecordingForm(bmp, bounds, fps, savePath, fmt, maxH,
-                        recMic, s.MicrophoneDeviceId, recDesktop, s.DesktopAudioDeviceId);
+                        showCursor, recMic, s.MicrophoneDeviceId, recDesktop, s.DesktopAudioDeviceId);
                     var finalized = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
                     form.Shown += (_, _) =>
@@ -165,8 +166,9 @@ public partial class App
             {
                 try
                 {
-                    var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
-                    var form = new ScrollingCaptureForm(bmp, bounds);
+                    bool showCursor = _settingsService!.Settings.ShowCursor;
+                    var (bmp, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
+                    var form = new ScrollingCaptureForm(bmp, bounds, showCursor);
 
                     form.CaptureCompleted += result =>
                     {
@@ -220,7 +222,7 @@ public partial class App
         Bitmap? bmp = null;
         try
         {
-            (bmp, _) = ScreenCapture.CaptureAllScreens();
+            (bmp, _) = ScreenCapture.CaptureAllScreens(_settingsService!.Settings.ShowCursor);
             HandleCaptureResult(bmp);
             bmp = null;
         }
@@ -237,7 +239,7 @@ public partial class App
         Bitmap? bmp = null;
         try
         {
-            (bmp, var bounds) = ScreenCapture.CaptureAllScreens();
+            (bmp, var bounds) = ScreenCapture.CaptureAllScreens(_settingsService!.Settings.ShowCursor);
             var hwnd = Native.User32.GetForegroundWindow();
             if (hwnd == IntPtr.Zero || !Native.User32.GetWindowRect(hwnd, out var rect))
             {
@@ -283,14 +285,14 @@ public partial class App
                 Bitmap? screenshot = null;
                 try
                 {
-                    var (bmp, bounds) = ScreenCapture.CaptureAllScreens();
+                    bool showCursor = _settingsService!.Settings.ShowCursor;
+                    var (bmp, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
                     screenshot = bmp;
 
                     var overlay = new RegionOverlayForm(screenshot, bounds, initialMode, _settingsService!.Settings.WindowDetection)
                     {
                         ShowCrosshairGuides = _settingsService!.Settings.ShowCrosshairGuides,
-                        DetectWindows = _settingsService.Settings.DetectWindows,
-                        DetectControls = _settingsService.Settings.DetectControls
+                        DetectWindows = _settingsService.Settings.DetectWindows
                     };
                     overlay.SetEnabledTools(_settingsService.Settings.EnabledTools);
                     overlay.SetShowToolNumberBadges(_settingsService.Settings.ShowToolNumberBadges);

@@ -54,7 +54,7 @@ public static class UpdateService
         var latestVersion = ParseVersion(release.TagName);
         var latestLabel = string.IsNullOrWhiteSpace(release.TagName) ? $"v{latestVersion}" : release.TagName.Trim();
         var releaseUrl = string.IsNullOrWhiteSpace(release.HtmlUrl) ? ReleasesPageUrl : release.HtmlUrl;
-        var asset = PickBestAsset(release.Assets);
+        var asset = PickBestInstallerAsset(release.Assets);
         var isUpdateAvailable = latestVersion > currentVersion;
         var status = isUpdateAvailable
             ? $"Update available: {latestLabel}"
@@ -92,7 +92,7 @@ public static class UpdateService
         return new Version(0, 0, 0);
     }
 
-    private static GitHubAsset? PickBestAsset(IReadOnlyList<GitHubAsset>? assets)
+    private static GitHubAsset? PickBestInstallerAsset(IReadOnlyList<GitHubAsset>? assets)
     {
         if (assets is not { Count: > 0 })
             return null;
@@ -105,15 +105,17 @@ public static class UpdateService
             _ => "win-x64"
         };
 
+        static bool IsInstaller(string name) =>
+            name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(".msix", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(".msixbundle", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(".appinstaller", StringComparison.OrdinalIgnoreCase);
+
         return assets.FirstOrDefault(asset =>
-                   asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                   && asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
-               ?? assets.FirstOrDefault(asset =>
-                   asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                   && asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
-               ?? assets.FirstOrDefault(asset => asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-               ?? assets.FirstOrDefault(asset => asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-               ?? assets.FirstOrDefault();
+                   IsInstaller(asset.Name) &&
+                   asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
+               ?? assets.FirstOrDefault(asset => IsInstaller(asset.Name));
     }
 
     private sealed class GitHubRelease
