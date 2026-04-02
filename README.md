@@ -111,8 +111,6 @@ Sticker uploads use the same upload destinations as normal image uploads.
 
 [MIT](LICENSE)
 
-<a href="https://www.producthunt.com/products/yoink-5?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-yoink-7" target="_blank" rel="noopener noreferrer"><img alt="Yoink - Free, open-source screenshot tool thats CLEAN | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1114055&amp;theme=light&amp;t=1775118335168"></a>
-
 ## Star History
 
 <a href="https://www.star-history.com/#jasperdevs/yoink&Timeline">
@@ -122,3 +120,6 @@ Sticker uploads use the same upload destinations as normal image uploads.
     <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline" />
   </picture>
 </a>
+
+<a href="https://www.producthunt.com/products/yoink-5?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-yoink-7" target="_blank" rel="noopener noreferrer"><img alt="Yoink - Free, open-source screenshot tool thats CLEAN | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1114055&amp;theme=light&amp;t=1775118335168"></a>
+
