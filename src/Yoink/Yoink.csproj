@@ -58,6 +58,9 @@
     <Content Include="lucide.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="portable.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <EmbeddedResource Include="lucide.ttf" LogicalName="Yoink.lucide.ttf" />
   </ItemGroup>
 

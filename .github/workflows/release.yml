@@ -71,11 +71,43 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$csproj = Get-Content src/Yoink/Yoink.csproj -Raw
+          $version = ($csproj.Project.PropertyGroup.Version | Select-Object -First 1).Trim()
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version" -Encoding utf8
+
+      - name: Generate winget manifests
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "v$version"
+          $baseUrl = "https://github.com/${{ github.repository }}/releases/download/$tag"
+
+          $x64Zip = Join-Path $PWD 'dist\Yoink-win-x64.zip'
+          $x86Zip = Join-Path $PWD 'dist\Yoink-win-x86.zip'
+          $arm64Zip = Join-Path $PWD 'dist\Yoink-win-arm64.zip'
+
+          & scripts/winget/New-WingetManifests.ps1 `
+            -PackageVersion $version `
+            -OutputDirectory (Join-Path $PWD 'dist\winget-manifests') `
+            -X64InstallerUrl "$baseUrl/Yoink-win-x64.zip" `
+            -X64InstallerSha256 ((Get-FileHash -Algorithm SHA256 $x64Zip).Hash.ToLowerInvariant()) `
+            -X86InstallerUrl "$baseUrl/Yoink-win-x86.zip" `
+            -X86InstallerSha256 ((Get-FileHash -Algorithm SHA256 $x86Zip).Hash.ToLowerInvariant()) `
+            -Arm64InstallerUrl "$baseUrl/Yoink-win-arm64.zip" `
+            -Arm64InstallerSha256 ((Get-FileHash -Algorithm SHA256 $arm64Zip).Hash.ToLowerInvariant())
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -83,4 +115,5 @@ jobs:
           files: |
             dist/**/*.zip
             dist/**/*.sha256.txt
+            dist/winget-manifests/**/*.yaml
           generate_release_notes: true

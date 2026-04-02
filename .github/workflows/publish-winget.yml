@@ -1,0 +1,23 @@
+name: Publish to WinGet
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Publish release to WinGet
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: JasperDevs.Yoink
+          installers-regex: '\.zip$'
+          fork-user: ${{ github.repository_owner }}
+          token: ${{ secrets.WINGET_TOKEN }}
+          release-notes-url: ${{ github.event.release.html_url }}
