@@ -113,10 +113,19 @@ Sticker uploads use the same upload destinations as normal image uploads.
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=jasperdevs%2Fyoink&type=timeline&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&legend=top-left" />
- </picture>
+<a href="https://www.star-history.com/#jasperdevs/yoink&Timeline">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline&theme=dark&cachebust=20260402"
+    />
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline&cachebust=20260402"
+    />
+    <img
+      alt="Star History Chart"
+      src="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline&cachebust=20260402"
+    />
+  </picture>
 </a>
