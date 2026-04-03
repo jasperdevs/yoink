@@ -44,17 +44,26 @@ public partial class App : Application
         bool isPostInstall = e.Args.Any(a => a.Equals("--post-install", StringComparison.OrdinalIgnoreCase));
 
         // Show install wizard if not installed and not running from install dir
-        if (!isPostInstall && Services.InstallService.ShouldShowInstaller())
+        bool shouldInstall = !isPostInstall && Services.InstallService.ShouldShowInstaller();
+        if (shouldInstall)
         {
-            base.OnStartup(e);
-            Theme.Refresh();
-            Theme.ApplyTo(Resources);
-            var installer = new InstallWizard();
-            installer.ShowDialog();
-            if (installer.InstallCompleted)
+            try
             {
-                if (installer.LaunchAfter)
-                    Services.InstallService.LaunchInstalled(installer.InstalledPath, true);
+                base.OnStartup(e);
+                Theme.Refresh();
+                Theme.ApplyTo(Resources);
+                var installer = new InstallWizard();
+                installer.ShowDialog();
+                if (installer.InstallCompleted)
+                {
+                    if (installer.LaunchAfter)
+                        Services.InstallService.LaunchInstalled(installer.InstalledPath, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                try { base.OnStartup(e); } catch { }
+                MessageBox.Show($"Install wizard failed to start:\n\n{ex}", "Yoink", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             Shutdown();
             return;
@@ -63,6 +72,9 @@ public partial class App : Application
         _mutex = new Mutex(true, "YoinkScreenshotTool_SingleInstance", out bool isNew);
         if (!isNew)
         {
+            // Show why the app is exiting so the user doesn't see "nothing happen"
+            base.OnStartup(e);
+            MessageBox.Show("Yoink is already running. Check your system tray.", "Yoink", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }

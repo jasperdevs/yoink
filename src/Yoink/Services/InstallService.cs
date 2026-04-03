@@ -59,6 +59,10 @@ public static class InstallService
             if (string.IsNullOrWhiteSpace(installLoc))
                 return false;
 
+            // Stale registry entry pointing to a removed directory should not count
+            if (!Directory.Exists(installLoc))
+                return false;
+
             var currentDir = appDir.TrimEnd('\\', '/');
             return string.Equals(currentDir, installLoc.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
         }
@@ -71,6 +75,13 @@ public static class InstallService
         var appDir = GetAppDirectory();
 
         if (LooksLikeBuildOutputPath(appDir))
+            return true;
+
+        // If the exe has been renamed (e.g. Yoink-win-x64.exe from a release download),
+        // it's clearly not running from an installed location — show the installer.
+        var exeName = Path.GetFileName(Environment.ProcessPath ?? "");
+        if (!string.IsNullOrEmpty(exeName) &&
+            !exeName.Equals("Yoink.exe", StringComparison.OrdinalIgnoreCase))
             return true;
 
         if (IsInstalled()) return false;
