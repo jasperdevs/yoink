@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime;
@@ -38,6 +37,9 @@ public partial class App : Application
             Shutdown();
             return;
         }
+
+        if (TryApplyUpdateAndExit(e))
+            return;
 
         bool isPostInstall = e.Args.Any(a => a.Equals("--post-install", StringComparison.OrdinalIgnoreCase));
 
@@ -121,6 +123,42 @@ public partial class App : Application
 
         if (openSettingsAfterWizard)
             ShowSettings();
+    }
+
+    private bool TryApplyUpdateAndExit(StartupEventArgs e)
+    {
+        var index = Array.FindIndex(e.Args, arg => arg.Equals("--apply-update", StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+            return false;
+
+        if (e.Args.Length < index + 3)
+        {
+            base.OnStartup(e);
+            MessageBox.Show("Yoink update helper was launched with invalid arguments.", "Update failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown();
+            return true;
+        }
+
+        var packagePath = e.Args[index + 1];
+        var targetDir = e.Args[index + 2];
+        var versionLabel = e.Args.Length > index + 3 ? e.Args[index + 3] : null;
+
+        base.OnStartup(e);
+
+        try
+        {
+            InstallService.ApplyUpdateFromZip(packagePath, targetDir, versionLabel, launchAfter: true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Update failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            Shutdown();
+        }
+
+        return true;
     }
 
     private static void SyncStartupRegistry(bool enabled)

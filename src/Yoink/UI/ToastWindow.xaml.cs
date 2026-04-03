@@ -308,10 +308,10 @@ public partial class ToastWindow : Window
         });
     }
 
-    private bool TryForceClose()
+    private bool TryForceClose(bool force = false)
     {
         _timer.Stop();
-        if (_isPinned)
+        if (_isPinned && !force)
             return false;
 
         if (_current == this) _current = null;
@@ -336,11 +336,7 @@ public partial class ToastWindow : Window
     public static void Show(string title, string body = "", string? filePath = null)
     {
         Services.SoundService.PlayCaptureSound();
-        if (_current is not null && !ToastPinPolicy.CanReplaceCurrent(_current._isPinned))
-            return;
-
-        _currentSticker?.ForceClose(); _currentSticker = null;
-        _current?.TryForceClose();
+        ReplaceCurrentToast();
         var toast = new ToastWindow(title, body, null);
         if (filePath != null)
         {
@@ -354,11 +350,7 @@ public partial class ToastWindow : Window
 
     public static void ShowSticker(Bitmap sticker)
     {
-        if (_current is not null && !ToastPinPolicy.CanReplaceCurrent(_current._isPinned))
-            return;
-
-        _current?.TryForceClose();
-        _currentSticker?.ForceClose();
+        ReplaceCurrentToast();
         var toast = new StickerToastWindow(sticker, _position);
         _currentSticker = toast;
         toast.Closed += (_, _) => { if (_currentSticker == toast) _currentSticker = null; };
@@ -368,11 +360,7 @@ public partial class ToastWindow : Window
     public static void ShowWithColor(string title, string body, Color color)
     {
         Services.SoundService.PlayCaptureSound();
-        if (_current is not null && !ToastPinPolicy.CanReplaceCurrent(_current._isPinned))
-            return;
-
-        _currentSticker?.ForceClose(); _currentSticker = null;
-        _current?.TryForceClose();
+        ReplaceCurrentToast();
         var toast = new ToastWindow(title, body, color);
         _current = toast;
         toast.Show();
@@ -381,11 +369,7 @@ public partial class ToastWindow : Window
     public static void ShowError(string title, string body = "", string? filePath = null)
     {
         Services.SoundService.PlayErrorSound();
-        if (_current is not null && !ToastPinPolicy.CanReplaceCurrent(_current._isPinned))
-            return;
-
-        _currentSticker?.ForceClose(); _currentSticker = null;
-        _current?.TryForceClose();
+        ReplaceCurrentToast();
         var toast = new ToastWindow(title, body, null);
 
         // Red-tinted error styling — clearly different from normal toasts
@@ -411,11 +395,7 @@ public partial class ToastWindow : Window
     /// <summary>Show a preview toast with an image thumbnail.</summary>
     public static void ShowImagePreview(Bitmap screenshot, string? filePath, bool autoPin)
     {
-        if (_current is not null && !ToastPinPolicy.CanReplaceCurrent(_current._isPinned))
-            return;
-
-        _currentSticker?.ForceClose(); _currentSticker = null;
-        _current?.TryForceClose();
+        ReplaceCurrentToast();
         var toast = new ToastWindow(filePath != null ? System.IO.Path.GetFileName(filePath) : "Screenshot",
                                      $"{screenshot.Width}x{screenshot.Height}", null);
         toast._previewBitmap = screenshot;
@@ -540,6 +520,13 @@ public partial class ToastWindow : Window
     {
         _current?.TryForceClose();
         _currentSticker?.ForceClose();
+    }
+
+    private static void ReplaceCurrentToast()
+    {
+        _current?.TryForceClose(force: true);
+        _currentSticker?.ForceClose();
+        _currentSticker = null;
     }
 
     private const double Edge = 8;

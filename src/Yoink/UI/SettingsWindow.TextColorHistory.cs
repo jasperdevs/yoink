@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Yoink.Models;
+using Yoink.Services;
 using Button = System.Windows.Controls.Button;
 
 namespace Yoink.UI;
@@ -60,7 +61,11 @@ public partial class SettingsWindow
             };
             Grid.SetColumn(copyBtn, 1);
             var capturedText = entry.Text;
-            copyBtn.Click += (_, _) => System.Windows.Clipboard.SetText(capturedText);
+            copyBtn.Click += (_, _) =>
+            {
+                ClipboardService.CopyTextToClipboard(capturedText);
+                ToastWindow.Show("Copied", "Text copied");
+            };
             grid.Children.Add(copyBtn);
 
             var badge = CreateSelectionBadge(false);
@@ -160,10 +165,26 @@ public partial class SettingsWindow
                 swatch.MouseLeftButtonDown += (_, e) =>
                 {
                     e.Handled = true;
-                    System.Windows.Clipboard.SetText(entry.Hex);
+                    ClipboardService.CopyTextToClipboard(entry.Hex);
                     ToastWindow.Show("Copied", entry.Hex);
                 };
             }
+
+            var copyColorBtn = new Button
+            {
+                Content = "Copy",
+                FontSize = 10,
+                Padding = new Thickness(8, 3, 8, 3),
+                Margin = new Thickness(0, 6, 0, 0),
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center
+            };
+            copyColorBtn.Click += (_, _) =>
+            {
+                ClipboardService.CopyTextToClipboard(entry.Hex);
+                ToastWindow.Show("Copied", entry.Hex);
+            };
+
+            stack.Children.Add(copyColorBtn);
 
             UpdateSelectableCardSelection(swatch, badge, selected);
             ColorStack.Children.Add(stack);

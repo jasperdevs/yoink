@@ -45,4 +45,22 @@ public static class ClipboardService
             catch { }
         }
     }
+
+    public static void CopyTextToClipboard(string text)
+    {
+        var dataObject = new System.Windows.Forms.DataObject();
+        dataObject.SetData(System.Windows.Forms.DataFormats.UnicodeText, false, text);
+        dataObject.SetData(System.Windows.Forms.DataFormats.Text, false, text);
+
+        try
+        {
+            System.Windows.Forms.Clipboard.SetDataObject(dataObject, true);
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            Thread.Sleep(50);
+            try { System.Windows.Forms.Clipboard.SetDataObject(dataObject, true); }
+            catch { }
+        }
+    }
 }

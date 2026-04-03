@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -26,6 +27,7 @@ public static class UpdateService
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     private static readonly HttpClient Http = CreateHttpClient();
+    private static readonly HttpClient DownloadHttp = CreateDownloadHttpClient();
     private static readonly SemaphoreSlim CheckGate = new(1, 1);
     private static UpdateCheckResult? _cachedResult;
     private static DateTimeOffset _cachedAt;
@@ -74,10 +76,10 @@ public static class UpdateService
             var latestVersion = ParseVersion(release.TagName);
             var latestLabel = string.IsNullOrWhiteSpace(release.TagName) ? $"v{latestVersion}" : release.TagName.Trim();
             var releaseUrl = string.IsNullOrWhiteSpace(release.HtmlUrl) ? ReleasesPageUrl : release.HtmlUrl;
-            var asset = PickBestInstallerAsset(release.Assets);
+            var asset = PickBestUpdateAsset(release.Assets);
             var isUpdateAvailable = latestVersion > currentVersion;
             var status = isUpdateAvailable
-                ? $"Update available: {latestLabel}"
+                ? $"Update available: {latestLabel} (current {GetCurrentVersionLabel()})"
                 : $"You're up to date on {GetCurrentVersionLabel()}";
 
             var result = new UpdateCheckResult(
@@ -101,6 +103,35 @@ public static class UpdateService
         }
     }
 
+    public static async Task<string> DownloadUpdatePackageAsync(UpdateCheckResult update, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(update.DownloadUrl))
+            throw new InvalidOperationException("No update package is available to download.");
+
+        var extension = string.IsNullOrWhiteSpace(update.AssetName)
+            ? ".zip"
+            : Path.GetExtension(update.AssetName);
+        if (string.IsNullOrWhiteSpace(extension))
+            extension = ".zip";
+
+        var downloadDir = Path.Combine(Path.GetTempPath(), "Yoink", "Updates", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(downloadDir);
+
+        var fileName = string.IsNullOrWhiteSpace(update.AssetName)
+            ? $"Yoink-update{extension}"
+            : update.AssetName;
+        var packagePath = Path.Combine(downloadDir, fileName);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, update.DownloadUrl);
+        using var response = await DownloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        await using var destination = new FileStream(packagePath, FileMode.Create, FileAccess.Write, FileShare.None);
+        await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+        return packagePath;
+    }
+
     private static HttpClient CreateHttpClient()
     {
         var client = new HttpClient
@@ -110,6 +141,17 @@ public static class UpdateService
         client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersion()}");
         client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         client.DefaultRequestHeaders.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
+        return client;
+    }
+
+    private static HttpClient CreateDownloadHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(5)
+        };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersion()}");
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         return client;
     }
 
@@ -132,7 +174,7 @@ public static class UpdateService
         return new Version(0, 0, 0);
     }
 
-    private static GitHubAsset? PickBestInstallerAsset(IReadOnlyList<GitHubAsset>? assets)
+    private static GitHubAsset? PickBestUpdateAsset(IReadOnlyList<GitHubAsset>? assets)
     {
         if (assets is not { Count: > 0 })
             return null;
@@ -145,6 +187,7 @@ public static class UpdateService
             _ => "win-x64"
         };
 
+        static bool IsZip(string name) => name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
         static bool IsInstaller(string name) =>
             name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
             name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) ||
@@ -153,6 +196,10 @@ public static class UpdateService
             name.EndsWith(".appinstaller", StringComparison.OrdinalIgnoreCase);
 
         return assets.FirstOrDefault(asset =>
+                   IsZip(asset.Name) &&
+                   asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
+               ?? assets.FirstOrDefault(asset => IsZip(asset.Name))
+               ?? assets.FirstOrDefault(asset =>
                    IsInstaller(asset.Name) &&
                    asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
                ?? assets.FirstOrDefault(asset => IsInstaller(asset.Name));

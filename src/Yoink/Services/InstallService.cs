@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using Microsoft.Win32;
 
 namespace Yoink.Services;
@@ -8,6 +9,34 @@ public static class InstallService
 {
     public static string DefaultInstallPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Yoink");
+
+    public static string GetRunningAppDirectory() => GetAppDirectory();
+
+    public static string? GetInstalledLocation()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Yoink");
+            var installLoc = key?.GetValue("InstallLocation") as string;
+            return string.IsNullOrWhiteSpace(installLoc) ? null : installLoc;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static bool IsInstalledLocation(string targetDir)
+    {
+        var installedLocation = GetInstalledLocation();
+        if (string.IsNullOrWhiteSpace(installedLocation))
+            return false;
+
+        return string.Equals(
+            targetDir.TrimEnd('\\', '/'),
+            installedLocation.TrimEnd('\\', '/'),
+            StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string GetAppDirectory()
     {
@@ -24,14 +53,12 @@ public static class InstallService
         try
         {
             var appDir = GetAppDirectory();
-
             if (LooksLikeBuildOutputPath(appDir))
                 return false;
+            var installLoc = GetInstalledLocation();
+            if (string.IsNullOrWhiteSpace(installLoc))
+                return false;
 
-            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Yoink");
-            if (key == null) return false;
-            var installLoc = key.GetValue("InstallLocation") as string;
-            if (string.IsNullOrWhiteSpace(installLoc)) return false;
             var currentDir = appDir.TrimEnd('\\', '/');
             return string.Equals(currentDir, installLoc.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
         }
@@ -113,7 +140,55 @@ public static class InstallService
         TryLaunch(targetExe, targetDir, args);
     }
 
-    private static void TryLaunch(string exePath, string workingDir, string args)
+    public static void ApplyUpdateFromZip(string packagePath, string targetDir, string? versionLabel = null, bool launchAfter = true, Action<string>? onProgress = null)
+    {
+        if (string.IsNullOrWhiteSpace(packagePath))
+            throw new ArgumentException("Package path is required.", nameof(packagePath));
+        if (string.IsNullOrWhiteSpace(targetDir))
+            throw new ArgumentException("Target directory is required.", nameof(targetDir));
+        if (!File.Exists(packagePath))
+            throw new FileNotFoundException("Update package not found.", packagePath);
+
+        var targetDirNorm = targetDir.TrimEnd('\\', '/');
+        var sourceRoot = Path.Combine(Path.GetTempPath(), "Yoink", "ApplyUpdate", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(sourceRoot);
+            onProgress?.Invoke("Waiting for Yoink to close...");
+            WaitForFileUnlocks(targetDirNorm);
+
+            onProgress?.Invoke("Extracting update...");
+            ZipFile.ExtractToDirectory(packagePath, sourceRoot, overwriteFiles: true);
+
+            var extractedRoot = ResolveUpdateSourceRoot(sourceRoot);
+            var installedTarget = IsInstalledLocation(targetDirNorm);
+
+            onProgress?.Invoke("Copying update files...");
+            CopyTree(extractedRoot, targetDirNorm, skipPortableFlag: installedTarget);
+
+            var targetExe = Path.Combine(targetDirNorm, "Yoink.exe");
+            if (installedTarget)
+            {
+                onProgress?.Invoke("Refreshing app registration...");
+                RegisterApp(targetDirNorm, targetExe, versionLabel);
+            }
+
+            if (launchAfter)
+            {
+                onProgress?.Invoke("Launching updated Yoink...");
+                if (!TryLaunch(targetExe, targetDirNorm, ""))
+                    throw new InvalidOperationException("The update was applied, but Yoink could not be restarted.");
+            }
+        }
+        finally
+        {
+            TryDeleteDirectory(sourceRoot);
+            TryDeleteFile(packagePath);
+        }
+    }
+
+    private static bool TryLaunch(string exePath, string workingDir, string args)
     {
         const int attempts = 6;
         for (int i = 0; i < attempts; i++)
@@ -135,13 +210,15 @@ public static class InstallService
                 });
 
                 if (proc != null)
-                    return;
+                    return true;
             }
             catch
             {
                 Thread.Sleep(150 * (i + 1));
             }
         }
+
+        return false;
     }
 
     private static void CopyDirectory(string source, string target)
@@ -162,6 +239,104 @@ public static class InstallService
                 CopyDirectory(dir, Path.Combine(target, dirName));
             }
         }
+    }
+
+    private static void CopyTree(string source, string target, bool skipPortableFlag)
+    {
+        Directory.CreateDirectory(target);
+
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(source, file);
+            if (skipPortableFlag && relativePath.Equals("portable.txt", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var destination = Path.Combine(target, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            CopyFileWithRetry(file, destination);
+        }
+    }
+
+    private static void CopyFileWithRetry(string source, string destination)
+    {
+        const int attempts = 8;
+        Exception? lastError = null;
+        for (int i = 0; i < attempts; i++)
+        {
+            try
+            {
+                File.Copy(source, destination, true);
+                return;
+            }
+            catch (Exception ex) when (i < attempts - 1)
+            {
+                lastError = ex;
+                Thread.Sleep(200 * (i + 1));
+            }
+        }
+
+        throw new IOException($"Failed to copy '{source}' to '{destination}'.", lastError);
+    }
+
+    private static string ResolveUpdateSourceRoot(string extractedRoot)
+    {
+        var directExe = Path.Combine(extractedRoot, "Yoink.exe");
+        if (File.Exists(directExe))
+            return extractedRoot;
+
+        var childDirs = Directory.EnumerateDirectories(extractedRoot).ToList();
+        if (childDirs.Count == 1 && File.Exists(Path.Combine(childDirs[0], "Yoink.exe")))
+            return childDirs[0];
+
+        var exe = Directory.EnumerateFiles(extractedRoot, "Yoink.exe", SearchOption.AllDirectories).FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(exe))
+            return Path.GetDirectoryName(exe) ?? extractedRoot;
+
+        return extractedRoot;
+    }
+
+    private static void WaitForFileUnlocks(string targetDir)
+    {
+        var targetExe = Path.Combine(targetDir, "Yoink.exe");
+        Exception? lastError = null;
+        for (int i = 0; i < 30; i++)
+        {
+            try
+            {
+                if (!File.Exists(targetExe))
+                    return;
+
+                using var stream = new FileStream(targetExe, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                return;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                Thread.Sleep(200);
+            }
+        }
+
+        throw new IOException($"Timed out waiting for '{targetExe}' to close.", lastError);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch { }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, true);
+        }
+        catch { }
     }
 
     private static void CreateShortcut(string shortcutPath, string targetExe)
@@ -186,14 +361,16 @@ public static class InstallService
         catch { }
     }
 
-    private static void RegisterApp(string installDir, string exePath)
+    private static void RegisterApp(string installDir, string exePath, string? versionLabel = null)
     {
         try
         {
             if (LooksLikeBuildOutputPath(exePath))
                 return;
 
-            var version = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0";
+            var version = string.IsNullOrWhiteSpace(versionLabel)
+                ? System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0"
+                : versionLabel.Trim().TrimStart('v', 'V');
             using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Yoink");
             if (key is null) return;
             key.SetValue("DisplayName", "Yoink");
