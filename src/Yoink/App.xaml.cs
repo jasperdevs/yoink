@@ -69,10 +69,20 @@ public partial class App : Application
             return;
         }
 
-        _mutex = new Mutex(true, "YoinkScreenshotTool_SingleInstance", out bool isNew);
-        if (!isNew)
+        _mutex = new Mutex(false, "YoinkScreenshotTool_SingleInstance");
+        bool acquired;
+        try
         {
-            // Show why the app is exiting so the user doesn't see "nothing happen"
+            // Wait up to 8 seconds — the previous instance may still be shutting down after an update.
+            acquired = _mutex.WaitOne(TimeSpan.FromSeconds(8), false);
+        }
+        catch (AbandonedMutexException)
+        {
+            // Previous owner crashed — we now own the mutex.
+            acquired = true;
+        }
+        if (!acquired)
+        {
             base.OnStartup(e);
             MessageBox.Show("Yoink is already running. Check your system tray.", "Yoink", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
@@ -277,6 +287,8 @@ public partial class App : Application
         _settingsWindow?.Close();
         try { Yoink.Capture.DxgiScreenCapture.ResetCache(); } catch { }
         try { LocalStickerEngineService.Shutdown(); } catch { }
+        try { _mutex?.ReleaseMutex(); } catch { }
+        try { _mutex?.Dispose(); } catch { }
         base.OnExit(e);
     }
 
