@@ -164,6 +164,8 @@ public partial class SettingsWindow
         else if (HistoryCategoryCombo.SelectedIndex == 1) _historyService.ClearOcr();
         else if (HistoryCategoryCombo.SelectedIndex == 3) _historyService.ClearColors();
         else _historyService.ClearStickers();
+
+        LoadCurrentHistoryTab();
     }
 
     private void DeleteSelectedClick(object sender, RoutedEventArgs e)

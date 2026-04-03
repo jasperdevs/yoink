@@ -275,6 +275,7 @@ public partial class SettingsWindow
     private void DeleteMediaItems(IEnumerable<HistoryItemVM> items)
     {
         var gifEntries = new List<HistoryEntry>();
+        int failed = 0;
         foreach (var item in items)
         {
             if (item.Entry.Kind == HistoryKind.Gif)
@@ -283,11 +284,17 @@ public partial class SettingsWindow
                 continue;
             }
 
-            try { File.Delete(item.Entry.FilePath); } catch { }
+            try { File.Delete(item.Entry.FilePath); }
+            catch { failed++; }
             try { File.Delete(GetVideoThumbnailPath(item.Entry.FilePath)); } catch { }
         }
 
         _historyService.DeleteEntries(gifEntries);
+
+        if (failed > 0)
+            ToastWindow.ShowError("Delete failed", $"{failed} file(s) couldn't be deleted (may be in use).");
+
+        LoadCurrentHistoryTab();
     }
 
     private static string GetVideoThumbnailPath(string videoPath)
