@@ -163,7 +163,21 @@ public partial class App : Application
 
         var packagePath = e.Args[index + 1];
         var targetDir = e.Args[index + 2];
-        var versionLabel = e.Args.Length > index + 3 ? e.Args[index + 3] : null;
+        // versionLabel may be followed by --wait-pid <pid>, so only take it if it doesn't start with --
+        var nextArg = e.Args.Length > index + 3 ? e.Args[index + 3] : null;
+        var versionLabel = nextArg != null && !nextArg.StartsWith("--") ? nextArg : null;
+
+        // Wait for the parent Yoink process to fully exit before touching files
+        var pidIndex = Array.FindIndex(e.Args, arg => arg.Equals("--wait-pid", StringComparison.OrdinalIgnoreCase));
+        if (pidIndex >= 0 && e.Args.Length > pidIndex + 1 && int.TryParse(e.Args[pidIndex + 1], out int parentPid))
+        {
+            try
+            {
+                using var parent = System.Diagnostics.Process.GetProcessById(parentPid);
+                parent.WaitForExit(15000);
+            }
+            catch { /* process already exited */ }
+        }
 
         base.OnStartup(e);
 

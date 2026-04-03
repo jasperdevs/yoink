@@ -158,6 +158,8 @@ public partial class SettingsWindow
         startInfo.ArgumentList.Add(packagePath);
         startInfo.ArgumentList.Add(targetDir);
         startInfo.ArgumentList.Add(versionLabel);
+        startInfo.ArgumentList.Add("--wait-pid");
+        startInfo.ArgumentList.Add(Environment.ProcessId.ToString());
 
         if (Process.Start(startInfo) is null)
             throw new InvalidOperationException("Failed to launch the update helper.");
