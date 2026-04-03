@@ -1,9 +1,8 @@
-# Yoink v0.5.2.2
+# Yoink v0.5.2.3
 
 ## Highlights
-- Fixed the capture flow so hotkeys work repeatedly instead of getting stuck after one use.
-- Kept the recent speedups that do not affect capture state, like faster bitmap conversion and lighter history writes.
-- Preserved the same installer and portable release layout as the previous release.
+- All history items (screenshots, videos, GIFs, stickers) can now be dragged and dropped from the history panel into other apps.
+- Freeform captures no longer show a dashed border baked into the saved image.
 
 ## Notes
 - ZIP assets are the portable builds and are used by winget.
