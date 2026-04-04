@@ -110,12 +110,14 @@ public static class InstallService
         var sourceDir = GetAppDirectory();
         if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
             throw new InvalidOperationException("Unable to locate the running Yoink application folder.");
+        var currentExe = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(currentExe) || !File.Exists(currentExe))
+            throw new InvalidOperationException("Unable to locate the running Yoink executable.");
 
         var targetExe = Path.Combine(targetDirNorm, "Yoink.exe");
 
-        // Copy the full app payload so the installed app can actually start.
         if (!string.Equals(Path.GetFullPath(sourceDir).TrimEnd('\\', '/'), Path.GetFullPath(targetDirNorm).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
-            CopyTree(sourceDir, targetDirNorm);
+            CopyInstallPayload(sourceDir, currentExe, targetDirNorm);
 
         // Start menu shortcut
         if (startMenuShortcut)
@@ -272,6 +274,66 @@ public static class InstallService
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             CopyFileWithRetry(file, destination);
         }
+    }
+
+    private static void CopyInstallPayload(string sourceDir, string currentExe, string targetDir)
+    {
+        if (ShouldCopyFullPayloadTree(sourceDir))
+        {
+            CopyTree(sourceDir, targetDir);
+            return;
+        }
+
+        CopyFileWithRetry(currentExe, Path.Combine(targetDir, "Yoink.exe"));
+
+        foreach (var relativePath in GetOptionalPayloadEntries())
+        {
+            var sourcePath = Path.Combine(sourceDir, relativePath);
+            var destinationPath = Path.Combine(targetDir, relativePath);
+
+            if (File.Exists(sourcePath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+                CopyFileWithRetry(sourcePath, destinationPath);
+            }
+            else if (Directory.Exists(sourcePath))
+            {
+                CopyTree(sourcePath, destinationPath);
+            }
+        }
+    }
+
+    private static bool ShouldCopyFullPayloadTree(string sourceDir)
+    {
+        if (LooksLikeBuildOutputPath(sourceDir))
+            return true;
+
+        var entries = Directory.EnumerateFileSystemEntries(sourceDir)
+            .Select(Path.GetFileName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToArray();
+
+        if (entries.Length == 0)
+            return false;
+
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Yoink.exe",
+            "Python",
+            "Tessdata",
+            "tessdata",
+            "ffmpeg.exe"
+        };
+
+        return entries.All(name => allowed.Contains(name!));
+    }
+
+    private static IEnumerable<string> GetOptionalPayloadEntries()
+    {
+        yield return "Python";
+        yield return "Tessdata";
+        yield return "tessdata";
+        yield return "ffmpeg.exe";
     }
 
     private static void CopyFileWithRetry(string source, string destination)

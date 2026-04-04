@@ -1,10 +1,10 @@
-# Yoink v0.6.1
+# Yoink v0.6.2
 
 ## Highlights
+- Fixed installer-first release builds failing during fresh install when launched from a normal folder like Downloads.
 - Reworked screenshot-mode hover performance so window detection, magnifier updates, and selection feedback no longer feel delayed behind the cursor.
 - Fixed multiple capture-overlay paint artifacts across normal screenshot, scrolling capture, and recording selection flows.
 - Restored real annotation hotkeys and tooltip labels so the overlay matches the configured tool bindings instead of shifted tool positions.
-- Added capture magnifier setup controls to onboarding and kept uninstall cleanup explicit for downloaded local sticker model caches.
 
 ## Added
 - Added a capture-magnifier preference to onboarding so new installs can enable or disable the loupe immediately.
@@ -16,6 +16,7 @@
 - Changed selection overlay invalidation to avoid creating a graphics context on every drag frame just to measure the size label.
 - Changed capture magnifier behavior so it stays visible during active selection, hides over dock/popup UI, and follows the cursor more tightly.
 - Changed active-tool visuals so the selected tool indicator is dimmer and no longer uses the overly bright stroked circle.
+- Changed installer payload copying so standalone release exes copy only the app payload instead of treating the containing folder as the install source tree.
 
 ## Removed
 - Removed position-based annotation hotkey switching in the overlay; tool switching now follows saved hotkey mappings only.
@@ -29,3 +30,4 @@
 - Fixed window-detection preview regressing into a broken or inconsistent border path.
 - Fixed screenshot crosshair guides lagging behind cursor movement and glitching when crossing overlay UI.
 - Fixed uninstall cleanup leaving downloaded local sticker model/runtime data behind.
+- Fixed fresh install failures caused by installer-first release exes being launched from folders with unrelated user files.

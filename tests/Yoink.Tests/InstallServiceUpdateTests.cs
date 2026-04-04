@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using Xunit;
 using Yoink.Services;
 
@@ -44,5 +45,61 @@ public sealed class InstallServiceUpdateTests
             }
             catch { }
         }
+    }
+
+    [Fact]
+    public void StandaloneInstallerFolder_DoesNotLookLikeFullPayloadTree()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "yoink-tests", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(root);
+            File.WriteAllText(Path.Combine(root, "Yoink.exe"), "installer");
+            File.WriteAllText(Path.Combine(root, "notes.txt"), "user file");
+
+            Assert.False(InvokeShouldCopyFullPayloadTree(root));
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, recursive: true);
+            }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public void PublishPayloadFolder_LooksLikeFullPayloadTree()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "yoink-tests", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(root);
+            Directory.CreateDirectory(Path.Combine(root, "Python"));
+            File.WriteAllText(Path.Combine(root, "Yoink.exe"), "installer");
+            File.WriteAllText(Path.Combine(root, "Python", "local_clip_service.py"), "print('ok')");
+
+            Assert.True(InvokeShouldCopyFullPayloadTree(root));
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, recursive: true);
+            }
+            catch { }
+        }
+    }
+
+    private static bool InvokeShouldCopyFullPayloadTree(string sourceDir)
+    {
+        var method = typeof(InstallService).GetMethod("ShouldCopyFullPayloadTree", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return Assert.IsType<bool>(method!.Invoke(null, new object[] { sourceDir }));
     }
 }
