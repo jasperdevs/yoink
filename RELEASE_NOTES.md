@@ -1,4 +1,4 @@
-# Yoink v0.5.2.10
+# Yoink v0.6.0
 
 ## Highlights
 - Removed the always-on image-card outline in History so screenshots no longer show a stray border on hover or selection.
