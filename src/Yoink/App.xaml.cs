@@ -16,6 +16,7 @@ public partial class App : Application
     private HotkeyService? _hotkeyService;
     private SettingsService? _settingsService;
     private HistoryService? _historyService;
+    private ImageSearchIndexService? _imageSearchIndexService;
     private readonly object _historyGate = new();
     private TrayIcon? _trayIcon;
     private SettingsWindow? _settingsWindow;
@@ -23,6 +24,7 @@ public partial class App : Application
     private int _activeUploadCount;
     private volatile bool _isCapturing;
     private bool _historyRecovered;
+    private bool _historyChangedHooked;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -84,7 +86,6 @@ public partial class App : Application
         if (!acquired)
         {
             base.OnStartup(e);
-            MessageBox.Show("Yoink is already running. Check your system tray.", "Yoink", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
@@ -96,6 +97,7 @@ public partial class App : Application
 
         _settingsService = new SettingsService();
         _settingsService.Load();
+        EnsureImageSearchIndexService();
 
         // After a fresh install, force onboarding
         if (isPostInstall)
@@ -218,7 +220,7 @@ public partial class App : Application
             return;
         }
 
-        var win = new SettingsWindow(_settingsService!, EnsureHistoryService());
+        var win = new SettingsWindow(_settingsService!, EnsureHistoryService(), EnsureImageSearchIndexService());
         Action hotkeyHandler = () => RegisterHotkeys();
         Action uninstallHandler = BeginUninstall;
         win.HotkeyChanged += hotkeyHandler;
@@ -297,6 +299,8 @@ public partial class App : Application
         _idleTrimTimer?.Stop();
         _hotkeyService?.Dispose();
         try { _historyService?.FlushPendingWrites(); } catch { }
+        try { _imageSearchIndexService?.Dispose(); } catch { }
+        _imageSearchIndexService = null;
         _trayIcon?.Dispose();
         _settingsWindow?.Close();
         try { Yoink.Capture.DxgiScreenCapture.ResetCache(); } catch { }
@@ -320,12 +324,48 @@ public partial class App : Application
                     _historyRecovered = true;
                 }
                 _historyService.PruneByRetention(_settingsService!.Settings.HistoryRetention);
+                if (!_historyChangedHooked)
+                {
+                    _historyService.Changed += HistoryService_Changed;
+                    _historyChangedHooked = true;
+                }
+
+                if (_imageSearchIndexService is not null && _settingsService!.Settings.AutoIndexImages)
+                    _imageSearchIndexService.RequestSync(_historyService.ImageEntries, _settingsService!.Settings.OcrLanguageTag);
             }
 
             _historyService.CompressHistory = _settingsService!.Settings.CompressHistory;
             _historyService.JpegQuality = _settingsService.Settings.JpegQuality;
             _historyService.CaptureImageFormat = _settingsService.Settings.CaptureImageFormat;
             return _historyService;
+        }
+    }
+
+    private ImageSearchIndexService EnsureImageSearchIndexService()
+    {
+        lock (_historyGate)
+        {
+            if (_imageSearchIndexService is null)
+            {
+                _imageSearchIndexService = new ImageSearchIndexService();
+                _imageSearchIndexService.Load();
+                if (_historyService is not null && _settingsService!.Settings.AutoIndexImages)
+                    _imageSearchIndexService.RequestSync(_historyService.ImageEntries, _settingsService!.Settings.OcrLanguageTag);
+            }
+
+            return _imageSearchIndexService;
+        }
+    }
+
+    private void HistoryService_Changed()
+    {
+        lock (_historyGate)
+        {
+            if (_historyService is null || _settingsService is null)
+                return;
+
+            if (_settingsService.Settings.AutoIndexImages)
+                _imageSearchIndexService?.RequestSync(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
         }
     }
 
@@ -352,6 +392,8 @@ public partial class App : Application
         {
             _historyService = null;
             _historyRecovered = false;
+            try { _imageSearchIndexService?.Dispose(); } catch { }
+            _imageSearchIndexService = null;
         }
         SettingsWindow.ClearThumbCache();
 

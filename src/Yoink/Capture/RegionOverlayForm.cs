@@ -343,8 +343,7 @@ public sealed partial class RegionOverlayForm : Form
         _visibleTools = enabledIds == null
             ? ToolDef.AllTools
             : ToolDef.AllTools.Where(t => enabledIds.Contains(t.Id)).ToArray();
-        _toolbarButtons = new Rectangle[BtnCount];
-        CalcToolbar();
+        RefreshToolbar();
     }
 
     // Events
@@ -639,6 +638,8 @@ public sealed partial class RegionOverlayForm : Form
 
     internal void RefreshToolbar()
     {
+        CalcToolbar();
+        PositionToolbarForm();
         _toolbarForm?.UpdateSurface();
     }
 

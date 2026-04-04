@@ -127,6 +127,61 @@ public partial class SettingsWindow
         _settingsService.Save();
     }
 
+    private void ShowImageSearchBarCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+
+        _settingsService.Settings.ShowImageSearchBar = ShowImageSearchBarCheck.IsChecked == true;
+        _settingsService.Save();
+
+        if (ShowImageSearchBarCheck.IsChecked != true)
+        {
+            if (!string.IsNullOrEmpty(ImageSearchBox.Text))
+                ImageSearchBox.Clear();
+            _imageSearchQuery = "";
+        }
+
+        if (HistoryTab.IsChecked == true)
+            LoadCurrentHistoryTab();
+    }
+
+    private void ShowImageSearchDiagnosticsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+
+        _settingsService.Settings.ShowImageSearchDiagnostics = ShowImageSearchDiagnosticsCheck.IsChecked == true;
+        _settingsService.Save();
+
+        if (HistoryTab.IsChecked == true)
+            LoadCurrentHistoryTab();
+    }
+
+    private void AutoIndexImagesCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+
+        _settingsService.Settings.AutoIndexImages = AutoIndexImagesCheck.IsChecked == true;
+        _settingsService.Save();
+
+        if (_settingsService.Settings.AutoIndexImages)
+            _imageSearchIndexService.RequestSync(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
+
+        if (HistoryTab.IsChecked == true)
+            LoadCurrentHistoryTab();
+    }
+
+    private void ResetImageIndexesBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Reset the image OCR/search index?\n\nThis rebuilds screenshot search data in the background.",
+                "Reset Image Indexes", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        _imageSearchIndexService.ReindexAll(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
+        if (HistoryTab.IsChecked == true)
+            LoadCurrentHistoryTab();
+        ToastWindow.Show("Image indexes reset", "Screenshot search will rebuild in the background.");
+    }
+
     private void WindowDetectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;

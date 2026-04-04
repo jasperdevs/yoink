@@ -54,7 +54,7 @@ public partial class App
             if (result.Success)
             {
                 SoundService.PlayUploadDoneSound();
-                System.Windows.Clipboard.SetText(result.Url);
+                ClipboardService.CopyTextToClipboard(result.Url);
 
                 var entry = historyEntry ?? _historyService?.Entries.FirstOrDefault(e =>
                     string.Equals(e.FilePath, filePath, StringComparison.OrdinalIgnoreCase));

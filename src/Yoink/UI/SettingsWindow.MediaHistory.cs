@@ -110,7 +110,7 @@ public partial class SettingsWindow
             foreach (var thumb in Directory.EnumerateFiles(dir, "*.jpg", SearchOption.AllDirectories))
             {
                 var parentDir = Path.GetFileName(Path.GetDirectoryName(thumb));
-                if (!parentDir.Equals(".thumbs", StringComparison.OrdinalIgnoreCase))
+                if (parentDir is null || !parentDir.Equals(".thumbs", StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 if (expectedThumbs.Contains(thumb))
@@ -165,7 +165,7 @@ public partial class SettingsWindow
             {
                 if (!string.IsNullOrEmpty(vm.Entry.UploadUrl))
                 {
-                    System.Windows.Clipboard.SetText(vm.Entry.UploadUrl);
+                    ClipboardService.CopyTextToClipboard(vm.Entry.UploadUrl);
                     ToastWindow.Show("Copied", vm.Entry.UploadUrl);
                     return;
                 }

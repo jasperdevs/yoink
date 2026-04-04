@@ -94,8 +94,8 @@ public partial class SettingsWindow
             Margin = new Thickness(3),
             CornerRadius = new CornerRadius(8),
             Background = Theme.Brush(Theme.BgCard),
-            BorderBrush = Theme.Brush(Theme.BorderSubtle),
-            BorderThickness = new Thickness(1),
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
             Cursor = Cursors.Hand,
             Child = root,
             Tag = vm,
@@ -113,7 +113,6 @@ public partial class SettingsWindow
         card.MouseEnter += (s, _) =>
         {
             var b = (Border)s!;
-            b.BorderBrush = Theme.Brush(Theme.Border);
             var st = (ScaleTransform)b.RenderTransform;
             st.BeginAnimation(ScaleTransform.ScaleXProperty,
                 new System.Windows.Media.Animation.DoubleAnimation(1.03, TimeSpan.FromMilliseconds(120)));
@@ -128,10 +127,6 @@ public partial class SettingsWindow
         card.MouseLeave += (s, _) =>
         {
             var b = (Border)s!;
-            if (vm.IsSelected)
-                b.BorderBrush = Theme.StrokeBrush();
-            else
-                b.BorderBrush = Theme.Brush(Theme.BorderSubtle);
             var st = (ScaleTransform)b.RenderTransform;
             st.BeginAnimation(ScaleTransform.ScaleXProperty,
                 new System.Windows.Media.Animation.DoubleAnimation(1, TimeSpan.FromMilliseconds(120)));
@@ -154,10 +149,15 @@ public partial class SettingsWindow
             }
 
             if (!_selectMode)
+            {
+                OpenFileWithDefaultApp(vm.Entry.FilePath);
+                e.Handled = true;
                 return;
+            }
 
             vm.IsSelected = !vm.IsSelected;
             UpdateCardSelection(vm);
+            UpdateImageSearchActionButtons();
             e.Handled = true;
         };
 
@@ -270,5 +270,23 @@ public partial class SettingsWindow
         btn.MouseLeave += (s, _) => ((Border)s!).BeginAnimation(OpacityProperty,
             new System.Windows.Media.Animation.DoubleAnimation(0, TimeSpan.FromMilliseconds(100)));
         return btn;
+    }
+
+    private static void OpenFileWithDefaultApp(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+        }
     }
 }

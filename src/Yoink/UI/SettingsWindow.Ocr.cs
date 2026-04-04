@@ -1,7 +1,6 @@
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using Windows.Globalization;
 using Yoink.Services;
 
 namespace Yoink.UI;
@@ -14,17 +13,16 @@ public partial class SettingsWindow
 
         OcrLanguageCombo.Items.Add(new ComboBoxItem
         {
-            Content = "Auto (use Windows profile languages)",
+            Content = "Auto (English)",
             Tag = "auto"
         });
 
-        // Refresh once per settings open so newly installed language packs appear without restarting Yoink.
         foreach (var language in OcrService.GetAvailableRecognizerLanguages(refresh: true))
         {
             OcrLanguageCombo.Items.Add(new ComboBoxItem
             {
-                Content = $"{language.DisplayName} ({language.LanguageTag})",
-                Tag = language.LanguageTag
+                Content = GetLanguageLabel(language),
+                Tag = language
             });
         }
 
@@ -45,4 +43,10 @@ public partial class SettingsWindow
         _settingsService.Settings.OcrLanguageTag = item.Tag as string ?? "auto";
         _settingsService.Save();
     }
+
+    private static string GetLanguageLabel(string languageTag) => languageTag.ToLowerInvariant() switch
+    {
+        "eng" => "English (eng)",
+        _ => languageTag
+    };
 }

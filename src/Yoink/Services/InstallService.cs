@@ -107,16 +107,15 @@ public static class InstallService
 
         onProgress?.Invoke("Copying files...");
 
-        // Copy the running exe to the target as Yoink.exe
-        var currentExe = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(currentExe) || !File.Exists(currentExe))
-            throw new InvalidOperationException("Unable to locate the running Yoink executable.");
+        var sourceDir = GetAppDirectory();
+        if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
+            throw new InvalidOperationException("Unable to locate the running Yoink application folder.");
 
         var targetExe = Path.Combine(targetDirNorm, "Yoink.exe");
 
-        // If we're already running from the target location, skip the copy
-        if (!string.Equals(Path.GetFullPath(currentExe), Path.GetFullPath(targetExe), StringComparison.OrdinalIgnoreCase))
-            CopyFileWithRetry(currentExe, targetExe);
+        // Copy the full app payload so the installed app can actually start.
+        if (!string.Equals(Path.GetFullPath(sourceDir).TrimEnd('\\', '/'), Path.GetFullPath(targetDirNorm).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+            CopyTree(sourceDir, targetDirNorm);
 
         // Start menu shortcut
         if (startMenuShortcut)

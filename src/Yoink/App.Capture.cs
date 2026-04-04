@@ -314,7 +314,7 @@ public partial class App
                             var text = BarcodeService.Decode(scanned);
                             if (!string.IsNullOrWhiteSpace(text))
                             {
-                                System.Windows.Clipboard.SetText(text);
+                                ClipboardService.CopyTextToClipboard(text);
                                 var prev = text.Length > 100 ? text[..100] + "..." : text;
                                 ToastWindow.Show("Code copied", prev);
                             }
@@ -375,7 +375,7 @@ public partial class App
                     {
                         SoundService.PlayColorSound();
                         string bare = hex.TrimStart('#');
-                        System.Windows.Clipboard.SetText(bare);
+                        ClipboardService.CopyTextToClipboard(bare);
                         byte r = Convert.ToByte(bare[..2], 16);
                         byte g = Convert.ToByte(bare[2..4], 16);
                         byte b = Convert.ToByte(bare[4..6], 16);
@@ -636,7 +636,7 @@ public partial class App
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     SoundService.PlayTextSound();
-                    System.Windows.Clipboard.SetText(text);
+                    ClipboardService.CopyTextToClipboard(text);
                     var prev = text.Length > 100 ? text[..100] + "..." : text;
                     ToastWindow.Show("Text copied", prev);
 

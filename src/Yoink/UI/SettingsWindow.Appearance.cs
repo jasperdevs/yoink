@@ -109,6 +109,13 @@ public partial class SettingsWindow
         AutoUpdateCheck.IsChecked = s.AutoCheckForUpdates;
         SaveHistoryCheck.IsChecked = s.SaveHistory;
         HistoryRetentionCombo.SelectedIndex = (int)s.HistoryRetention;
+        ImageSearchFileNameCheck.IsChecked = (s.ImageSearchSources & ImageSearchSourceOptions.FileName) != 0;
+        ImageSearchOcrCheck.IsChecked = (s.ImageSearchSources & ImageSearchSourceOptions.OcrText) != 0;
+        ImageSearchSemanticCheck.IsChecked = (s.ImageSearchSources & ImageSearchSourceOptions.Semantic) != 0;
+        ImageSearchExactMatchCheck.IsChecked = s.ImageSearchExactMatch;
+        ShowImageSearchBarCheck.IsChecked = s.ShowImageSearchBar;
+        ShowImageSearchDiagnosticsCheck.IsChecked = s.ShowImageSearchDiagnostics;
+        AutoIndexImagesCheck.IsChecked = s.AutoIndexImages;
         MuteSoundsCheck.IsChecked = s.MuteSounds;
         CrosshairGuidesCheck.IsChecked = s.ShowCrosshairGuides;
         ShowToolNumberBadgesCheck.IsChecked = s.ShowToolNumberBadges;
@@ -143,6 +150,9 @@ public partial class SettingsWindow
         PopulateToolToggles();
         UpdateCaptureFormatControls();
         UpdateRecordingFormatVisibility();
+
+        if (HistoryTab.IsChecked == true)
+            LoadCurrentHistoryTab();
     }
 
     internal static readonly (string id, string label, char icon)[] ExtraTools =
@@ -168,6 +178,9 @@ public partial class SettingsWindow
         UploadsPanel.Visibility = UploadsTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         AboutPanel.Visibility = AboutTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
+        if (HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
+            CancelImageSearchWork();
+
         if (HistoryTab.IsChecked == true) LoadCurrentHistoryTab();
         if (UploadsTab.IsChecked == true) UpdateUploadTabVisibility();
         UpdateHistoryMonitorState();
@@ -176,6 +189,7 @@ public partial class SettingsWindow
     private void HistoryCategoryCombo_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;
+        UpdateImageSearchUi();
         LoadCurrentHistoryTab();
     }
 
@@ -203,6 +217,10 @@ public partial class SettingsWindow
         TextPanel.Visibility = Visibility.Collapsed;
         ColorsPanel.Visibility = Visibility.Collapsed;
         StickersPanel.Visibility = Visibility.Collapsed;
+        UpdateImageSearchUi();
+
+        if (HistoryCategoryCombo.SelectedIndex != 0)
+            CancelImageSearchWork();
 
         switch (HistoryCategoryCombo.SelectedIndex)
         {

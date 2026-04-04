@@ -23,8 +23,21 @@ public partial class SettingsWindow : Window
     {
         Interval = TimeSpan.FromSeconds(2.5)
     };
+    private readonly System.Windows.Threading.DispatcherTimer _imageIndexRefreshTimer = new()
+    {
+        Interval = TimeSpan.FromSeconds(1.25)
+    };
+    private readonly System.Windows.Threading.DispatcherTimer _imageSearchDebounceTimer = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(700)
+    };
+    private readonly System.Windows.Threading.DispatcherTimer _semanticSearchTimer = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(400)
+    };
     private readonly SettingsService _settingsService;
     private readonly HistoryService _historyService;
+    private readonly ImageSearchIndexService _imageSearchIndexService;
     private UpdateCheckResult? _latestUpdate;
     private bool _updateCheckInFlight;
     private string? _lastHistoryFingerprint;
@@ -32,10 +45,11 @@ public partial class SettingsWindow : Window
     public event Action? HotkeyChanged;
     public event Action? UninstallRequested;
 
-    public SettingsWindow(SettingsService settingsService, HistoryService historyService)
+    public SettingsWindow(SettingsService settingsService, HistoryService historyService, ImageSearchIndexService imageSearchIndexService)
     {
         _settingsService = settingsService;
         _historyService = historyService;
+        _imageSearchIndexService = imageSearchIndexService;
         InitializeComponent();
         WindowChrome.SetWindowChrome(this, new WindowChrome
         {
@@ -53,7 +67,12 @@ public partial class SettingsWindow : Window
         Loaded += (_, _) => ApplyMicaBackdrop();
         Loaded += async (_, _) => await RefreshUpdateStatusAsync(false);
         _historyService.Changed += HistoryService_Changed;
+        _imageSearchIndexService.Changed += ImageSearchIndexService_Changed;
+        _imageSearchIndexService.StatusChanged += ImageSearchIndexService_StatusChanged;
         _historyMonitorTimer.Tick += (_, _) => PollHistoryChanges();
+        _imageIndexRefreshTimer.Tick += (_, _) => FlushQueuedImageIndexRefresh();
+        _imageSearchDebounceTimer.Tick += (_, _) => FlushQueuedImageSearchRefresh();
+        _semanticSearchTimer.Tick += (_, _) => FlushQueuedSemanticSearchRefresh();
         Activated += (_, _) =>
         {
             ApplyThemeColors();
@@ -62,6 +81,13 @@ public partial class SettingsWindow : Window
         Closed += (_, _) =>
         {
             _historyService.Changed -= HistoryService_Changed;
+            _imageSearchIndexService.Changed -= ImageSearchIndexService_Changed;
+            _imageSearchIndexService.StatusChanged -= ImageSearchIndexService_StatusChanged;
+            CancelImageSearchWork();
+            _imageIndexRefreshTimer.Stop();
+            _imageSearchDebounceTimer.Stop();
+            _semanticSearchTimer.Stop();
+            _historyMonitorTimer.Stop();
             ClearThumbCache();
         };
     }
@@ -76,6 +102,112 @@ public partial class SettingsWindow : Window
             LoadCurrentHistoryTab();
             PrimeHistoryFingerprint();
         });
+    }
+
+    private void ImageSearchIndexService_Changed()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                RefreshImageSearchTexts();
+                QueueImageIndexRefresh();
+                UpdateImageSearchStatus();
+                UpdateImageSearchActionButtons();
+                UpdateImageSearchPlaceholderText();
+            }
+            catch
+            {
+                SetImageSearchLoading(false, forceSemantic: true);
+            }
+        });
+    }
+
+    private void ImageSearchIndexService_StatusChanged(string status)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                if (!IsLoaded || HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
+                    return;
+
+                UpdateImageSearchStatus();
+                UpdateImageSearchActionButtons();
+                UpdateImageSearchPlaceholderText();
+            }
+            catch
+            {
+                SetImageSearchLoading(false, forceSemantic: true);
+            }
+        });
+    }
+
+    private void QueueImageIndexRefresh()
+    {
+        if (!IsLoaded || HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
+            return;
+
+        if (!_settingsService.Settings.ShowImageSearchBar)
+            return;
+
+        if (string.IsNullOrWhiteSpace(_imageSearchQuery))
+            return;
+
+        if (_settingsService.Settings.ImageSearchSources == ImageSearchSourceOptions.None)
+            return;
+
+        _imageIndexRefreshTimer.Stop();
+        _imageIndexRefreshTimer.Start();
+    }
+
+    private void QueueImageSearchRefresh()
+    {
+        if (!IsLoaded || HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
+            return;
+
+        if (!_settingsService.Settings.ShowImageSearchBar)
+            return;
+
+        _imageSearchDebounceTimer.Stop();
+        _imageSearchDebounceTimer.Start();
+    }
+
+    private void FlushQueuedImageIndexRefresh()
+    {
+        _imageIndexRefreshTimer.Stop();
+
+        if (!IsLoaded || HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
+            return;
+
+        if (!_settingsService.Settings.ShowImageSearchBar)
+            return;
+
+        ApplyImageSearchFilter();
+    }
+
+    private void FlushQueuedImageSearchRefresh()
+    {
+        _imageSearchDebounceTimer.Stop();
+
+        if (!IsLoaded || HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
+            return;
+
+        if (!_settingsService.Settings.ShowImageSearchBar)
+            return;
+
+        ApplyImageSearchFilter();
+    }
+
+    private void FlushQueuedSemanticSearchRefresh()
+    {
+        _semanticSearchTimer.Stop();
+
+        if (!IsLoaded || HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
+            return;
+
+        if (!ApplySemanticSearchIfNeeded())
+            SetImageSearchLoading(false, forceSemantic: true);
     }
 
     private void PollHistoryChanges()

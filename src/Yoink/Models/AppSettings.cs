@@ -61,6 +61,17 @@ public enum WindowDetectionMode
     WindowOnly
 }
 
+[Flags]
+public enum ImageSearchSourceOptions
+{
+    None = 0,
+    FileName = 1 << 0,
+    Ocr = 1 << 1,
+    OcrText = Ocr,
+    Semantic = 1 << 2,
+    All = FileName | Ocr | Semantic
+}
+
 public sealed class AppSettings
 {
     public uint HotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
@@ -120,6 +131,11 @@ public sealed class AppSettings
     public CaptureMode DefaultCaptureMode { get; set; } = CaptureMode.Rectangle;
     public bool ShowToolNumberBadges { get; set; } = true;
     public HistoryRetentionPeriod HistoryRetention { get; set; } = HistoryRetentionPeriod.Never;
+    public ImageSearchSourceOptions ImageSearchSources { get; set; } = ImageSearchSourceOptions.All;
+    public bool ShowImageSearchBar { get; set; } = true;
+    public bool ImageSearchExactMatch { get; set; }
+    public bool ShowImageSearchDiagnostics { get; set; }
+    public bool AutoIndexImages { get; set; } = true;
 
     // Upload settings
     public bool AutoUploadScreenshots { get; set; }

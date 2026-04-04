@@ -37,7 +37,7 @@ public static class ClipboardService
         {
             System.Windows.Forms.Clipboard.SetDataObject(dataObject, true);
         }
-        catch (System.Runtime.InteropServices.ExternalException)
+        catch (Exception)
         {
             // Clipboard may be locked by another application - retry once
             Thread.Sleep(50);
@@ -56,7 +56,7 @@ public static class ClipboardService
         {
             System.Windows.Forms.Clipboard.SetDataObject(dataObject, true);
         }
-        catch (System.Runtime.InteropServices.ExternalException)
+        catch (Exception)
         {
             Thread.Sleep(50);
             try { System.Windows.Forms.Clipboard.SetDataObject(dataObject, true); }
