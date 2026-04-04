@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  Capture, annotate, OCR, make stickers, record video, drag out, save locally, and move on.
+  Capture, annotate, OCR, make stickers, record video, save locally, search images with OCR, and many more features.
 </p>
 
 <p align="center">
@@ -72,6 +72,20 @@ Yoink can turn captures into stickers by removing the background, then saving, p
 - Local sticker models: `U2Netp`, `BRIA RMBG`
 - Optional sticker finishing: drop shadow and white stroke
 
+## Search
+
+Yoink can search through your image history using filenames, OCR text, and semantic image matching so you can find old screenshots without manually digging through folders.
+
+<!-- Add search showcase image here when ready:
+<p align="center">
+  <img src="assets/search-showcase.png" alt="Searching image history with OCR and semantic matching" width="92%" />
+</p>
+-->
+
+- OCR search can find screenshots by text that appeared inside the image
+- Semantic search can surface visually related screenshots even when the exact words are not present
+- Search works across your local Yoink image history so old captures stay useful
+
 ## Default hotkeys
 
 | Action | Hotkey |
@@ -88,7 +102,7 @@ Yoink can turn captures into stickers by removing the background, then saving, p
 | Record | `Unassigned` |
 | Annotation tools | `1-9`, `0`, `-`, `=`, `[`, `]`, `\` |
 
-Annotation tool hotkeys are assigned in toolbar order, so the exact tool on each key depends on which tools are enabled.
+Annotation tool hotkeys can be configured in settings, and hover tooltips reflect the real assigned key.
 
 Hotkeys can be changed in settings.
 
