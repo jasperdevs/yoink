@@ -76,11 +76,11 @@ Yoink can turn captures into stickers by removing the background, then saving, p
 
 Yoink can search through your image history using filenames, OCR text, and semantic image matching so you can find old screenshots without manually digging through folders.
 
-<!-- Add search showcase image here when ready:
-<p align="center">
-  <img src="assets/search-showcase.png" alt="Searching image history with OCR and semantic matching" width="92%" />
+
+<p align="left">
+  <img src="assets/image.png" alt="Searching image history with OCR and semantic matching" width="60%" />
 </p>
--->
+
 
 - OCR search can find screenshots by text that appeared inside the image
 - Semantic search can surface visually related screenshots even when the exact words are not present
