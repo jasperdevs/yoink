@@ -103,16 +103,6 @@ Search your image history by filename, OCR text, and semantic matching.
 
 Annotation tool hotkeys can be configured in settings, and hover tooltips reflect the real assigned key.
 
-## Build from source
-
-```
-git clone https://github.com/jasperdevs/yoink.git
-cd yoink
-dotnet publish src/Yoink/Yoink.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o release
-```
-
-Requires [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
-
 ## Uploads
 
 Yoink can upload screenshots, stickers, and recordings after capture. Upload targets include:
@@ -124,6 +114,16 @@ Yoink can upload screenshots, stickers, and recordings after capture. Upload tar
 Availability depends on the target service and your credentials.
 
 Sticker uploads use the same upload destinations as normal image uploads.
+
+## Build from source
+
+```
+git clone https://github.com/jasperdevs/yoink.git
+cd yoink
+dotnet publish src/Yoink/Yoink.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o release
+```
+
+Requires [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
 
 ## License
 
