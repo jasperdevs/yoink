@@ -140,7 +140,8 @@ export default function StarChart() {
       const idx = Math.round((i / (xTicks - 1)) * (data.length - 1));
       const x = padL + (idx / (data.length - 1)) * plotW;
       const date = new Date(data[idx].date);
-      const label = `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
+      const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getUTCMonth()];
+      const label = `${mo} ${date.getUTCDate()}`;
       ctx.fillText(label, x, h - padB + 16);
     }
 

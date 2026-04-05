@@ -14,7 +14,7 @@ const cards = [
     buttonText: "Donate on Ko-fi",
     logo: (
       <img
-        src="https://cdn.ko-fi.com/cdn/kofi5.png?v=6"
+        src={import.meta.env.BASE_URL + "kofi-logo.png"}
         alt="Ko-fi"
         className="h-9 w-9 rounded object-cover"
         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
