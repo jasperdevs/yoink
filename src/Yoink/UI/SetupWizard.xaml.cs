@@ -13,7 +13,7 @@ public partial class SetupWizard : Window
 {
     private readonly SettingsService _settingsService;
     private int _page = 1;
-    private const int TotalPages = 4;
+    private const int TotalPages = 3;
     private readonly Border[] _dots;
     private readonly Grid[] _pages;
 
@@ -33,14 +33,12 @@ public partial class SetupWizard : Window
         InitializeComponent();
         ApplyTheme();
 
-        _dots = new[] { Dot1, Dot2, Dot3, Dot4 };
-        _pages = new[] { Page1, Page2, Page3, Page4 };
+        _dots = new[] { Dot1, Dot2, Dot3 };
+        _pages = new[] { Page1, Page2, Page3 };
 
         BuildHotkeyRows();
         LoadDefaults();
     }
-
-    // ── Page 1: Hotkey rows ──────────────────────────────────────
 
     private void BuildHotkeyRows()
     {
@@ -83,13 +81,9 @@ public partial class SetupWizard : Window
 
             var hkBox = new TextBox
             {
-                IsReadOnly = true,
-                FontSize = 12,
-                FontWeight = FontWeights.Medium,
-                FontFamily = segoe,
-                Padding = new Thickness(10, 7, 10, 7),
-                MinWidth = 130,
-                TextAlignment = TextAlignment.Center,
+                IsReadOnly = true, FontSize = 12, FontWeight = FontWeights.Medium,
+                FontFamily = segoe, Padding = new Thickness(10, 7, 10, 7),
+                MinWidth = 130, TextAlignment = TextAlignment.Center,
                 Background = (System.Windows.Media.Brush)FindResource("WizInputBg"),
                 Foreground = (System.Windows.Media.Brush)FindResource("WizFg"),
                 BorderBrush = (System.Windows.Media.Brush)FindResource("WizBorder"),
@@ -143,33 +137,42 @@ public partial class SetupWizard : Window
         };
     }
 
-    // ── Defaults ─────────────────────────────────────────────────
-
     private void LoadDefaults()
     {
         var s = _settingsService.Settings;
-
-        // Page 2: Capture
-        WizAfterCombo.SelectedIndex = (int)s.AfterCapture;
         WizCrosshairCheck.IsChecked = s.ShowCrosshairGuides;
         WizCaptureMagnifierCheck.IsChecked = s.ShowCaptureMagnifier;
         WizMuteCheck.IsChecked = s.MuteSounds;
+        WizSaveToFileCheck.IsChecked = s.SaveToFile;
+        WizCaptureFormatCombo.SelectedIndex = (int)s.CaptureImageFormat;
 
-        // Page 3: Recording
-        WizRecordFormatCombo.SelectedIndex = (int)s.RecordingFormat;
-        WizRecordQualityCombo.SelectedIndex = (int)s.RecordingQuality;
-        // Select FPS combo by matching Tag
-        for (int i = 0; i < WizRecordFpsCombo.Items.Count; i++)
+        // Max size combo by tag
+        for (int i = 0; i < WizCaptureSizeCombo.Items.Count; i++)
         {
-            if (WizRecordFpsCombo.Items[i] is ComboBoxItem item && item.Tag is string tag && int.TryParse(tag, out int fps) && fps == s.RecordingFps)
-            { WizRecordFpsCombo.SelectedIndex = i; break; }
+            if (WizCaptureSizeCombo.Items[i] is ComboBoxItem item && item.Tag is string tag &&
+                int.TryParse(tag, out int val) && val == s.CaptureMaxLongEdge)
+            { WizCaptureSizeCombo.SelectedIndex = i; break; }
         }
-        if (WizRecordFpsCombo.SelectedIndex < 0) WizRecordFpsCombo.SelectedIndex = 2; // default 30
-        WizRecordMicCheck.IsChecked = s.RecordMicrophone;
-        WizRecordDesktopAudioCheck.IsChecked = s.RecordDesktopAudio;
+        if (WizCaptureSizeCombo.SelectedIndex < 0) WizCaptureSizeCombo.SelectedIndex = 0;
+
+        WizSaveDirText.Text = s.SaveDirectory;
     }
 
-    // ── Navigation ───────────────────────────────────────────────
+    private void BrowseSaveDir_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new System.Windows.Forms.FolderBrowserDialog
+        {
+            SelectedPath = _settingsService.Settings.SaveDirectory,
+            Description = "Choose where screenshots are saved",
+            ShowNewFolderButton = true,
+        };
+        var owner = new WindowHandleWrapper(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+        if (dlg.ShowDialog(owner) == System.Windows.Forms.DialogResult.OK)
+        {
+            _settingsService.Settings.SaveDirectory = dlg.SelectedPath;
+            WizSaveDirText.Text = dlg.SelectedPath;
+        }
+    }
 
     private void GoToPage(int page)
     {
@@ -182,17 +185,14 @@ public partial class SetupWizard : Window
             {
                 _pages[i].Opacity = 0;
                 _pages[i].Visibility = Visibility.Visible;
-                var fadeIn = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(200)));
-                _pages[i].BeginAnimation(OpacityProperty, fadeIn);
+                _pages[i].BeginAnimation(OpacityProperty,
+                    new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(200))));
             }
             else
-            {
                 _pages[i].Visibility = Visibility.Collapsed;
-            }
 
-            var dotTarget = i == page - 1 ? 0.7 : 0.2;
             _dots[i].BeginAnimation(OpacityProperty,
-                new DoubleAnimation(dotTarget, new Duration(TimeSpan.FromMilliseconds(200))));
+                new DoubleAnimation(i == page - 1 ? 0.7 : 0.2, new Duration(TimeSpan.FromMilliseconds(200))));
         }
         BackBtn.Visibility = page > 1 ? Visibility.Visible : Visibility.Collapsed;
         NextBtn.Content = page == TotalPages ? "Get Started" : "Next";
@@ -207,22 +207,16 @@ public partial class SetupWizard : Window
                 _settingsService.Save();
                 break;
             case 2:
-                s.AfterCapture = (AfterCaptureAction)WizAfterCombo.SelectedIndex;
                 s.ShowCrosshairGuides = WizCrosshairCheck.IsChecked == true;
                 s.ShowCaptureMagnifier = WizCaptureMagnifierCheck.IsChecked == true;
                 s.MuteSounds = WizMuteCheck.IsChecked == true;
+                s.SaveToFile = WizSaveToFileCheck.IsChecked == true;
+                s.CaptureImageFormat = (CaptureImageFormat)WizCaptureFormatCombo.SelectedIndex;
+                if (WizCaptureSizeCombo.SelectedItem is ComboBoxItem sizeItem && sizeItem.Tag is string sizeTag && int.TryParse(sizeTag, out int sizeVal))
+                    s.CaptureMaxLongEdge = sizeVal;
                 _settingsService.Save();
                 break;
             case 3:
-                s.RecordingFormat = (RecordingFormat)WizRecordFormatCombo.SelectedIndex;
-                s.RecordingQuality = (RecordingQuality)WizRecordQualityCombo.SelectedIndex;
-                if (WizRecordFpsCombo.SelectedItem is ComboBoxItem fpsItem && fpsItem.Tag is string fpsTag && int.TryParse(fpsTag, out int fpsVal))
-                    s.RecordingFps = fpsVal;
-                s.RecordMicrophone = WizRecordMicCheck.IsChecked == true;
-                s.RecordDesktopAudio = WizRecordDesktopAudioCheck.IsChecked == true;
-                _settingsService.Save();
-                break;
-            case 4:
                 s.HasCompletedSetup = true;
                 _settingsService.Save();
                 break;
@@ -245,8 +239,6 @@ public partial class SetupWizard : Window
     {
         if (_page > 1) GoToPage(_page - 1);
     }
-
-    // ── Chrome ───────────────────────────────────────────────────
 
     private void OnSourceInit(object? sender, EventArgs e)
     {
@@ -289,5 +281,11 @@ public partial class SetupWizard : Window
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left) DragMove();
+    }
+
+    private sealed class WindowHandleWrapper : System.Windows.Forms.IWin32Window
+    {
+        public WindowHandleWrapper(IntPtr handle) => Handle = handle;
+        public IntPtr Handle { get; }
     }
 }

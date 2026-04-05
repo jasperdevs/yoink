@@ -1,35 +1,32 @@
-# Yoink v0.7.0
+# Yoink v0.8.0
 
 ## Added
-- OCR result window — text captures now open a dedicated window instead of copying straight to clipboard
-- Translation support with Argos Translate (offline) and Google Translate API
-- OCR settings panel with language selection, translation defaults, and model management
-- Tessdata auto-download — selecting an OCR language installs its pack on the fly
-- Stroke and shadow effects on all annotation tools (arrows, lines, shapes, freehand)
-- Hotkey hints in the tray menu, right-aligned and muted
-- Searchable dropdowns for language selectors and upload destination
-- About section with links to source, releases, issues, and license
-- Smooth cursor blink in text annotation mode
-- Installer completion animation with logo scale effect
-- Setup wizard page transitions with fade animations
+- Onboarding wizard now includes capture saving settings (format, max size, save directory)
+- About section with source, releases, issues, and license links
+- Tray menu hotkey hints right-aligned in muted color
+- Smoother drawing with point simplification for curved arrows and freehand
+- Anti-aliased text on all overlay elements globally
+- Perpendicular tick marks on ruler endpoints
 
 ## Changed
-- Tray icon tooltip now shows "Click to capture, right-click for menu"
-- Settings reorganized — General split into Sounds, Notifications, Search, System sections
-- Overlay settings (crosshair, magnifier, annotation stroke) moved to Capture tab
-- Upload destination combo uses tag-based selection instead of index
-- Version display cleaned up to 3-part format (v0.7.0 not v0.7.0.0)
-- Registry entries updated with proper publisher, repo links, and full install size
-- Crosshair guides now 3px with shadow edges instead of 1px lines
-- Installer skips for dev builds running from Visual Studio
+- Onboarding streamlined to 3 pages: Hotkeys, Capture & Saving, Done
+- Removed recording and upload config from onboarding (use Settings)
+- No overlap between install wizard and setup wizard options
+- Constant line thickness for arrows (3.5px) and shapes (3px) instead of scaling with length
+- Toolbar active/hover circles made more subtle
+- All overlay borders slightly thicker (1.4px) for smoother edges on layered windows
+- Version display uses 3-part format (v0.8.0 not v0.8.0.0)
+- Registry entries include repo URL, help link, and full install size
 
 ## Fixed
-- Draw tool inverting fills (switched GraphicsPath to Winding fill mode)
-- Text cursor misaligned with drawn text (GDI vs GDI+ measurement mismatch)
-- Curved arrow tips disappearing (direction now uses last few points, not distant lookback)
-- Dropdown search skipping first typed character
-- Non-Latin text (CJK, Arabic, Cyrillic) garbled in translation output
-- Hardcoded dark-mode colors breaking light mode in several UI elements
-- Old Windows checkbox style overriding modern template
-- Setup wizard shadow and button border not adapting to light mode
-- Duplicate LooksLikeBuildOutputPath between install and uninstall services
+- Curved arrow tip direction using stable tangent from further back along the curve
+- Curved arrow line no longer pokes through the arrowhead
+- Draw tool fills no longer invert (Winding fill mode)
+- Dropdown search no longer skips the first typed character
+- Step number badges auto-contrast text color based on badge brightness
+- Installer no longer shows for dev builds running from Visual Studio
+
+## Improved
+- Split large source files into partial class segments (24 new files)
+- Cached GDI objects for annotation shadow/stroke rendering
+- Reusable point buffer for curved arrow offset calculations

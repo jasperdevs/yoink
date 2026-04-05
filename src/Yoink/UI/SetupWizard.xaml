@@ -97,89 +97,68 @@
             </ScrollViewer>
         </Grid>
 
-        <!-- Page 2: Capture -->
+        <!-- Page 2: Capture & Saving -->
         <Grid x:Name="Page2" Grid.Row="0" Margin="36,28,36,0" Visibility="Collapsed">
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="Capture" FontSize="24" FontWeight="SemiBold"
-                           FontFamily="Segoe UI Variable Display"
-                           Foreground="{DynamicResource WizFg}" HorizontalAlignment="Center"/>
-                <TextBlock Text="How screenshots behave" FontSize="13"
-                           FontFamily="Segoe UI Variable Text"
-                           Foreground="{DynamicResource WizFgMuted}" HorizontalAlignment="Center" Margin="0,4,0,20"/>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+                <StackPanel>
+                    <TextBlock Text="Capture" FontSize="24" FontWeight="SemiBold"
+                               FontFamily="Segoe UI Variable Display"
+                               Foreground="{DynamicResource WizFg}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Screenshots and saving" FontSize="13"
+                               FontFamily="Segoe UI Variable Text"
+                               Foreground="{DynamicResource WizFgMuted}" HorizontalAlignment="Center" Margin="0,4,0,18"/>
 
-                <Border Style="{StaticResource WizRow}">
-                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="After capture" FontSize="13" Foreground="{DynamicResource WizFg}" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="WizAfterCombo" Grid.Column="1" MinWidth="160" Padding="8,5" FontSize="12">
-                            <ComboBoxItem Content="Copy to clipboard"/><ComboBoxItem Content="Show preview"/>
-                        </ComboBox>
-                    </Grid>
-                </Border>
-                <Border Style="{StaticResource WizRow}">
-                    <CheckBox x:Name="WizCrosshairCheck" Content="Show crosshair guides during capture" FontSize="13"
-                              Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
-                </Border>
-                <Border Style="{StaticResource WizRow}">
-                    <CheckBox x:Name="WizCaptureMagnifierCheck" Content="Show pixel magnifier near cursor" FontSize="13"
-                              Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
-                </Border>
-                <Border Style="{StaticResource WizRow}">
-                    <CheckBox x:Name="WizMuteCheck" Content="Mute sounds" FontSize="13"
-                              Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
-                </Border>
-            </StackPanel>
+                    <Border Style="{StaticResource WizRow}">
+                        <CheckBox x:Name="WizCrosshairCheck" Content="Show crosshair guides" FontSize="13"
+                                  Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
+                    </Border>
+                    <Border Style="{StaticResource WizRow}">
+                        <CheckBox x:Name="WizCaptureMagnifierCheck" Content="Show pixel magnifier near cursor" FontSize="13"
+                                  Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
+                    </Border>
+                    <Border Style="{StaticResource WizRow}">
+                        <CheckBox x:Name="WizMuteCheck" Content="Mute sounds" FontSize="13"
+                                  Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
+                    </Border>
+                    <Border Style="{StaticResource WizRow}">
+                        <CheckBox x:Name="WizSaveToFileCheck" Content="Save screenshots to file" FontSize="13"
+                                  Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
+                    </Border>
+                    <Border Style="{StaticResource WizRow}">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Image format" FontSize="13" Foreground="{DynamicResource WizFg}" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="WizCaptureFormatCombo" Grid.Column="1" MinWidth="100" Padding="8,5" FontSize="12">
+                                <ComboBoxItem Content="PNG"/><ComboBoxItem Content="JPG"/><ComboBoxItem Content="BMP"/>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+                    <Border Style="{StaticResource WizRow}">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Max image size" FontSize="13" Foreground="{DynamicResource WizFg}" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="WizCaptureSizeCombo" Grid.Column="1" MinWidth="100" Padding="8,5" FontSize="12">
+                                <ComboBoxItem Content="Original" Tag="0"/><ComboBoxItem Content="2160p" Tag="2160"/>
+                                <ComboBoxItem Content="1440p" Tag="1440"/><ComboBoxItem Content="1080p" Tag="1080"/>
+                                <ComboBoxItem Content="720p" Tag="720"/><ComboBoxItem Content="480p" Tag="480"/>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+                    <Border Style="{StaticResource WizRow}">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Save directory" FontSize="13" Foreground="{DynamicResource WizFg}"/>
+                                <TextBlock x:Name="WizSaveDirText" Text="" FontSize="11"
+                                           Foreground="{DynamicResource WizFgMuted}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Browse" Style="{StaticResource WizBtnSecondary}"
+                                    Padding="12,6" MinWidth="0" FontSize="11" Click="BrowseSaveDir_Click"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
-        <!-- Page 3: Recording -->
-        <Grid x:Name="Page3" Grid.Row="0" Margin="36,28,36,0" Visibility="Collapsed">
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="Recording" FontSize="24" FontWeight="SemiBold"
-                           FontFamily="Segoe UI Variable Display"
-                           Foreground="{DynamicResource WizFg}" HorizontalAlignment="Center"/>
-                <TextBlock Text="Screen recording defaults" FontSize="13"
-                           FontFamily="Segoe UI Variable Text"
-                           Foreground="{DynamicResource WizFgMuted}" HorizontalAlignment="Center" Margin="0,4,0,20"/>
-
-                <Border Style="{StaticResource WizRow}">
-                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="Format" FontSize="13" Foreground="{DynamicResource WizFg}" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="WizRecordFormatCombo" Grid.Column="1" MinWidth="120" Padding="8,5" FontSize="12">
-                            <ComboBoxItem Content="GIF"/><ComboBoxItem Content="MP4"/>
-                            <ComboBoxItem Content="WebM"/><ComboBoxItem Content="MKV"/>
-                        </ComboBox>
-                    </Grid>
-                </Border>
-                <Border Style="{StaticResource WizRow}">
-                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="Quality" FontSize="13" Foreground="{DynamicResource WizFg}" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="WizRecordQualityCombo" Grid.Column="1" MinWidth="120" Padding="8,5" FontSize="12">
-                            <ComboBoxItem Content="Original"/><ComboBoxItem Content="1080p"/>
-                            <ComboBoxItem Content="720p"/><ComboBoxItem Content="480p"/>
-                        </ComboBox>
-                    </Grid>
-                </Border>
-                <Border Style="{StaticResource WizRow}">
-                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="FPS" FontSize="13" Foreground="{DynamicResource WizFg}" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="WizRecordFpsCombo" Grid.Column="1" MinWidth="120" Padding="8,5" FontSize="12">
-                            <ComboBoxItem Content="15" Tag="15"/><ComboBoxItem Content="24" Tag="24"/>
-                            <ComboBoxItem Content="30" Tag="30"/><ComboBoxItem Content="60" Tag="60"/>
-                        </ComboBox>
-                    </Grid>
-                </Border>
-                <Border Style="{StaticResource WizRow}">
-                    <CheckBox x:Name="WizRecordMicCheck" Content="Record microphone" FontSize="13"
-                              Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
-                </Border>
-                <Border Style="{StaticResource WizRow}">
-                    <CheckBox x:Name="WizRecordDesktopAudioCheck" Content="Record desktop audio" FontSize="13"
-                              Foreground="{DynamicResource WizFg}" Cursor="Hand"/>
-                </Border>
-            </StackPanel>
-        </Grid>
-
-        <!-- Page 4: You're all set -->
-        <Grid x:Name="Page4" Grid.Row="0" Margin="40,32,40,0" Visibility="Collapsed">
+        <!-- Page 3: You're all set -->
+        <Grid x:Name="Page3" Grid.Row="0" Margin="40,32,40,0" Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <Image Source="pack://application:,,,/yoink.ico" Width="56" Height="56"
                        RenderOptions.BitmapScalingMode="HighQuality"
@@ -197,7 +176,7 @@
                 <TextBlock FontSize="12" FontFamily="Segoe UI Variable Text" TextAlignment="Center"
                            Foreground="{DynamicResource WizFgMuted}" HorizontalAlignment="Center"
                            Margin="0,24,0,0" Opacity="0.5">
-                    Uploads, OCR, stickers, and more in Settings.
+                    Uploads, recording, OCR, and more in Settings.
                 </TextBlock>
 
                 <Button Content="Open Settings" Style="{StaticResource WizBtnSecondary}"
@@ -219,8 +198,6 @@
                     <Border Width="7" Height="7" CornerRadius="4" x:Name="Dot2"
                             Background="{DynamicResource WizFg}" Opacity="0.2" Margin="0,0,5,0"/>
                     <Border Width="7" Height="7" CornerRadius="4" x:Name="Dot3"
-                            Background="{DynamicResource WizFg}" Opacity="0.2" Margin="0,0,5,0"/>
-                    <Border Width="7" Height="7" CornerRadius="4" x:Name="Dot4"
                             Background="{DynamicResource WizFg}" Opacity="0.2"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
