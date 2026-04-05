@@ -236,20 +236,30 @@ public static class SketchRenderer
         else
             g.DrawLines(pen, points.ToArray());
 
-        // Use the last two points for arrowhead direction (closest to the tip)
+        // Arrowhead direction from last two points
         var last = points[^1];
-        var prev = points.Count >= 3 ? points[^3] : points[^2];
+        var prev = points[^2];
         float dx = last.X - prev.X, dy = last.Y - prev.Y;
         float l = MathF.Sqrt(dx * dx + dy * dy);
-        if (l < 1 && points.Count >= 2)
-        {
-            // Fallback: use last two points
-            prev = points[^2];
-            dx = last.X - prev.X; dy = last.Y - prev.Y;
-            l = MathF.Sqrt(dx * dx + dy * dy);
-        }
         if (l > 1)
-            DrawArrowhead(g, new PointF(last.X, last.Y), dx / l, dy / l, len, color, thickness + 0.5f);
+        {
+            float nx = dx / l, ny = dy / l;
+
+            if (strokeShadow)
+            {
+                // Shadow arrowhead
+                DrawArrowhead(g, new PointF(last.X + 2, last.Y + 2), nx, ny, len, AnnotShadow1, thickness + 0.5f);
+                DrawArrowhead(g, new PointF(last.X + 3, last.Y + 3), nx, ny, len, AnnotShadow2, thickness + 0.5f);
+
+                // Stroke arrowhead (8 directions)
+                for (int ox = -1; ox <= 1; ox++)
+                    for (int oy = -1; oy <= 1; oy++)
+                        if (ox != 0 || oy != 0)
+                            DrawArrowhead(g, new PointF(last.X + ox, last.Y + oy), nx, ny, len, AnnotStroke, thickness + 0.5f);
+            }
+
+            DrawArrowhead(g, new PointF(last.X, last.Y), nx, ny, len, color, thickness + 0.5f);
+        }
 
         g.SmoothingMode = SmoothingMode.Default;
     }
