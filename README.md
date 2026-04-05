@@ -141,11 +141,11 @@ Requires [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
 
 ## Star History
 
-<a href="https://jasperdevs.github.io/yoink/#/">
+<a href="https://star-history.com/#jasperdevs/yoink&Timeline">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline" />
  </picture>
 </a>
 
