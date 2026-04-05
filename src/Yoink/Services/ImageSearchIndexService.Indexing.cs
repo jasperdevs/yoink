@@ -1,0 +1,536 @@
+using System.Drawing;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Data.Sqlite;
+using Yoink.Models;
+
+namespace Yoink.Services;
+
+public sealed partial class ImageSearchIndexService
+{
+    private async Task RunSyncLoopSafelyAsync()
+    {
+        try
+        {
+            await EnsureSyncLoopAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Indexing failed: {ex.Message}");
+        }
+        finally
+        {
+            lock (_gate)
+                _syncLoopRunning = false;
+
+            bool shouldRestart;
+            lock (_gate)
+                shouldRestart = _syncRequested && !_disposed;
+            if (shouldRestart)
+                StartSyncLoopIfNeeded();
+        }
+    }
+
+    private void ClipRuntime_StatusChanged(string status)
+    {
+        bool indexingActive;
+        lock (_gate)
+            indexingActive = _syncLoopRunning || _statusText.StartsWith("Indexing screenshots", StringComparison.OrdinalIgnoreCase);
+
+        if (!indexingActive)
+            SetStatus(status);
+
+        if (status.StartsWith("CLIP ready", StringComparison.OrdinalIgnoreCase))
+            StartSyncLoopIfNeeded();
+    }
+
+    private async Task EnsureSyncLoopAsync()
+    {
+        await _syncGate.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            while (!_disposed)
+            {
+                IReadOnlyList<HistoryEntry> snapshot;
+                string? languageTag;
+
+                lock (_gate)
+                {
+                    snapshot = _pendingEntries;
+                    languageTag = _pendingOcrLanguageTag;
+                    _syncRequested = false;
+                }
+
+                await SyncSnapshotAsync(snapshot, languageTag).ConfigureAwait(false);
+
+                lock (_gate)
+                {
+                    if (!_syncRequested)
+                        break;
+                }
+            }
+        }
+        finally
+        {
+            try { _syncGate.Release(); } catch { }
+        }
+    }
+
+    private void StartSyncLoopIfNeeded()
+    {
+        bool shouldStart;
+        lock (_gate)
+        {
+            shouldStart = !_disposed && !_syncLoopRunning;
+            if (shouldStart)
+                _syncLoopRunning = true;
+        }
+
+        if (shouldStart)
+            _ = Task.Run(RunSyncLoopSafelyAsync);
+    }
+
+    private async Task SyncSnapshotAsync(IReadOnlyList<HistoryEntry> entries, string? ocrLanguageTag)
+    {
+        var totalCount = entries.Count;
+        List<HistoryEntry> pending;
+        lock (_gate)
+            pending = entries.Where(entry => NeedsRefresh_NoLock(entry, ocrLanguageTag)).ToList();
+
+        if (pending.Count == 0)
+        {
+            SetStatus("Search index ready");
+            return;
+        }
+
+        int completedCount = Math.Max(0, totalCount - pending.Count);
+        SetStatus($"Indexing screenshots {completedCount}/{totalCount}");
+
+        await Parallel.ForEachAsync(
+            pending,
+            new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentIndexTasks },
+            async (entry, cancellationToken) =>
+            {
+                ImageSearchIndexRecord? existingRecord;
+                lock (_gate)
+                    _records.TryGetValue(entry.FilePath, out existingRecord);
+
+                try
+                {
+                    var workload = existingRecord is not null &&
+                                   existingRecord.OcrState is ImageSearchOcrState.RetryableEmpty or ImageSearchOcrState.RetryableError
+                        ? OcrWorkload.Full
+                        : OcrWorkload.Fast;
+                    var record = await BuildRecordAsync(entry, ocrLanguageTag, workload).ConfigureAwait(false);
+                    record = MergeRetryState(record, existingRecord);
+                    lock (_gate)
+                    {
+                        _records[entry.FilePath] = record;
+                        UpsertDatabaseRecord_NoLock(record);
+                        InvalidateSearchCaches_NoLock();
+                        _version++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var failedRecord = MergeRetryState(new ImageSearchIndexRecord
+                    {
+                        FilePath = entry.FilePath,
+                        FileLengthBytes = TryGetFileLength(entry.FilePath),
+                        LastWriteTimeUtcTicks = TryGetLastWriteTicks(entry.FilePath),
+                        OcrLanguageTag = ocrLanguageTag ?? "",
+                        OcrEngineId = OcrService.EngineId,
+                        OcrCompleted = false,
+                        OcrState = ImageSearchOcrState.RetryableError,
+                        SemanticModelKey = _clipRuntime.ModelKey,
+                        IndexedAt = DateTime.UtcNow,
+                        LastError = ex.Message
+                    }, existingRecord);
+                    lock (_gate)
+                    {
+                        _records[entry.FilePath] = failedRecord;
+                        UpsertDatabaseRecord_NoLock(failedRecord);
+                        InvalidateSearchCaches_NoLock();
+                        _version++;
+                    }
+                }
+
+                var currentCompleted = Interlocked.Increment(ref completedCount);
+                SetStatus($"Indexing screenshots {currentCompleted}/{totalCount}");
+                if (currentCompleted % 12 == 0 || currentCompleted == totalCount)
+                {
+                    lock (_gate)
+                        Persist_NoLock();
+                    NotifyChanged();
+                }
+            }).ConfigureAwait(false);
+
+        lock (_gate)
+            Persist_NoLock();
+        SetStatus($"Indexed {totalCount} screenshot{(totalCount == 1 ? "" : "s")}");
+        NotifyChanged();
+    }
+
+    private async Task<ImageSearchIndexRecord> BuildRecordAsync(HistoryEntry entry, string? ocrLanguageTag, OcrWorkload workload)
+    {
+        using var bitmap = new Bitmap(entry.FilePath);
+        string ocrText = "";
+        string? ocrError = null;
+        string? semanticError = null;
+        float[]? embedding = null;
+
+        try
+        {
+            ocrText = await OcrService.RecognizeAsync(bitmap, ocrLanguageTag, workload).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            ocrError = ex.Message;
+        }
+
+        var clipResult = new ClipEmbeddingResult(null, null);
+        if (_clipRuntime.IsAvailable)
+        {
+            clipResult = await _clipRuntime.EmbedImageAsync(entry.FilePath).ConfigureAwait(false);
+            if (clipResult.IsSuccess)
+                embedding = clipResult.Embedding;
+            else
+                semanticError = clipResult.Error;
+        }
+
+        ImageSearchOcrState ocrState;
+        int retryCount = 0;
+        long nextRetryTicks = 0;
+        if (!string.IsNullOrWhiteSpace(ocrText))
+        {
+            ocrState = ImageSearchOcrState.Indexed;
+        }
+        else if (!string.IsNullOrWhiteSpace(ocrError))
+        {
+            retryCount = 1;
+            nextRetryTicks = GetNextRetryUtc(0).Ticks;
+            ocrState = ImageSearchOcrState.RetryableError;
+        }
+        else
+        {
+            retryCount = 1;
+            nextRetryTicks = GetNextRetryUtc(0).Ticks;
+            ocrState = ImageSearchOcrState.RetryableEmpty;
+        }
+
+        return new ImageSearchIndexRecord
+        {
+            FilePath = entry.FilePath,
+            FileLengthBytes = TryGetFileLength(entry.FilePath),
+            LastWriteTimeUtcTicks = TryGetLastWriteTicks(entry.FilePath),
+            OcrLanguageTag = ocrLanguageTag ?? "",
+            OcrEngineId = OcrService.EngineId,
+            OcrCompleted = string.IsNullOrWhiteSpace(ocrError),
+            OcrState = ocrState,
+            OcrRetryCount = retryCount,
+            NextOcrRetryUtcTicks = nextRetryTicks,
+            OcrText = ocrText.Trim(),
+            SemanticModelKey = clipResult.IsSuccess ? _clipRuntime.ModelKey : "",
+            SemanticCompleted = clipResult.IsSuccess,
+            SemanticEmbedding = embedding ?? Array.Empty<float>(),
+            IndexedAt = DateTime.UtcNow,
+            LastError = string.Join("; ", new[] { ocrError, semanticError }.Where(value => !string.IsNullOrWhiteSpace(value)))
+        };
+    }
+
+    private bool NeedsRefresh_NoLock(HistoryEntry entry, string? ocrLanguageTag)
+    {
+        if (!_records.TryGetValue(entry.FilePath, out var record))
+            return true;
+
+        if (record.FileLengthBytes != TryGetFileLength(entry.FilePath))
+            return true;
+
+        if (record.LastWriteTimeUtcTicks != TryGetLastWriteTicks(entry.FilePath))
+            return true;
+
+        if (!record.OcrCompleted || !string.Equals(record.OcrLanguageTag ?? "", ocrLanguageTag ?? "", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!string.Equals(record.OcrEngineId ?? "", OcrService.EngineId, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (NeedsOcrRetry(record))
+            return true;
+
+        if (_clipRuntime.IsAvailable && (!record.SemanticCompleted || !string.Equals(record.SemanticModelKey ?? "", _clipRuntime.ModelKey, StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        return false;
+    }
+
+    private static ImageSearchIndexRecord MergeRetryState(ImageSearchIndexRecord current, ImageSearchIndexRecord? previous)
+    {
+        if (current.OcrState == ImageSearchOcrState.Indexed)
+        {
+            current.OcrRetryCount = 0;
+            current.NextOcrRetryUtcTicks = 0;
+            return current;
+        }
+
+        var previousRetryCount = previous?.OcrRetryCount ?? 0;
+        var nextRetryCount = Math.Min(previousRetryCount + 1, MaxOcrRetryCount);
+        current.OcrRetryCount = nextRetryCount;
+        current.NextOcrRetryUtcTicks = nextRetryCount >= MaxOcrRetryCount
+            ? 0
+            : GetNextRetryUtc(previousRetryCount).Ticks;
+        if (nextRetryCount >= MaxOcrRetryCount)
+            current.OcrState = ImageSearchOcrState.Failed;
+        return current;
+    }
+
+    private void LoadIndex_NoLock()
+    {
+        if (File.Exists(IndexPath))
+        {
+            try
+            {
+                var records = JsonSerializer.Deserialize<List<ImageSearchIndexRecord>>(File.ReadAllText(IndexPath), JsonOpts) ?? new();
+                _records.Clear();
+                foreach (var record in records.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)))
+                    _records[record.FilePath] = record;
+                return;
+            }
+            catch
+            {
+                _records.Clear();
+            }
+        }
+
+        if (File.Exists(LegacyIndexPath))
+        {
+            try
+            {
+                var records = JsonSerializer.Deserialize<List<ImageSearchIndexRecord>>(File.ReadAllText(LegacyIndexPath), JsonOpts) ?? new();
+                _records.Clear();
+                foreach (var record in records.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)))
+                    _records[record.FilePath] = record;
+            }
+            catch
+            {
+                _records.Clear();
+            }
+        }
+    }
+
+    private void PruneMissingEntries_NoLock()
+    {
+        foreach (var key in _records.Keys.Where(path => !File.Exists(path)).ToList())
+        {
+            _records.Remove(key);
+            DeleteFromDatabase_NoLock(key);
+        }
+
+        InvalidateSearchCaches_NoLock();
+    }
+
+    private void Persist_NoLock()
+    {
+        try
+        {
+            var ordered = _records.Values.OrderByDescending(r => r.IndexedAt).ToList();
+            SafeWriteAllText(IndexPath, JsonSerializer.Serialize(ordered, JsonOpts));
+        }
+        catch
+        {
+        }
+    }
+
+    private void NotifyChanged() => Changed?.Invoke();
+
+    private void SetStatus(string status)
+    {
+        lock (_gate)
+            _statusText = status;
+
+        StatusChanged?.Invoke(status);
+    }
+
+    private static long TryGetFileLength(string filePath)
+    {
+        try { return new FileInfo(filePath).Length; }
+        catch { return 0; }
+    }
+
+    private static long TryGetLastWriteTicks(string filePath)
+    {
+        try { return File.GetLastWriteTimeUtc(filePath).Ticks; }
+        catch { return 0; }
+    }
+
+    private static void SafeWriteAllText(string path, string contents)
+    {
+        var tmpPath = path + ".tmp";
+        try
+        {
+            File.WriteAllText(tmpPath, contents);
+            File.Move(tmpPath, path, overwrite: true);
+        }
+        catch
+        {
+            File.WriteAllText(path, contents);
+        }
+    }
+
+    private static DateTime GetNextRetryUtc(int completedRetryCount)
+    {
+        var minutes = completedRetryCount switch
+        {
+            <= 0 => 2,
+            1 => 10,
+            2 => 30,
+            _ => 120
+        };
+        return DateTime.UtcNow.AddMinutes(minutes);
+    }
+
+    private static bool NeedsOcrRetry(ImageSearchIndexRecord record)
+    {
+        if (record.OcrState is not (ImageSearchOcrState.RetryableEmpty or ImageSearchOcrState.RetryableError))
+            return false;
+
+        if (record.OcrRetryCount >= MaxOcrRetryCount)
+            return false;
+
+        if (record.NextOcrRetryUtcTicks <= 0)
+            return true;
+
+        return DateTime.UtcNow.Ticks >= record.NextOcrRetryUtcTicks;
+    }
+
+    private void EnsureDatabase_NoLock()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE IF NOT EXISTS image_search_records (
+                filePath TEXT PRIMARY KEY NOT NULL,
+                fileName TEXT NOT NULL,
+                ocrText TEXT NOT NULL,
+                searchText TEXT NOT NULL,
+                indexedAt TEXT NOT NULL,
+                ocrState INTEGER NOT NULL,
+                ocrRetryCount INTEGER NOT NULL,
+                nextOcrRetryUtcTicks INTEGER NOT NULL
+            );
+            CREATE VIRTUAL TABLE IF NOT EXISTS image_search_fts USING fts5(
+                filePath UNINDEXED,
+                fileName,
+                ocrText,
+                searchText,
+                tokenize = 'unicode61'
+            );
+            """;
+        command.ExecuteNonQuery();
+    }
+
+    private void RebuildDatabase_NoLock()
+    {
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        using (var deleteCommand = connection.CreateCommand())
+        {
+            deleteCommand.Transaction = transaction;
+            deleteCommand.CommandText = """
+                DELETE FROM image_search_records;
+                DELETE FROM image_search_fts;
+                """;
+            deleteCommand.ExecuteNonQuery();
+        }
+
+        foreach (var record in _records.Values)
+            UpsertDatabaseRecord_NoLock(connection, transaction, record);
+
+        transaction.Commit();
+    }
+
+    private void UpsertDatabaseRecord_NoLock(ImageSearchIndexRecord record)
+    {
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        UpsertDatabaseRecord_NoLock(connection, transaction, record);
+        transaction.Commit();
+    }
+
+    private void UpsertDatabaseRecord_NoLock(SqliteConnection connection, SqliteTransaction transaction, ImageSearchIndexRecord record)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(record.FilePath);
+        var searchText = record.SearchText;
+
+        using var recordCommand = connection.CreateCommand();
+        recordCommand.Transaction = transaction;
+        recordCommand.CommandText = """
+            INSERT INTO image_search_records(filePath, fileName, ocrText, searchText, indexedAt, ocrState, ocrRetryCount, nextOcrRetryUtcTicks)
+            VALUES($filePath, $fileName, $ocrText, $searchText, $indexedAt, $ocrState, $ocrRetryCount, $nextRetry)
+            ON CONFLICT(filePath) DO UPDATE SET
+                fileName = excluded.fileName,
+                ocrText = excluded.ocrText,
+                searchText = excluded.searchText,
+                indexedAt = excluded.indexedAt,
+                ocrState = excluded.ocrState,
+                ocrRetryCount = excluded.ocrRetryCount,
+                nextOcrRetryUtcTicks = excluded.nextOcrRetryUtcTicks;
+            """;
+        recordCommand.Parameters.AddWithValue("$filePath", record.FilePath);
+        recordCommand.Parameters.AddWithValue("$fileName", fileName);
+        recordCommand.Parameters.AddWithValue("$ocrText", record.OcrText ?? "");
+        recordCommand.Parameters.AddWithValue("$searchText", searchText);
+        recordCommand.Parameters.AddWithValue("$indexedAt", record.IndexedAt.ToString("O"));
+        recordCommand.Parameters.AddWithValue("$ocrState", (int)record.OcrState);
+        recordCommand.Parameters.AddWithValue("$ocrRetryCount", record.OcrRetryCount);
+        recordCommand.Parameters.AddWithValue("$nextRetry", record.NextOcrRetryUtcTicks);
+        recordCommand.ExecuteNonQuery();
+
+        using var deleteFts = connection.CreateCommand();
+        deleteFts.Transaction = transaction;
+        deleteFts.CommandText = "DELETE FROM image_search_fts WHERE filePath = $filePath;";
+        deleteFts.Parameters.AddWithValue("$filePath", record.FilePath);
+        deleteFts.ExecuteNonQuery();
+
+        using var insertFts = connection.CreateCommand();
+        insertFts.Transaction = transaction;
+        insertFts.CommandText = """
+            INSERT INTO image_search_fts(filePath, fileName, ocrText, searchText)
+            VALUES($filePath, $fileName, $ocrText, $searchText);
+            """;
+        insertFts.Parameters.AddWithValue("$filePath", record.FilePath);
+        insertFts.Parameters.AddWithValue("$fileName", fileName);
+        insertFts.Parameters.AddWithValue("$ocrText", record.OcrText ?? "");
+        insertFts.Parameters.AddWithValue("$searchText", searchText);
+        insertFts.ExecuteNonQuery();
+    }
+
+    private void DeleteFromDatabase_NoLock(string filePath)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM image_search_records WHERE filePath = $filePath;
+            DELETE FROM image_search_fts WHERE filePath = $filePath;
+            """;
+        command.Parameters.AddWithValue("$filePath", filePath);
+        command.ExecuteNonQuery();
+    }
+
+    private static SqliteConnection OpenConnection()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
+        var connection = new SqliteConnection($"Data Source={DbPath};Pooling=True;Cache=Shared");
+        connection.Open();
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = """
+            PRAGMA journal_mode=WAL;
+            PRAGMA synchronous=NORMAL;
+            """;
+        pragma.ExecuteNonQuery();
+        return connection;
+    }
+}

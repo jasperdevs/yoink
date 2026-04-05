@@ -1,0 +1,157 @@
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.IO;
+using System.Windows.Forms;
+using Yoink.Native;
+using Yoink.Helpers;
+using Yoink.Services;
+using Yoink.UI;
+
+namespace Yoink.Capture;
+
+public sealed partial class RecordingForm
+{
+    // ─── Recording lifecycle ──────────────────────────────────────────
+
+    private void StartRecording()
+    {
+        _recordRegion = _selection;
+
+        // Convert selection from form coords to screen coords
+        var screenRegion = new Rectangle(
+            _selection.X + _virtualBounds.X,
+            _selection.Y + _virtualBounds.Y,
+            _selection.Width, _selection.Height);
+
+        if (_format == Models.RecordingFormat.GIF)
+        {
+            _recorder = new GifRecorder(screenRegion, _fps, _maxDuration, _showCursor);
+        }
+        else
+        {
+            var vfmt = _format switch
+            {
+                Models.RecordingFormat.WebM => VideoRecorder.Format.WebM,
+                Models.RecordingFormat.MKV => VideoRecorder.Format.MKV,
+                _ => VideoRecorder.Format.MP4
+            };
+            _videoRecorder = new VideoRecorder(screenRegion, vfmt, _fps, _maxDuration, _maxHeight,
+                _showCursor, _recordMic, _micDeviceId, _recordDesktop, _desktopDeviceId);
+            _videoRecorder.Start(_savePath);
+        }
+        _state = State.Recording;
+        Cursor = Cursors.Default;
+
+        // The selection screenshot is only needed before recording starts.
+        _screenshot?.Dispose();
+        _screenshot = null;
+
+        // Switch to transparent mode: form stays fullscreen but only the
+        // dashed border + toolbar are visible. Everything else is see-through.
+        BackColor = TransKey;
+        TransparencyKey = TransKey;
+
+        // Exclude this form from capture so the border/toolbar don't appear in the GIF
+        User32.SetWindowDisplayAffinity(Handle, User32.WDA_EXCLUDEFROMCAPTURE);
+
+        CalcToolbarLayout();
+
+        Current = this;
+        SoundService.PlayRecordStartSound();
+        _recorder?.Start();
+
+        _tickTimer = new System.Windows.Forms.Timer { Interval = 200 };
+        _tickTimer.Tick += (_, _) =>
+        {
+            if ((_recorder != null && !_recorder.IsRecording) || (_videoRecorder != null && !_videoRecorder.IsRecording))
+            {
+                StopRecording();
+                return;
+            }
+            Invalidate(_toolbarRect);
+        };
+        _tickTimer.Start();
+        Invalidate(Rectangle.Union(_selection, _toolbarRect));
+    }
+
+    private void StopRecording()
+    {
+        if (_state != State.Recording) return;
+        if (_recorder == null && _videoRecorder == null) return;
+        _tickTimer?.Stop();
+
+        var gifRec = _recorder; _recorder = null;
+        var vidRec = _videoRecorder; _videoRecorder = null;
+        SoundService.PlayRecordStopSound();
+        Close();
+
+        // Finalize the recording in the background after the UI closes.
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            Bitmap? firstFrame = gifRec?.GetFirstFrame();
+            try
+            {
+                try { System.Windows.Application.Current?.Dispatcher.Invoke(() => ToastWindow.Show("Recording", "Encoding, please wait...")); } catch { }
+                gifRec?.StopAndEncode(_savePath);
+                vidRec?.StopAndEncode(_savePath);
+                RecordingCompleted?.Invoke(_savePath, firstFrame);
+            }
+            catch (Exception ex)
+            {
+                firstFrame?.Dispose();
+                try
+                {
+                    // Don't leave a zero-byte / partial file if encoding failed early.
+                    if (File.Exists(_savePath) && new FileInfo(_savePath).Length == 0)
+                        File.Delete(_savePath);
+                }
+                catch { }
+
+                RecordingFailed?.Invoke(ex);
+            }
+            finally
+            {
+                gifRec?.Dispose();
+                vidRec?.Dispose();
+            }
+        });
+    }
+
+    private void DiscardRecording()
+    {
+        _tickTimer?.Stop();
+        if (_recorder != null) { _recorder.Discard(); _recorder.Dispose(); _recorder = null; }
+        if (_videoRecorder != null) { _videoRecorder.Discard(); _videoRecorder.Dispose(); _videoRecorder = null; }
+        RecordingCancelled?.Invoke();
+        Close();
+    }
+
+    private void CalcToolbarLayout()
+    {
+        int tw = 300, th = 48;
+        // Try to place above the recording region
+        int tx = _recordRegion.X + _recordRegion.Width / 2 - tw / 2;
+        int ty = _recordRegion.Y - th - 14;
+
+        // If off-screen (fullscreen recording), place at bottom center of screen
+        if (ty < 4 || _recordRegion.Height > Height - 100)
+            ty = Height - th - 40; // 40px from bottom edge
+        if (tx < 4) tx = 4;
+        if (tx + tw > Width - 4) tx = Width - 4 - tw;
+
+        _toolbarRect = new Rectangle(tx, ty, tw, th);
+
+        int btnY = _toolbarRect.Y + 10;
+        int btnH = 28;
+        _stopBtn = new Rectangle(_toolbarRect.X + 100, btnY, 80, btnH);
+        _discardBtn = new Rectangle(_stopBtn.Right + 8, btnY, 80, btnH);
+    }
+
+    /// <summary>External stop (called from tray menu).</summary>
+    public void RequestStop()
+    {
+        if (_state == State.Recording)
+            BeginInvoke(new Action(StopRecording));
+    }
+}
