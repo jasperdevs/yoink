@@ -42,3 +42,4 @@ src/Yoink/yoink_*.png
 ## Release zips
 *.zip
 .omx/
+site/node_modules/
