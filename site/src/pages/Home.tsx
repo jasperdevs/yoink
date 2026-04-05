@@ -23,6 +23,10 @@ const faq = [
   { q: "How does OCR work?", a: "Yoink uses the Windows built-in OCR engine. No downloads or setup needed. It supports all languages installed in your Windows language settings." },
   { q: "Can I upload screenshots automatically?", a: "Yes. Yoink supports auto-upload to 15+ services including Imgur, S3, Dropbox, Google Drive, and custom HTTP endpoints." },
   { q: "Where are screenshots saved?", a: "By default in your Pictures/Yoink folder. You can change this in Settings along with the file format and naming pattern." },
+  { q: "What recording formats are supported?", a: "GIF, MP4, WebM, and MKV. You can record with microphone audio, desktop audio, or both. Frame rate and quality are configurable." },
+  { q: "How is Yoink different from ShareX?", a: "Yoink has a modern, clean interface with built-in sticker creation, semantic image search, and uses Windows native OCR instead of Tesseract. It focuses on being simple to use while still being powerful." },
+  { q: "Can I customize hotkeys?", a: "Yes. Every action has a configurable global hotkey. You can set hotkeys for screenshot, OCR, color picker, recording, stickers, and more in Settings." },
+  { q: "Does Yoink have a portable version?", a: "Yes. The standalone .exe from the Downloads page works without installation. Just run it from any folder." },
 ];
 
 function FaqItem({ q, a }: { q: string; a: string }) {
@@ -79,7 +83,7 @@ export default function Home() {
         <div className="space-y-2">
           {features.map((f) => (
             <div key={f.name} className="flex gap-3 leading-relaxed">
-              <span className="text-zinc-600 shrink-0">[*]</span>
+              <span className="text-zinc-600 shrink-0">[&#x2605;]</span>
               <span>
                 <strong className="text-zinc-200">{f.name}</strong>
                 <span className="text-zinc-500">&nbsp;&nbsp;{f.desc}</span>
@@ -101,7 +105,7 @@ export default function Home() {
       <section className="border-t border-zinc-800 py-12 px-6">
         <h2 className="font-bold mb-2">Built-in sticker maker</h2>
         <p className="text-zinc-500 leading-relaxed mb-5">
-          [*] Turn any screenshot into a sticker by removing the background, then save, copy, or upload it like a normal image.
+          [&#x2605;] Turn any screenshot into a sticker by removing the background, then save, copy, or upload it like a normal image.
         </p>
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
           <img src={base + "sticker-showcase.png"} alt="Sticker showcase" className="w-full" />
@@ -112,7 +116,7 @@ export default function Home() {
       <section className="border-t border-zinc-800 py-12 px-6">
         <h2 className="font-bold mb-2">OCR and translate</h2>
         <p className="text-zinc-500 leading-relaxed mb-5">
-          [*] Extract text from any region of your screen. Results open in a dedicated window where you can edit, copy, or translate the text instantly.
+          [&#x2605;] Extract text from any region of your screen. Results open in a dedicated window where you can edit, copy, or translate the text instantly.
         </p>
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
           <img src={base + "ocr-screenshot.png"} alt="OCR result" className="w-full" />
@@ -123,7 +127,7 @@ export default function Home() {
       <section className="border-t border-zinc-800 py-12 px-6">
         <h2 className="font-bold mb-2">Search your history</h2>
         <p className="text-zinc-500 leading-relaxed mb-5">
-          [*] Search your image history by filename, OCR text, and semantic matching, so you can find screenshots by what they say or by what they show.
+          [&#x2605;] Search your image history by filename, OCR text, and semantic matching, so you can find screenshots by what they say or by what they show.
         </p>
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
           <img src={base + "search-screenshot.png"} alt="Search history" className="w-full" />
@@ -134,7 +138,7 @@ export default function Home() {
       <section className="border-t border-zinc-800 py-12 px-6">
         <h2 className="font-bold mb-2">Built for privacy</h2>
         <p className="text-zinc-500 leading-relaxed">
-          [*] Yoink runs entirely on your machine. No accounts, no telemetry, no cloud dependencies. Your screenshots never leave your computer unless you choose to upload them.
+          [&#x2605;] Yoink runs entirely on your machine. No accounts, no telemetry, no cloud dependencies. Your screenshots never leave your computer unless you choose to upload them.
         </p>
       </section>
 

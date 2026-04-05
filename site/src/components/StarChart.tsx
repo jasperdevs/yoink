@@ -58,11 +58,17 @@ export default function StarChart() {
 
       // Fill gaps between dates
       if (entries.length > 0) {
-        const startDate = new Date(entries[0][0]);
+        // Start one day before first star so chart doesn't spike at day 1
+        const firstStarDate = new Date(entries[0][0]);
+        const startDate = new Date(firstStarDate);
+        startDate.setDate(startDate.getDate() - 1);
         const endDate = new Date(entries[entries.length - 1][0]);
         const dateMap = new Map(entries);
 
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        // Add the zero-star starting point
+        points.push({ date: startDate.toISOString().slice(0, 10), stars: 0 });
+
+        for (let d = new Date(firstStarDate); d <= endDate; d.setDate(d.getDate() + 1)) {
           const key = d.toISOString().slice(0, 10);
           if (dateMap.has(key)) lastCount = dateMap.get(key)!;
           points.push({ date: key, stars: lastCount });
@@ -193,7 +199,7 @@ export default function StarChart() {
         />
       </div>
       <p className="text-xs text-zinc-600 mt-3 text-center">
-        Fig 1. <span className="text-zinc-300 font-semibold">{label}</span> GitHub Stars
+        <span className="text-zinc-300 font-semibold">{label}</span> GitHub Stars
       </p>
     </div>
   );
