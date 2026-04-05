@@ -136,7 +136,7 @@ public static class SketchRenderer
         float len = MathF.Sqrt(dx * dx + dy * dy);
         if (len < 2) return;
 
-        float thickness = Math.Clamp(2f + len / 100f, 2f, 4f);
+        const float thickness = 2.5f;
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -158,7 +158,7 @@ public static class SketchRenderer
         float len = MathF.Sqrt(dx * dx + dy * dy);
         if (len < 3) return;
 
-        float thickness = Math.Clamp(2f + len / 80f, 2f, 4.5f);
+        const float thickness = 2.5f;
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -196,6 +196,10 @@ public static class SketchRenderer
     {
         if (points.Count < 2) return;
 
+        // Simplify jagged input into a smooth polyline
+        points = SimplifyPoints(points, 2.5f);
+        if (points.Count < 2) return;
+
         float len = 0;
         for (int i = 1; i < points.Count; i++)
         {
@@ -204,25 +208,29 @@ public static class SketchRenderer
         }
         if (len < 3) return;
 
-        float thickness = Math.Clamp(2f + len / 80f, 2f, 4.5f);
+        const float thickness = 2.5f;
 
-        // Arrowhead direction from last two distinct points
+        // Calculate arrowhead size first — we need it to find the right direction distance
+        float headSize = Math.Clamp(12f + len / 15f, 12f, 28f);
+        headSize = Math.Min(headSize, len * 0.4f);
+
+        // Walk backward along the polyline to find a point ~headSize away from tip
+        // This gives a stable tangent that matches where the curve is actually going
         var tip = points[^1];
+        float walkTarget = Math.Max(headSize, 20f);
+        float walked = 0;
         Point dirFrom = points[^2];
-        for (int i = points.Count - 2; i >= 0; i--)
+        for (int i = points.Count - 1; i > 0; i--)
         {
-            float dd = MathF.Sqrt((tip.X - points[i].X) * (tip.X - points[i].X) +
-                                   (tip.Y - points[i].Y) * (tip.Y - points[i].Y));
-            if (dd > 3) { dirFrom = points[i]; break; }
+            float seg = MathF.Sqrt((points[i].X - points[i - 1].X) * (points[i].X - points[i - 1].X) +
+                                    (points[i].Y - points[i - 1].Y) * (points[i].Y - points[i - 1].Y));
+            walked += seg;
+            if (walked >= walkTarget) { dirFrom = points[i - 1]; break; }
         }
         float dx = tip.X - dirFrom.X, dy = tip.Y - dirFrom.Y;
         float l = MathF.Sqrt(dx * dx + dy * dy);
         if (l < 1) return;
         float nx = dx / l, ny = dy / l;
-
-        // Calculate arrowhead size so we can shorten the curve
-        float headSize = Math.Clamp(12f + len / 15f, 12f, 28f);
-        headSize = Math.Min(headSize, len * 0.4f);
 
         // Shorten the curve: pull the last point back so the line doesn't poke through the arrowhead
         var shortenedPts = points.ToArray();
@@ -289,6 +297,9 @@ public static class SketchRenderer
     /// </summary>
     public static void DrawFreehandStroke(Graphics g, List<Point> points, Color color, float size, bool strokeShadow = false)
     {
+        if (points.Count < 2) return;
+        // Simplify jagged input
+        points = SimplifyPoints(points, 2.0f);
         if (points.Count < 2) return;
         var floatPts = points.Select(p => new PointF(p.X, p.Y)).ToList();
 
@@ -495,6 +506,57 @@ public static class SketchRenderer
         }
         path.CloseFigure();
         return path;
+    }
+
+    // ─── Point simplification (Ramer-Douglas-Peucker) ─────────────
+
+    /// <summary>Reduce jagged input points into a smoother polyline.</summary>
+    private static List<Point> SimplifyPoints(List<Point> points, float epsilon)
+    {
+        if (points.Count < 3) return points;
+        var result = new List<Point>();
+        RdpSimplify(points, 0, points.Count - 1, epsilon, result);
+        result.Add(points[^1]);
+        return result;
+    }
+
+    private static void RdpSimplify(List<Point> pts, int start, int end, float epsilon, List<Point> result)
+    {
+        float maxDist = 0;
+        int index = start;
+
+        float ax = pts[start].X, ay = pts[start].Y;
+        float bx = pts[end].X, by = pts[end].Y;
+        float dx = bx - ax, dy = by - ay;
+        float lenSq = dx * dx + dy * dy;
+
+        for (int i = start + 1; i < end; i++)
+        {
+            float dist;
+            if (lenSq < 0.001f)
+            {
+                float px = pts[i].X - ax, py = pts[i].Y - ay;
+                dist = MathF.Sqrt(px * px + py * py);
+            }
+            else
+            {
+                float t = Math.Clamp(((pts[i].X - ax) * dx + (pts[i].Y - ay) * dy) / lenSq, 0, 1);
+                float projX = ax + t * dx, projY = ay + t * dy;
+                float px = pts[i].X - projX, py = pts[i].Y - projY;
+                dist = MathF.Sqrt(px * px + py * py);
+            }
+            if (dist > maxDist) { maxDist = dist; index = i; }
+        }
+
+        if (maxDist > epsilon)
+        {
+            RdpSimplify(pts, start, index, epsilon, result);
+            RdpSimplify(pts, index, end, epsilon, result);
+        }
+        else
+        {
+            result.Add(pts[start]);
+        }
     }
 
     // ─── Helpers ───────────────────────────────────────────────────
