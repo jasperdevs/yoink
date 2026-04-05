@@ -35,7 +35,7 @@
 </p>
 
 <p align="center">
-<img width="947" height="490" alt="image" src="assets/banner3333.png" />
+<img width="947" height="490" alt="image" src="assets/yoink_20260405_002517.png" />
 </p>
 
 ## Download
