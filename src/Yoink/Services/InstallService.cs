@@ -321,8 +321,6 @@ public static class InstallService
         {
             "Yoink.exe",
             "Python",
-            "Tessdata",
-            "tessdata",
             "ffmpeg.exe"
         };
 
@@ -332,8 +330,6 @@ public static class InstallService
     private static IEnumerable<string> GetOptionalPayloadEntries()
     {
         yield return "Python";
-        yield return "Tessdata";
-        yield return "tessdata";
         yield return "ffmpeg.exe";
     }
 
