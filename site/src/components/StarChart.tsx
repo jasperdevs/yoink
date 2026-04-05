@@ -68,15 +68,15 @@ export default function StarChart() {
       const entries = Array.from(byDate.entries());
 
       if (entries.length > 0) {
-        const firstStarDate = new Date(entries[0][0]);
+        const firstStarDate = new Date(entries[0][0] + "T00:00:00Z");
         const startDate = new Date(firstStarDate);
-        startDate.setDate(startDate.getDate() - 1);
-        const endDate = new Date(entries[entries.length - 1][0]);
+        startDate.setUTCDate(startDate.getUTCDate() - 1);
+        const endDate = new Date(entries[entries.length - 1][0] + "T00:00:00Z");
         const dateMap = new Map(entries);
 
         points.push({ date: startDate.toISOString().slice(0, 10), stars: 0 });
 
-        for (let d = new Date(firstStarDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        for (let d = new Date(firstStarDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
           const key = d.toISOString().slice(0, 10);
           if (dateMap.has(key)) lastCount = dateMap.get(key)!;
           points.push({ date: key, stars: lastCount });
@@ -140,7 +140,7 @@ export default function StarChart() {
       const idx = Math.round((i / (xTicks - 1)) * (data.length - 1));
       const x = padL + (idx / (data.length - 1)) * plotW;
       const date = new Date(data[idx].date);
-      const label = `${date.getMonth() + 1}/${date.getDate()}`;
+      const label = `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
       ctx.fillText(label, x, h - padB + 16);
     }
 

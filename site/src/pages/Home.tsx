@@ -51,7 +51,7 @@ export default function Home() {
     <div className="text-[13px]">
       {/* Hero */}
       <section className="text-center py-20 px-6">
-        <img src={base + "banner.svg"} alt="Yoink" className="w-64 mx-auto mb-8 opacity-70" />
+        <img src={base + "banner.svg"} alt="Yoink" className="w-96 mx-auto mb-8 opacity-70" />
         <h1 className="text-3xl font-bold tracking-tight mb-4">Yoink</h1>
         <p className="text-zinc-500 max-w-sm mx-auto leading-relaxed mb-8">
           Capture, annotate, OCR, translate, make stickers, record video, and upload. All in one open-source tool for Windows.
@@ -131,6 +131,28 @@ export default function Home() {
         </p>
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
           <img src={base + "search-screenshot.png"} alt="Search history" className="w-full" style={{ marginBottom: "-20%", clipPath: "inset(0 0 20% 0)" }} />
+        </div>
+      </section>
+
+      {/* Color picker */}
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">Color picker</h2>
+        <p className="text-zinc-500 leading-relaxed mb-5">
+          [&#x2605;] Pick any color from your screen with a magnified preview. Copies hex and RGB values to your clipboard instantly.
+        </p>
+        <div className="rounded-lg border border-zinc-800 overflow-hidden flex justify-center bg-zinc-950">
+          <img src={base + "color-picker.png"} alt="Color picker" className="max-h-80 object-contain" />
+        </div>
+      </section>
+
+      {/* Recording */}
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">Screen recording</h2>
+        <p className="text-zinc-500 leading-relaxed mb-5">
+          [&#x2605;] Record your screen as GIF, MP4, WebM, or MKV. Capture microphone and desktop audio simultaneously with configurable frame rate and quality.
+        </p>
+        <div className="rounded-lg border border-zinc-800 overflow-hidden flex justify-center bg-zinc-950">
+          <img src={base + "recording.png"} alt="Screen recording" className="max-h-80 object-contain" />
         </div>
       </section>
 
