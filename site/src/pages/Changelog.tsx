@@ -23,10 +23,10 @@ function renderMarkdown(body: string): string {
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
   // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-zinc-800 text-sm font-mono">$1</code>');
+  html = html.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-[#222220] text-sm font-mono">$1</code>');
 
   // Unordered list items
-  html = html.replace(/^[*-] (.+)$/gm, '<li class="ml-4 list-disc text-sm text-zinc-300">$1</li>');
+  html = html.replace(/^[*-] (.+)$/gm, '<li class="ml-4 list-disc text-sm text-[#d0cec8]">$1</li>');
 
   // Wrap consecutive <li> in <ul>
   html = html.replace(
@@ -55,7 +55,7 @@ function renderMarkdown(body: string): string {
       ) {
         return line;
       }
-      return `<p class="text-sm text-zinc-400 my-1">${trimmed}</p>`;
+      return `<p class="text-sm text-[#8a8a80] my-1">${trimmed}</p>`;
     })
     .join("\n");
 
@@ -67,7 +67,7 @@ export default function Changelog() {
 
   if (loading) {
     return (
-      <div className="text-center py-20 text-zinc-500">
+      <div className="text-center py-20 text-[#8a8a80]">
         Loading changelog...
       </div>
     );
@@ -77,7 +77,7 @@ export default function Changelog() {
     <div className="px-6 py-10 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Changelog</h1>
-        <p className="text-zinc-500 mt-2">
+        <p className="text-[#8a8a80] mt-2">
           Release notes for every version of Yoink.
         </p>
       </div>
@@ -86,11 +86,11 @@ export default function Changelog() {
         {releases.map((release) => (
           <div
             key={release.id}
-            className="rounded-lg border border-zinc-800 bg-zinc-900 p-5 space-y-3"
+            className="rounded-lg border border-[#2a2a28] bg-[#1a1a18] p-5 space-y-3"
           >
             <div className="flex items-center gap-3">
               <h2 className="text-base font-semibold">{release.tag_name}</h2>
-              <span className="text-sm text-zinc-500">
+              <span className="text-sm text-[#8a8a80]">
                 {formatDate(release.published_at)}
               </span>
             </div>

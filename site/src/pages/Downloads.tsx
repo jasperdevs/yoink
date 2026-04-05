@@ -102,20 +102,20 @@ function ReleaseCard({
   }, [zipAssets, userArch]);
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800">
+    <div className="rounded-lg border border-[#2a2a28] bg-[#1a1a18] overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-[#2a2a28]">
         <h2 className="text-base font-semibold">{release.tag_name}</h2>
         {isLatest && (
           <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20">
             Latest
           </span>
         )}
-        <span className="text-sm text-zinc-500 ml-auto">
+        <span className="text-sm text-[#8a8a80] ml-auto">
           {formatDate(release.published_at)}
         </span>
       </div>
 
-      <div className="divide-y divide-zinc-800">
+      <div className="divide-y divide-[#2a2a28]">
         {sortedExeAssets.map((asset) => {
           const assetArch = getAssetArch(asset.name);
           const isRecommended = assetArch === userArch;
@@ -134,12 +134,12 @@ function ReleaseCard({
                   Recommended
                 </span>
               )}
-              <span className="text-sm text-zinc-500">
+              <span className="text-sm text-[#8a8a80]">
                 {formatSize(asset.size)}
               </span>
               <a
                 href={asset.browser_download_url}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-50 text-zinc-950 text-sm font-medium hover:bg-zinc-200 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#e8e6e3] text-[#111110] text-sm font-medium hover:bg-[#d0cec8] transition-colors"
               >
                 <DownloadIcon />
                 Download
@@ -154,7 +154,7 @@ function ReleaseCard({
               <div className="px-5 py-3">
                 <button
                   onClick={() => setShowMore(true)}
-                  className="text-sm text-zinc-400 hover:text-zinc-50 transition-colors"
+                  className="text-sm text-[#8a8a80] hover:text-[#e8e6e3] transition-colors"
                 >
                   Show more
                 </button>
@@ -180,12 +180,12 @@ function ReleaseCard({
                           Recommended
                         </span>
                       )}
-                      <span className="text-sm text-zinc-500">
+                      <span className="text-sm text-[#8a8a80]">
                         {formatSize(asset.size)}
                       </span>
                       <a
                         href={asset.browser_download_url}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-700 text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#444440] text-sm font-medium text-[#d0cec8] hover:bg-[#222220] transition-colors"
                       >
                         <DownloadIcon />
                         Download
@@ -194,7 +194,7 @@ function ReleaseCard({
                   );
                 })}
                 <div className="flex items-center gap-4 px-5 py-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-zinc-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-[#8a8a80]">
                     <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V4.25A2.25 2.25 0 0 0 15.75 2H4.25Zm4.03 6.28a.75.75 0 0 0-1.06-1.06L4.97 9.47a.75.75 0 0 0 0 1.06l2.25 2.25a.75.75 0 0 0 1.06-1.06L6.56 10l1.72-1.72Zm2.38-1.06a.75.75 0 1 0-1.06 1.06L11.44 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06l2.25-2.25a.75.75 0 0 0 0-1.06l-2.25-2.25Z" clipRule="evenodd" />
                   </svg>
                   <span className="text-sm font-medium flex-1">Source code</span>
@@ -202,7 +202,7 @@ function ReleaseCard({
                     href={release.html_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center px-3 py-1.5 rounded-md border border-zinc-700 text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    className="inline-flex items-center px-3 py-1.5 rounded-md border border-[#444440] text-sm font-medium text-[#d0cec8] hover:bg-[#222220] transition-colors"
                   >
                     View on GitHub
                   </a>
@@ -210,7 +210,7 @@ function ReleaseCard({
                 <div className="px-5 py-3">
                   <button
                     onClick={() => setShowMore(false)}
-                    className="text-sm text-zinc-400 hover:text-zinc-50 transition-colors"
+                    className="text-sm text-[#8a8a80] hover:text-[#e8e6e3] transition-colors"
                   >
                     Show less
                   </button>
@@ -234,7 +234,7 @@ export default function Downloads() {
 
   if (loading) {
     return (
-      <div className="text-center py-20 text-zinc-500">
+      <div className="text-center py-20 text-[#8a8a80]">
         Loading releases...
       </div>
     );
@@ -244,7 +244,7 @@ export default function Downloads() {
     <div className="px-6 py-10 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Downloads</h1>
-        <p className="text-zinc-500 mt-2">
+        <p className="text-[#8a8a80] mt-2">
           Download Yoink for Windows. Your architecture ({userArch}) is detected automatically.
         </p>
       </div>

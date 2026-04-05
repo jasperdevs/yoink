@@ -4,3 +4,8 @@
 * {
   font-family: 'IBM Plex Mono', monospace !important;
 }
+
+body {
+  background: #111110 !important;
+  font-size: 15px;
+}
