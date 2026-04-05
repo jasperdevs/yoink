@@ -1,100 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Yoink</title>
-  <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <nav><div class="inner">
-    <div class="left">
-      <a href="./" class="logo"><img src="favicon.ico" alt="">Yoink</a>
-      <div class="links">
-        <a href="./" class="active">Home</a>
-        <a href="downloads.html">Downloads</a>
-        <a href="changelog.html">Changelog</a>
-        <a href="donate.html">Donate</a>
-      </div>
-    </div>
-    <div class="right">
-      <a href="https://github.com/jasperdevs/yoink" target="_blank" class="star-badge" id="starBadge">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <span id="starCount"></span>
-      </a>
-    </div>
-  </div></nav>
-
-  <div class="hero">
-    <h1>Yoink</h1>
-    <p>Capture, annotate, OCR, translate, make stickers, record video, and upload. All in one open-source tool.</p>
-    <div class="buttons">
-      <a href="downloads.html" class="btn btn-primary">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download for Windows
-      </a>
-      <a href="https://github.com/jasperdevs/yoink" target="_blank" class="btn btn-secondary">Source Code</a>
-    </div>
-  </div>
-
-  <hr class="sep">
-
-  <div class="features">
-    <div class="feature">
-      <h3>Region & Window Capture</h3>
-      <p>Capture any region, fullscreen, active window, or scrolling content with pixel-perfect precision.</p>
-    </div>
-    <div class="feature">
-      <h3>Annotation Tools</h3>
-      <p>Arrows, text, shapes, blur, freehand draw, step numbers, emoji, and more, right on the capture overlay.</p>
-    </div>
-    <div class="feature">
-      <h3>OCR & Translate</h3>
-      <p>Extract text from any part of your screen and translate it instantly with built-in Windows OCR.</p>
-    </div>
-    <div class="feature">
-      <h3>Screen Recording</h3>
-      <p>Record your screen as GIF, MP4, WebM, or MKV with microphone and desktop audio support.</p>
-    </div>
-    <div class="feature">
-      <h3>Stickers</h3>
-      <p>Turn any capture into a sticker by removing the background, locally or with cloud providers.</p>
-    </div>
-    <div class="feature">
-      <h3>Upload Anywhere</h3>
-      <p>Upload to Imgur, S3, Dropbox, Google Drive, GitHub, or your own custom HTTP endpoint.</p>
-    </div>
-  </div>
-
-  <hr class="sep">
-
-  <div class="stats-section">
-    <h2>Open source</h2>
-    <p class="info" id="statsInfo">Free and open source, licensed under GPL-3.0.</p>
-    <div class="star-chart">
-      <a href="https://www.star-history.com/?repos=jasperdevs%2Fyoink&type=timeline" target="_blank">
-        <picture>
-          <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&legend=top-left" />
-          <img src="https://api.star-history.com/image?repos=jasperdevs/yoink&type=timeline&theme=dark&legend=top-left" alt="Star History">
-        </picture>
-      </a>
-    </div>
-  </div>
-
-  <footer>
-    <p>Yoink is open source under the GPL-3.0 license.</p>
-  </footer>
-
-  <script>
-    fetch('https://api.github.com/repos/jasperdevs/yoink')
-      .then(r => r.json())
-      .then(d => {
-        const stars = d.stargazers_count;
-        document.getElementById('starCount').textContent = stars >= 1000 ? (stars/1000).toFixed(1) + 'k' : stars;
-        document.getElementById('statsInfo').innerHTML =
-          `<strong>${stars.toLocaleString()}</strong> GitHub stars. Free and open source, licensed under GPL-3.0.`;
-      }).catch(() => {});
-  </script>
-</body>
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/yoink/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yoink</title>
+    <script type="module" crossorigin src="/yoink/assets/index-DgG-OZAs.js"></script>
+    <link rel="stylesheet" crossorigin href="/yoink/assets/index-DilZZ_qV.css">
+  </head>
+  <body class="bg-zinc-950 text-zinc-50 antialiased">
+    <div id="root"></div>
+  </body>
 </html>
