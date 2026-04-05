@@ -182,6 +182,17 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Annotations */}
+      <section className="border-t border-[#2a2a28] py-16 px-8">
+        <h2 className="font-bold text-lg mb-4 text-[#e8e6e3]">Powerful annotation tools</h2>
+        <p className="text-[#8a8a80] leading-relaxed mb-6">
+          [&#x2605;] Arrows, text, shapes, blur, freehand drawing, step numbers, emoji, and a ruler. Everything you need to mark up screenshots before sharing.
+        </p>
+        <div className="rounded-lg border border-[#2a2a28] overflow-hidden">
+          <img loading="lazy" src={base + "annotations.png"} alt="Annotation tools showing arrows, shapes, text, blur, and more" className="w-full" />
+        </div>
+      </section>
+
       {/* Privacy */}
       <section className="border-t border-[#2a2a28] py-16 px-8">
         <h2 className="font-bold text-lg mb-4 text-[#e8e6e3]">Built for privacy</h2>
