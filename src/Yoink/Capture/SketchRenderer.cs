@@ -202,64 +202,63 @@ public static class SketchRenderer
             float ddx = points[i].X - points[i - 1].X, ddy = points[i].Y - points[i - 1].Y;
             len += MathF.Sqrt(ddx * ddx + ddy * ddy);
         }
+        if (len < 3) return;
+
         float thickness = Math.Clamp(2f + len / 80f, 2f, 4.5f);
+
+        // Arrowhead direction from last two distinct points
+        var tip = points[^1];
+        Point dirFrom = points[^2];
+        for (int i = points.Count - 2; i >= 0; i--)
+        {
+            float dd = MathF.Sqrt((tip.X - points[i].X) * (tip.X - points[i].X) +
+                                   (tip.Y - points[i].Y) * (tip.Y - points[i].Y));
+            if (dd > 3) { dirFrom = points[i]; break; }
+        }
+        float dx = tip.X - dirFrom.X, dy = tip.Y - dirFrom.Y;
+        float l = MathF.Sqrt(dx * dx + dy * dy);
+        if (l < 1) return;
+        float nx = dx / l, ny = dy / l;
+
+        // Calculate arrowhead size so we can shorten the curve
+        float headSize = Math.Clamp(12f + len / 15f, 12f, 28f);
+        headSize = Math.Min(headSize, len * 0.4f);
+
+        // Shorten the curve: pull the last point back so the line doesn't poke through the arrowhead
+        var shortenedPts = points.ToArray();
+        shortenedPts[^1] = new Point(
+            (int)(tip.X - nx * headSize * 0.6f),
+            (int)(tip.Y - ny * headSize * 0.6f));
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
+        // Helper to draw the curve + arrowhead at a given offset with a given color
+        void DrawCurveAndHead(Point[] pts, PointF headTip, Color c, float thick)
+        {
+            using var pen = new Pen(c, thick)
+                { StartCap = LineCap.Round, EndCap = LineCap.Flat, LineJoin = LineJoin.Round };
+            if (pts.Length >= 4)
+                g.DrawCurve(pen, pts, 0.5f);
+            else
+                g.DrawLines(pen, pts);
+            DrawArrowhead(g, headTip, nx, ny, len, c, thick + 0.5f);
+        }
+
+        Point[] OffsetPts(Point[] src, int ox, int oy) =>
+            src.Select(p => new Point(p.X + ox, p.Y + oy)).ToArray();
+
         if (strokeShadow)
         {
-            // Shadow passes
-            var s1Pts = points.Select(p => new Point(p.X + 2, p.Y + 2)).ToArray();
-            var s2Pts = points.Select(p => new Point(p.X + 3, p.Y + 3)).ToArray();
-            using var s1Pen = new Pen(AnnotShadow1, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-            using var s2Pen = new Pen(AnnotShadow2, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-            if (s1Pts.Length >= 4) { g.DrawCurve(s1Pen, s1Pts, 0.5f); g.DrawCurve(s2Pen, s2Pts, 0.5f); }
-            else { g.DrawLines(s1Pen, s1Pts); g.DrawLines(s2Pen, s2Pts); }
+            DrawCurveAndHead(OffsetPts(shortenedPts, 2, 2), new PointF(tip.X + 2, tip.Y + 2), AnnotShadow1, thickness);
+            DrawCurveAndHead(OffsetPts(shortenedPts, 3, 3), new PointF(tip.X + 3, tip.Y + 3), AnnotShadow2, thickness);
 
-            // Stroke passes (8 directions)
-            var ptsArr = points.ToArray();
-            using var strokePen = new Pen(AnnotStroke, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
             for (int ox = -1; ox <= 1; ox++)
                 for (int oy = -1; oy <= 1; oy++)
                     if (ox != 0 || oy != 0)
-                    {
-                        var offsetPts = ptsArr.Select(p => new Point(p.X + ox, p.Y + oy)).ToArray();
-                        if (offsetPts.Length >= 4) g.DrawCurve(strokePen, offsetPts, 0.5f);
-                        else g.DrawLines(strokePen, offsetPts);
-                    }
+                        DrawCurveAndHead(OffsetPts(shortenedPts, ox, oy), new PointF(tip.X + ox, tip.Y + oy), AnnotStroke, thickness);
         }
 
-        using var pen = new Pen(color, thickness)
-            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-        if (points.Count >= 4)
-            g.DrawCurve(pen, points.ToArray(), 0.5f);
-        else
-            g.DrawLines(pen, points.ToArray());
-
-        // Arrowhead direction from last two points
-        var last = points[^1];
-        var prev = points[^2];
-        float dx = last.X - prev.X, dy = last.Y - prev.Y;
-        float l = MathF.Sqrt(dx * dx + dy * dy);
-        if (l > 1)
-        {
-            float nx = dx / l, ny = dy / l;
-
-            if (strokeShadow)
-            {
-                // Shadow arrowhead
-                DrawArrowhead(g, new PointF(last.X + 2, last.Y + 2), nx, ny, len, AnnotShadow1, thickness + 0.5f);
-                DrawArrowhead(g, new PointF(last.X + 3, last.Y + 3), nx, ny, len, AnnotShadow2, thickness + 0.5f);
-
-                // Stroke arrowhead (8 directions)
-                for (int ox = -1; ox <= 1; ox++)
-                    for (int oy = -1; oy <= 1; oy++)
-                        if (ox != 0 || oy != 0)
-                            DrawArrowhead(g, new PointF(last.X + ox, last.Y + oy), nx, ny, len, AnnotStroke, thickness + 0.5f);
-            }
-
-            DrawArrowhead(g, new PointF(last.X, last.Y), nx, ny, len, color, thickness + 0.5f);
-        }
+        DrawCurveAndHead(shortenedPts, new PointF(tip.X, tip.Y), color, thickness);
 
         g.SmoothingMode = SmoothingMode.Default;
     }
