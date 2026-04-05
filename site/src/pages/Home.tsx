@@ -4,16 +4,22 @@ import StarChart from "../components/StarChart";
 import { DitheringShader } from "../components/DitheringShader";
 
 const features = [
-  { name: "Region capture", desc: "Rectangle, freeform, fullscreen, active window, and scrolling capture" },
-  { name: "Annotation tools", desc: "Arrows, text, shapes, blur, freehand, step numbers, emoji, and ruler" },
-  { name: "OCR & Translate", desc: "Extract text from your screen with Windows OCR, translate with Argos or Google" },
-  { name: "Screen recording", desc: "Record as GIF, MP4, WebM, or MKV with mic and desktop audio" },
-  { name: "Stickers", desc: "Remove backgrounds from captures with local or cloud providers" },
-  { name: "Color picker", desc: "Pick colors from anywhere on screen with hex/RGB values" },
-  { name: "QR/Barcode scanner", desc: "Scan QR codes and barcodes from screen regions" },
-  { name: "Search history", desc: "Find past screenshots by filename, OCR text, or semantic similarity" },
-  { name: "Upload anywhere", desc: "15+ services including Imgur, S3, Dropbox, GitHub, and custom HTTP" },
-  { name: "Hotkeys", desc: "Fully configurable global hotkeys for every action" },
+  { name: "Region capture", desc: "Rectangle, freeform, fullscreen, active window, and scrolling capture with delay timer and window detection" },
+  { name: "Annotation tools", desc: "Arrows, curved arrows, text, shapes, highlights, blur, freehand, step numbers, emoji, ruler, magnifier, and eraser with undo/redo" },
+  { name: "OCR & Translate", desc: "Extract text from your screen with Windows OCR, translate with Argos (offline) or Google Translate across 35+ languages" },
+  { name: "Screen recording", desc: "Record as GIF, MP4, WebM, or MKV with mic and desktop audio at 15/24/30/60 FPS" },
+  { name: "Stickers", desc: "Remove backgrounds with 5 local AI models or cloud providers, add shadow and stroke effects" },
+  { name: "Color picker", desc: "Pick colors from anywhere on screen with magnified preview, hex/RGB values, and color history" },
+  { name: "QR/Barcode scanner", desc: "Scan QR codes, Aztec, Data Matrix, PDF-417, CODE-128, EAN, UPC, and more" },
+  { name: "Search history", desc: "Find past screenshots by filename, OCR text, or AI-powered semantic similarity" },
+  { name: "Upload anywhere", desc: "19 destinations including Imgur, S3, Dropbox, GitHub, OneDrive, and custom HTTP" },
+  { name: "Hotkeys", desc: "Fully configurable global hotkeys for every action with modifier key support" },
+  { name: "Image formats", desc: "Save as PNG, JPEG, or BMP with configurable quality and custom naming patterns" },
+  { name: "After-capture actions", desc: "Auto-copy, auto-save, auto-upload, auto-pin previews, or prompt for filename" },
+  { name: "Settings import/export", desc: "Save and load your settings as JSON, reset to defaults anytime" },
+  { name: "Start with Windows", desc: "Auto-launch on startup, runs quietly in the system tray" },
+  { name: "Multiple monitors", desc: "Full multi-monitor support for capture, recording, and color picking" },
+  { name: "Auto-updates", desc: "Background update checking keeps Yoink up to date" },
 ];
 
 const faq = [
@@ -30,6 +36,8 @@ const faq = [
   { q: "How is Yoink different from ShareX?", a: "Yoink has a modern, clean interface with built-in sticker creation, semantic image search, and uses Windows native OCR instead of Tesseract. It focuses on being simple to use while still being powerful." },
   { q: "Can I customize hotkeys?", a: "Yes. Every action has a configurable global hotkey. You can set hotkeys for screenshot, OCR, color picker, recording, stickers, and more in Settings." },
   { q: "Does Yoink have a portable version?", a: "Yes. The standalone .exe from the Downloads page works without installation. Just run it from any folder." },
+  { q: "How do I update Yoink?", a: "Yoink checks for updates automatically in the background. When a new version is available, you'll be notified. You can also download the latest version from the Downloads page." },
+  { q: "Does Yoink support multiple monitors?", a: "Yes. Yoink fully supports multi-monitor setups for capture, recording, and color picking. You can capture regions across monitors or target a specific screen." },
 ];
 
 function FaqItem({ q, a }: { q: string; a: string }) {

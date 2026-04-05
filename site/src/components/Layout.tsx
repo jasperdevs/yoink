@@ -13,6 +13,7 @@ const navLinks = [
   { to: "/", label: "Home" },
   { to: "/downloads", label: "Downloads" },
   { to: "/changelog", label: "Changelog" },
+  { to: "/hotkeys", label: "Hotkeys" },
   { to: "/donate", label: "Donate" },
 ];
 
