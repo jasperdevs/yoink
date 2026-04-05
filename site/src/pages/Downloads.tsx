@@ -241,12 +241,11 @@ export default function Downloads() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="px-6 py-10 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Downloads</h1>
-        <p className="text-zinc-400 mt-2">
-          Download Yoink for Windows. Your architecture ({userArch}) is detected
-          automatically.
+        <h1 className="text-2xl font-bold tracking-tight">Downloads</h1>
+        <p className="text-zinc-500 mt-2">
+          Download Yoink for Windows. Your architecture ({userArch}) is detected automatically.
         </p>
       </div>
 

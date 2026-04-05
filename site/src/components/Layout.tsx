@@ -72,7 +72,7 @@ export default function Layout() {
         </nav>
       </header>
 
-      <main className="flex-1">
+      <main className="flex-1 text-[13px]">
         <Outlet />
       </main>
 

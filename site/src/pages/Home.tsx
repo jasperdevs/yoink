@@ -30,10 +30,10 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   return (
     <button onClick={() => setOpen(!open)} className="w-full text-left border-t border-zinc-800 py-4 cursor-pointer">
       <div className="flex items-start gap-3">
-        <span className="text-zinc-600 text-sm mt-0.5 shrink-0">{open ? "−" : "+"}</span>
+        <span className="text-zinc-600 shrink-0">{open ? "\u2212" : "+"}</span>
         <div>
-          <span className="text-sm font-semibold text-zinc-200">{q}</span>
-          {open && <p className="text-sm text-zinc-500 mt-2 leading-relaxed">{a}</p>}
+          <span className="font-medium text-zinc-200">{q}</span>
+          {open && <p className="text-zinc-500 mt-2 leading-relaxed">{a}</p>}
         </div>
       </div>
     </button>
@@ -44,18 +44,18 @@ export default function Home() {
   const base = import.meta.env.BASE_URL;
 
   return (
-    <div>
+    <div className="text-[13px]">
       {/* Hero */}
-      <section className="text-center py-16 px-6">
-        <img src={base + "banner.svg"} alt="Yoink" className="w-48 mx-auto mb-6 opacity-80" />
-        <h1 className="text-4xl font-bold tracking-tight mb-4">Yoink</h1>
-        <p className="text-sm text-zinc-500 max-w-md mx-auto leading-relaxed mb-8">
+      <section className="text-center py-20 px-6">
+        <img src={base + "banner.svg"} alt="Yoink" className="w-40 mx-auto mb-8 opacity-70" />
+        <h1 className="text-3xl font-bold tracking-tight mb-4">Yoink</h1>
+        <p className="text-zinc-500 max-w-sm mx-auto leading-relaxed mb-8">
           Capture, annotate, OCR, translate, make stickers, record video, and upload. All in one open-source tool for Windows.
         </p>
         <div className="flex items-center justify-center gap-3">
           <Link
             to="/downloads"
-            className="inline-flex items-center px-5 py-2 rounded-md bg-zinc-50 text-zinc-950 text-xs font-medium hover:bg-zinc-200 transition-colors"
+            className="inline-flex items-center px-5 py-2.5 rounded-md bg-zinc-50 text-zinc-950 font-medium hover:bg-zinc-200 transition-colors"
           >
             Download for Windows
           </Link>
@@ -63,7 +63,7 @@ export default function Home() {
             href="https://github.com/jasperdevs/yoink"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center px-5 py-2 rounded-md border border-zinc-800 text-xs font-medium text-zinc-400 hover:bg-zinc-800/50 transition-colors"
+            className="inline-flex items-center px-5 py-2.5 rounded-md border border-zinc-800 font-medium text-zinc-400 hover:bg-zinc-800/50 transition-colors"
           >
             Source Code
           </a>
@@ -71,14 +71,14 @@ export default function Home() {
       </section>
 
       {/* What is Yoink */}
-      <section className="border-t border-zinc-800 py-14 px-6">
-        <h2 className="text-base font-bold mb-3">What is Yoink?</h2>
-        <p className="text-sm text-zinc-500 leading-relaxed mb-6">
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">What is Yoink?</h2>
+        <p className="text-zinc-500 leading-relaxed mb-6">
           Yoink is an open-source screen capture and productivity toolkit for Windows. It handles everything from quick screenshots to annotated recordings, OCR, translation, and one-click uploads.
         </p>
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {features.map((f) => (
-            <div key={f.name} className="flex gap-3 text-xs leading-relaxed">
+            <div key={f.name} className="flex gap-3 leading-relaxed">
               <span className="text-zinc-600 shrink-0">[*]</span>
               <span>
                 <strong className="text-zinc-200">{f.name}</strong>
@@ -90,17 +90,17 @@ export default function Home() {
         <div className="mt-6">
           <Link
             to="/downloads"
-            className="inline-flex items-center gap-2 px-5 py-2 rounded-md border border-zinc-800 text-xs font-medium text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md border border-zinc-800 font-medium text-zinc-300 hover:bg-zinc-800/50 transition-colors"
           >
             Download &rarr;
           </Link>
         </div>
       </section>
 
-      {/* Stickers showcase */}
-      <section className="border-t border-zinc-800 py-14 px-6">
-        <h2 className="text-base font-bold mb-3">Built-in sticker maker</h2>
-        <p className="text-sm text-zinc-500 leading-relaxed mb-6">
+      {/* Stickers */}
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">Built-in sticker maker</h2>
+        <p className="text-zinc-500 leading-relaxed mb-5">
           [*] Turn any screenshot into a sticker by removing the background, then save, copy, or upload it like a normal image.
         </p>
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
@@ -108,10 +108,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* OCR screenshot */}
-      <section className="border-t border-zinc-800 py-14 px-6">
-        <h2 className="text-base font-bold mb-3">OCR and translate</h2>
-        <p className="text-sm text-zinc-500 leading-relaxed mb-6">
+      {/* OCR */}
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">OCR and translate</h2>
+        <p className="text-zinc-500 leading-relaxed mb-5">
           [*] Extract text from any region of your screen. Results open in a dedicated window where you can edit, copy, or translate the text instantly.
         </p>
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
@@ -120,9 +120,9 @@ export default function Home() {
       </section>
 
       {/* Search */}
-      <section className="border-t border-zinc-800 py-14 px-6">
-        <h2 className="text-base font-bold mb-3">Search your history</h2>
-        <p className="text-sm text-zinc-500 leading-relaxed mb-6">
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">Search your history</h2>
+        <p className="text-zinc-500 leading-relaxed mb-5">
           [*] Search your image history by filename, OCR text, and semantic matching, so you can find screenshots by what they say or by what they show.
         </p>
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
@@ -131,30 +131,30 @@ export default function Home() {
       </section>
 
       {/* Privacy */}
-      <section className="border-t border-zinc-800 py-14 px-6">
-        <h2 className="text-base font-bold mb-3">Built for privacy</h2>
-        <p className="text-sm text-zinc-500 leading-relaxed">
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">Built for privacy</h2>
+        <p className="text-zinc-500 leading-relaxed">
           [*] Yoink runs entirely on your machine. No accounts, no telemetry, no cloud dependencies. Your screenshots never leave your computer unless you choose to upload them.
         </p>
       </section>
 
-      {/* Star history */}
-      <section className="border-t border-zinc-800 py-14 px-6">
-        <h2 className="text-base font-bold mb-3">Open source</h2>
-        <p className="text-sm text-zinc-500 mb-6">
-          Free and open source, licensed under GPL-3.0.
-        </p>
-        <StarChart />
-      </section>
-
       {/* FAQ */}
-      <section className="border-t border-zinc-800 py-14 px-6">
-        <h2 className="text-base font-bold mb-4">FAQ</h2>
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">FAQ</h2>
         <div>
           {faq.map((item) => (
             <FaqItem key={item.q} q={item.q} a={item.a} />
           ))}
         </div>
+      </section>
+
+      {/* Star chart */}
+      <section className="border-t border-zinc-800 py-12 px-6">
+        <h2 className="font-bold mb-2">Open source</h2>
+        <p className="text-zinc-500 mb-5">
+          Free and open source, licensed under GPL-3.0.
+        </p>
+        <StarChart />
       </section>
     </div>
   );
