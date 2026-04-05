@@ -3,34 +3,54 @@ import { useStarCount } from "../hooks/useStarCount";
 
 const features = [
   {
-    title: "Region & Window Capture",
+    name: "Region capture",
     description:
-      "Capture any region of your screen or snap a full window with pixel-perfect accuracy.",
+      "Rectangle, freeform, fullscreen, active window, and scrolling capture",
   },
   {
-    title: "Annotation Tools",
+    name: "Annotation tools",
     description:
-      "Draw, highlight, add text, arrows, and shapes directly on your captures.",
+      "Arrows, text, shapes, blur, freehand, step numbers, emoji, and ruler",
   },
   {
-    title: "OCR & Translate",
+    name: "OCR & Translate",
     description:
-      "Extract text from any capture and translate it into other languages instantly.",
+      "Extract text from your screen with Windows OCR, translate with Argos or Google",
   },
   {
-    title: "Screen Recording",
+    name: "Screen recording",
     description:
-      "Record your screen as video with audio support and flexible region selection.",
+      "Record as GIF, MP4, WebM, or MKV with mic and desktop audio",
   },
   {
-    title: "Stickers",
+    name: "Stickers",
     description:
-      "Remove backgrounds and turn any capture into a sticker with one click.",
+      "Remove backgrounds from captures with local or cloud providers",
   },
   {
-    title: "Upload Anywhere",
+    name: "Color picker",
     description:
-      "Upload captures to Imgur, custom hosts, or copy straight to your clipboard.",
+      "Pick colors from anywhere on screen with hex/RGB values",
+  },
+  {
+    name: "QR/Barcode scanner",
+    description:
+      "Scan QR codes and barcodes from screen regions",
+  },
+  {
+    name: "Search history",
+    description:
+      "Find past screenshots by OCR text or semantic similarity",
+  },
+  {
+    name: "Upload anywhere",
+    description:
+      "15+ services including Imgur, S3, Dropbox, GitHub, and custom HTTP",
+  },
+  {
+    name: "Hotkeys",
+    description:
+      "Fully configurable global hotkeys for every action",
   },
 ];
 
@@ -38,9 +58,9 @@ export default function Home() {
   const stars = useStarCount();
 
   return (
-    <div className="space-y-16">
+    <div>
       {/* Hero */}
-      <section className="text-center space-y-6 pt-8">
+      <section className="text-center space-y-6 pt-8 pb-16">
         <h1 className="text-5xl font-bold tracking-tight">Yoink</h1>
         <p className="text-lg text-zinc-400 max-w-xl mx-auto leading-relaxed">
           Capture, annotate, OCR, translate, make stickers, record video, and
@@ -64,29 +84,41 @@ export default function Home() {
         </div>
       </section>
 
-      <hr className="border-zinc-800" />
+      <div className="border-t border-zinc-800" />
 
       {/* Features */}
-      <section>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="py-16 space-y-6">
+        <h2 className="text-2xl font-bold tracking-tight">What is Yoink?</h2>
+        <p className="text-zinc-400 leading-relaxed">
+          Yoink is an open-source screen capture and productivity toolkit for
+          Windows. It handles everything from quick screenshots to annotated
+          recordings, OCR, translation, and one-click uploads.
+        </p>
+        <div className="space-y-3">
           {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="rounded-lg border border-zinc-800 bg-zinc-900 p-5 space-y-2"
-            >
-              <h3 className="text-sm font-semibold">{feature.title}</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                {feature.description}
-              </p>
+            <div key={feature.name} className="flex gap-3 text-sm leading-relaxed">
+              <span className="text-zinc-500 shrink-0 font-mono">[*]</span>
+              <span>
+                <strong className="text-zinc-50">{feature.name}</strong>
+                <span className="text-zinc-400"> - {feature.description}</span>
+              </span>
             </div>
           ))}
         </div>
+        <div className="pt-2">
+          <Link
+            to="/downloads"
+            className="inline-flex items-center px-5 py-2.5 rounded-md bg-zinc-50 text-zinc-950 text-sm font-medium hover:bg-zinc-200 transition-colors"
+          >
+            Download
+          </Link>
+        </div>
       </section>
 
-      <hr className="border-zinc-800" />
+      <div className="border-t border-zinc-800" />
 
       {/* Star history */}
-      <section className="space-y-6">
+      <section className="py-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">Open source</h2>
         <p className="text-zinc-400">
           Yoink is free and open source, backed by{" "}

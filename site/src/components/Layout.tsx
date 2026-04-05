@@ -30,9 +30,9 @@ export default function Layout() {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-3xl px-4 h-14 flex items-center justify-between">
+    <div className="mx-auto max-w-3xl border-x border-zinc-800 min-h-screen flex flex-col">
+      <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950">
+        <div className="px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
               <img
@@ -86,12 +86,12 @@ export default function Layout() {
         </nav>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-10">
+      <main className="flex-1 px-4 py-10">
         <Outlet />
       </main>
 
       <footer className="border-t border-zinc-800">
-        <div className="mx-auto max-w-3xl px-4 py-6 text-center text-sm text-zinc-500">
+        <div className="px-4 py-6 text-center text-sm text-zinc-500">
           Yoink is open source under the GPL-3.0 license.
         </div>
       </footer>

@@ -33,7 +33,7 @@ function formatDate(iso: string): string {
   });
 }
 
-type Arch = "x64" | "arm64" | "unknown";
+type Arch = "x64" | "arm64" | "x86" | "unknown";
 
 function detectArch(): Arch {
   const ua = navigator.userAgent.toLowerCase();
@@ -47,6 +47,7 @@ function getAssetArch(name: string): Arch {
   const lower = name.toLowerCase();
   if (lower.includes("arm64") || lower.includes("aarch64")) return "arm64";
   if (lower.includes("x64") || lower.includes("x86_64") || lower.includes("amd64")) return "x64";
+  if (lower.includes("x86") && !lower.includes("x86_64") && !lower.includes("x86-64")) return "x86";
   return "unknown";
 }
 
@@ -66,6 +67,7 @@ function getArchLabel(name: string): string {
   const arch = getAssetArch(name);
   if (arch === "arm64") return "Windows (arm64)";
   if (arch === "x64") return "Windows (x64)";
+  if (arch === "x86") return "Windows (x86)";
   return "Windows";
 }
 
