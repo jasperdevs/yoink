@@ -52,6 +52,20 @@ public sealed partial class RegionOverlayForm
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        // Undo must work in all states (emoji placing, typing, etc.)
+        if (e.KeyCode == Keys.Z && e.Control && _undoStack.Count > 0)
+        {
+            var last = RemoveLastAnnotation();
+            // Update step counter when undoing a step number
+            if (last is StepNumberAnnotation)
+            {
+                var remaining = _undoStack.OfType<StepNumberAnnotation>().LastOrDefault();
+                _nextStepNumber = remaining != null ? remaining.Number + 1 : 1;
+            }
+            Invalidate(InflateForRepaint(GetAnnotationBounds(last)));
+            return;
+        }
+
         // All search/text input is handled by off-screen TextBoxes
         if (_emojiPickerOpen) return;
 
@@ -82,18 +96,6 @@ public sealed partial class RegionOverlayForm
             _selectedAnnotationIndex = -1;
             Invalidate(bounds);
             return;
-        }
-
-        if (e.KeyCode == Keys.Z && e.Control && _undoStack.Count > 0)
-        {
-            var last = RemoveLastAnnotation();
-            // Update step counter when undoing a step number
-            if (last is StepNumberAnnotation)
-            {
-                var remaining = _undoStack.OfType<StepNumberAnnotation>().LastOrDefault();
-                _nextStepNumber = remaining != null ? remaining.Number + 1 : 1;
-            }
-            Invalidate(InflateForRepaint(GetAnnotationBounds(last)));
         }
     }
 
