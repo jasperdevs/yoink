@@ -179,6 +179,9 @@ public sealed class TrayIcon : IDisposable
             "Oemtilde" or "OemTilde" => "`",
             "OemMinus" => "-",
             "Oemplus" or "OemPlus" => "=",
+            "Snapshot" => "PrtSc",
+            "Pause" => "Pause",
+            "Cancel" => "Break",
             _ => keyName.Replace("Oem", "")
         };
         parts.Append(keyName);
