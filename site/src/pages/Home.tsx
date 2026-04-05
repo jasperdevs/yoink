@@ -65,7 +65,7 @@ export default function Home() {
     <div>
       {/* Hero with shader background */}
       <section className="relative text-center py-24 px-8 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.12]">
+        <div className="absolute inset-0 opacity-[0.06]">
           <DitheringShader
             colorBack="#000000"
             colorFront="#ffffff"
@@ -84,7 +84,7 @@ export default function Home() {
               to="/downloads"
               className="inline-flex items-center px-7 py-3 rounded-md bg-[#e8e6e3] text-[#111110] text-[15px] font-medium hover:bg-[#d0cec8] transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" /><path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-2"><path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" /><path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" /></svg>
               Download for Windows
             </Link>
             <a
@@ -127,6 +127,17 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Annotations */}
+      <section className="border-t border-[#2a2a28] py-16 px-8">
+        <h2 className="font-bold text-lg mb-4 text-[#e8e6e3]">Powerful annotation tools</h2>
+        <p className="text-[#8a8a80] leading-relaxed mb-6">
+          [&#x2605;] Arrows, text, shapes, blur, highlights, freehand drawing, step numbers, emoji, ruler, and more. Everything you need to mark up screenshots before sharing.
+        </p>
+        <div className="rounded-lg border border-[#2a2a28] overflow-hidden">
+          <img loading="lazy" src={base + "annotations.png"} alt="Annotation tools showing arrows, shapes, text, blur, and more" className="w-full" />
+        </div>
+      </section>
+
       {/* Stickers */}
       <section className="border-t border-[#2a2a28] py-16 px-8">
         <h2 className="font-bold text-lg mb-4 text-[#e8e6e3]">Built-in sticker maker</h2>
@@ -166,8 +177,8 @@ export default function Home() {
         <p className="text-[#8a8a80] leading-relaxed mb-6">
           [&#x2605;] Pick any color from your screen with a magnified preview. Copies hex and RGB values to your clipboard instantly.
         </p>
-        <div className="rounded-lg border border-[#2a2a28] overflow-hidden flex justify-center" style={{ background: "#0a0a09" }}>
-          <img loading="lazy" src={base + "color-picker.png"} alt="Color picker with magnified preview" className="max-h-96 object-contain" />
+        <div className="rounded-lg border border-[#2a2a28] overflow-hidden">
+          <img loading="lazy" src={base + "color-picker.png"} alt="Color picker with magnified preview" className="w-full" />
         </div>
       </section>
 
@@ -177,19 +188,8 @@ export default function Home() {
         <p className="text-[#8a8a80] leading-relaxed mb-6">
           [&#x2605;] Record your screen as GIF, MP4, WebM, or MKV. Capture microphone and desktop audio simultaneously with configurable frame rate and quality.
         </p>
-        <div className="rounded-lg border border-[#2a2a28] overflow-hidden flex justify-center" style={{ background: "#0a0a09" }}>
-          <img loading="lazy" src={base + "recording.png"} alt="Screen recording interface" className="max-h-96 object-contain" />
-        </div>
-      </section>
-
-      {/* Annotations */}
-      <section className="border-t border-[#2a2a28] py-16 px-8">
-        <h2 className="font-bold text-lg mb-4 text-[#e8e6e3]">Powerful annotation tools</h2>
-        <p className="text-[#8a8a80] leading-relaxed mb-6">
-          [&#x2605;] Arrows, text, shapes, blur, freehand drawing, step numbers, emoji, and a ruler. Everything you need to mark up screenshots before sharing.
-        </p>
         <div className="rounded-lg border border-[#2a2a28] overflow-hidden">
-          <img loading="lazy" src={base + "annotations.png"} alt="Annotation tools showing arrows, shapes, text, blur, and more" className="w-full" />
+          <img loading="lazy" src={base + "recording.png"} alt="Screen recording interface" className="w-full" />
         </div>
       </section>
 

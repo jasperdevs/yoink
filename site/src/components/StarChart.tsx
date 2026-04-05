@@ -106,7 +106,9 @@ export default function StarChart() {
         const firstStarDate = new Date(entries[0][0] + "T00:00:00Z");
         const startDate = new Date(firstStarDate);
         startDate.setUTCDate(startDate.getUTCDate() - 1);
-        const endDate = new Date(entries[entries.length - 1][0] + "T00:00:00Z");
+        const today = new Date();
+        const todayStr = today.getUTCFullYear() + "-" + String(today.getUTCMonth() + 1).padStart(2, "0") + "-" + String(today.getUTCDate()).padStart(2, "0");
+        const endDate = new Date(todayStr + "T00:00:00Z");
         const dateMap = new Map(entries);
 
         points.push({ date: startDate.toISOString().slice(0, 10), stars: 0 });
