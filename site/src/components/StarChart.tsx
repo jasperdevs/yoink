@@ -1,23 +1,35 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 interface StarData {
   date: string;
   stars: number;
 }
 
+interface ChartLayout {
+  padL: number;
+  padR: number;
+  padT: number;
+  padB: number;
+  plotW: number;
+  plotH: number;
+  w: number;
+  h: number;
+  niceMax: number;
+}
+
 export default function StarChart() {
   const [data, setData] = useState<StarData[]>([]);
   const [total, setTotal] = useState<number | null>(null);
+  const [hover, setHover] = useState<{ x: number; y: number; date: string; stars: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const layoutRef = useRef<ChartLayout | null>(null);
 
   useEffect(() => {
-    // Get total stars
     fetch("https://api.github.com/repos/jasperdevs/yoink")
       .then((r) => r.json())
       .then((d) => setTotal(d.stargazers_count))
       .catch(() => {});
 
-    // Get star history from stargazers API (paginated, get timestamps)
     async function fetchStarHistory() {
       const perPage = 100;
       let page = 1;
@@ -44,7 +56,6 @@ export default function StarChart() {
 
       if (allStars.length === 0) return;
 
-      // Group by date and build cumulative
       const sorted = allStars.sort((a, b) => a.date.localeCompare(b.date));
       const byDate = new Map<string, number>();
       sorted.forEach((s, i) => {
@@ -56,16 +67,13 @@ export default function StarChart() {
       let lastCount = 0;
       const entries = Array.from(byDate.entries());
 
-      // Fill gaps between dates
       if (entries.length > 0) {
-        // Start one day before first star so chart doesn't spike at day 1
         const firstStarDate = new Date(entries[0][0]);
         const startDate = new Date(firstStarDate);
         startDate.setDate(startDate.getDate() - 1);
         const endDate = new Date(entries[entries.length - 1][0]);
         const dateMap = new Map(entries);
 
-        // Add the zero-star starting point
         points.push({ date: startDate.toISOString().slice(0, 10), stars: 0 });
 
         for (let d = new Date(firstStarDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -81,7 +89,7 @@ export default function StarChart() {
     fetchStarHistory();
   }, []);
 
-  useEffect(() => {
+  const drawChart = useCallback((hoverIdx?: number) => {
     const canvas = canvasRef.current;
     if (!canvas || data.length < 2) return;
 
@@ -104,7 +112,8 @@ export default function StarChart() {
     const maxStars = Math.max(...data.map((d) => d.stars));
     const niceMax = Math.ceil(maxStars / 10) * 10 || 10;
 
-    // Clear
+    layoutRef.current = { padL, padR, padT, padB, plotW, plotH, w, h, niceMax };
+
     ctx.clearRect(0, 0, w, h);
 
     // Grid lines and Y labels
@@ -124,7 +133,7 @@ export default function StarChart() {
       ctx.fillText(val.toString(), padL - 8, y + 3);
     }
 
-    // X labels (dates)
+    // X labels
     ctx.textAlign = "center";
     const xTicks = Math.min(6, data.length);
     for (let i = 0; i < xTicks; i++) {
@@ -135,13 +144,13 @@ export default function StarChart() {
       ctx.fillText(label, x, h - padB + 16);
     }
 
-    // Build path
+    // Build path points
     const points: [number, number][] = data.map((d, i) => [
       padL + (i / (data.length - 1)) * plotW,
       padT + plotH - (d.stars / niceMax) * plotH,
     ]);
 
-    // Hatching fill (diagonal lines under the curve)
+    // Hatching fill
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(points[0][0], padT + plotH);
@@ -161,26 +170,73 @@ export default function StarChart() {
     }
     ctx.restore();
 
+    // Glow line
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
     // Main line
     ctx.beginPath();
     ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i][0], points[i][1]);
-    }
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
     ctx.strokeStyle = "rgba(255,255,255,0.5)";
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Glow line
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i][0], points[i][1]);
+    // Hover crosshair + dot
+    if (hoverIdx !== undefined && hoverIdx >= 0 && hoverIdx < points.length) {
+      const [hx, hy] = points[hoverIdx];
+
+      // Vertical line
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(hx, padT);
+      ctx.lineTo(hx, padT + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(hx, hy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(hx, hy, 2, 0, Math.PI * 2);
+      ctx.fillStyle = "#0c0c0c";
+      ctx.fill();
     }
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
-    ctx.lineWidth = 4;
-    ctx.stroke();
   }, [data]);
+
+  useEffect(() => { drawChart(); }, [drawChart]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const layout = layoutRef.current;
+    if (!canvas || !layout || data.length < 2) { setHover(null); return; }
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+
+    const idx = Math.round(((mx - layout.padL) / layout.plotW) * (data.length - 1));
+    if (idx < 0 || idx >= data.length) { setHover(null); drawChart(); return; }
+
+    const pt = data[idx];
+    const px = layout.padL + (idx / (data.length - 1)) * layout.plotW;
+    const py = layout.padT + layout.plotH - (pt.stars / layout.niceMax) * layout.plotH;
+
+    setHover({ x: px, y: py, date: pt.date, stars: pt.stars });
+    drawChart(idx);
+  }, [data, drawChart]);
+
+  const handleMouseLeave = useCallback(() => {
+    setHover(null);
+    drawChart();
+  }, [drawChart]);
 
   const label =
     total !== null
@@ -189,14 +245,32 @@ export default function StarChart() {
         : total.toString()
       : "...";
 
+  const tooltipDate = hover
+    ? new Date(hover.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "";
+
   return (
     <div>
-      <div className="rounded-lg border border-zinc-800 overflow-hidden bg-zinc-950">
+      <div className="rounded-lg border border-zinc-800 overflow-hidden bg-zinc-950 relative">
         <canvas
           ref={canvasRef}
-          className="w-full"
+          className="w-full cursor-crosshair"
           style={{ height: 260 }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
         />
+        {hover && (
+          <div
+            className="absolute pointer-events-none bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 text-xs"
+            style={{
+              left: Math.min(hover.x, (layoutRef.current?.w ?? 600) - 140),
+              top: Math.max(hover.y - 44, 4),
+            }}
+          >
+            <span className="text-zinc-400">{tooltipDate}</span>
+            <span className="text-zinc-200 font-semibold ml-2">{hover.stars} stars</span>
+          </div>
+        )}
       </div>
       <p className="text-xs text-zinc-600 mt-3 text-center">
         <span className="text-zinc-300 font-semibold">{label}</span> GitHub Stars
