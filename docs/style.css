@@ -34,6 +34,8 @@ nav {
   background: rgba(10,10,10,0.92);
   backdrop-filter: blur(12px);
   z-index: 100;
+  max-width: 860px;
+  margin: 0 auto;
 }
 nav .left { display: flex; align-items: center; gap: 28px; }
 nav .logo { font-weight: 700; font-size: 18px; letter-spacing: -0.5px; }
@@ -48,7 +50,7 @@ nav .right { display: flex; gap: 16px; align-items: center; }
 .hero {
   text-align: center;
   padding: 100px 40px 60px;
-  max-width: 720px;
+  max-width: 600px;
   margin: 0 auto;
 }
 .hero h1 {
@@ -88,9 +90,9 @@ nav .right { display: flex; gap: 16px; align-items: center; }
 /* Features */
 .features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  max-width: 960px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  max-width: 760px;
   margin: 0 auto;
   padding: 40px 40px 80px;
 }
@@ -104,7 +106,7 @@ nav .right { display: flex; gap: 16px; align-items: center; }
 .feature p { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
 
 /* Page layout */
-.page { max-width: 960px; margin: 0 auto; padding: 48px 40px 80px; }
+.page { max-width: 760px; margin: 0 auto; padding: 48px 40px 80px; }
 .page h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
 .page .subtitle { color: var(--text-muted); font-size: 15px; margin-bottom: 36px; }
 
