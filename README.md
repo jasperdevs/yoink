@@ -138,14 +138,12 @@ dotnet publish src/Yoink/Yoink.csproj -c Release -r win-x64 --self-contained tru
 ```
 
 Requires [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
-
 ## Star History
 
-<a href="https://star-history.com/#jasperdevs/yoink&Timeline">
+<a href="https://www.star-history.com/?repos=jasperdevs%2Fyoink&type=timeline&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Timeline" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=jasperdevs/yoink&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=jasperdevs/yoink&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=jasperdevs/yoink&type=timeline&legend=top-left" />
  </picture>
 </a>
-
