@@ -54,28 +54,28 @@ public sealed partial class RegionOverlayForm
                     PaintBlurRect(g, br.Rect);
                     break;
                 case DrawStroke ds:
-                    SketchRenderer.DrawFreehandStroke(g, ds.Points, ds.Color, 6f);
+                    SketchRenderer.DrawFreehandStroke(g, ds.Points, ds.Color, 6f, AnnotationStrokeShadow);
                     break;
                 case HighlightAnnotation h:
                     SketchRenderer.DrawHighlightRect(g, h.Rect, h.Color);
                     break;
                 case RectShapeAnnotation rs:
-                    SketchRenderer.DrawRectShape(g, rs.Rect, rs.Color);
+                    SketchRenderer.DrawRectShape(g, rs.Rect, rs.Color, AnnotationStrokeShadow);
                     break;
                 case CircleShapeAnnotation cs:
-                    SketchRenderer.DrawCircleShape(g, cs.Rect, cs.Color);
+                    SketchRenderer.DrawCircleShape(g, cs.Rect, cs.Color, AnnotationStrokeShadow);
                     break;
                 case LineAnnotation ln:
-                    SketchRenderer.DrawLine(g, ln.From, ln.To, ln.Color, ln.From.GetHashCode());
+                    SketchRenderer.DrawLine(g, ln.From, ln.To, ln.Color, ln.From.GetHashCode(), AnnotationStrokeShadow);
                     break;
                 case RulerAnnotation ra:
                     PaintRuler(g, ra.From, ra.To);
                     break;
                 case ArrowAnnotation a:
-                    SketchRenderer.DrawArrow(g, a.From, a.To, a.Color, a.From.GetHashCode());
+                    SketchRenderer.DrawArrow(g, a.From, a.To, a.Color, a.From.GetHashCode(), strokeShadow: AnnotationStrokeShadow);
                     break;
                 case CurvedArrowAnnotation ca:
-                    SketchRenderer.DrawCurvedArrow(g, ca.Points, ca.Color, ca.Points.Count * 7919);
+                    SketchRenderer.DrawCurvedArrow(g, ca.Points, ca.Color, ca.Points.Count * 7919, AnnotationStrokeShadow);
                     break;
                 case StepNumberAnnotation sn:
                     PaintStepNumber(g, sn.Pos, sn.Number, sn.Color);

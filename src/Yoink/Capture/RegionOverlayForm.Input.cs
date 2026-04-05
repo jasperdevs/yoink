@@ -39,25 +39,40 @@ public sealed partial class RegionOverlayForm
         if (e.Button == MouseButtons.Right) { Cancel(); return; }
         if (e.Button != MouseButtons.Left) return;
 
+        // Flyout button click
+        if (_flyoutOpen && _flyoutTools.Length > 0)
+        {
+            int fb = GetFlyoutButtonAt(e.Location);
+            if (fb >= 0 && _flyoutTools[fb].Mode.HasValue)
+            {
+                SetMode(_flyoutTools[fb].Mode!.Value);
+                _flyoutOpen = false;
+                RefreshToolbar();
+                return;
+            }
+        }
+
         int btn = GetToolbarButtonAt(e.Location);
         if (btn >= 0)
         {
-            int toolCount = _visibleTools.Length;
             if (btn == BtnCount - 1) { Cancel(); return; }     // close
-            if (btn == BtnCount - 2)
+            if (btn == BtnCount - 2) { ToggleColorPicker(); return; } // color dot
+            if (_moreButtonIndex >= 0 && btn == _moreButtonIndex)
             {
-                _emojiPickerOpen = false;
-                _fontPickerOpen = false;
-                _colorPickerOpen = false;
-                _isPlacingEmoji = false;
-                SettingsRequested?.Invoke();
-                Cancel();
+                _flyoutOpen = !_flyoutOpen;
+                RefreshToolbar();
                 return;
-            } // gear
-            if (btn == BtnCount - 3) { ToggleColorPicker(); return; } // color dot
-            if (btn < toolCount && _visibleTools[btn].Mode.HasValue)
-                SetMode(_visibleTools[btn].Mode!.Value);
+            }
+            if (btn < _mainBarTools.Length && _mainBarTools[btn].Mode.HasValue)
+                SetMode(_mainBarTools[btn].Mode!.Value);
             return;
+        }
+
+        // Close flyout when clicking elsewhere
+        if (_flyoutOpen)
+        {
+            _flyoutOpen = false;
+            RefreshToolbar();
         }
 
         // Color picker popup: check if clicked a swatch
@@ -400,6 +415,22 @@ public sealed partial class RegionOverlayForm
             toolbarDirty = true;
         }
 
+        // Flyout hover tracking
+        if (_flyoutOpen && _flyoutTools.Length > 0)
+        {
+            int fb = GetFlyoutButtonAt(e.Location);
+            if (fb != _hoveredFlyoutButton)
+            {
+                _hoveredFlyoutButton = fb;
+                toolbarDirty = true;
+            }
+        }
+        else if (_hoveredFlyoutButton >= 0)
+        {
+            _hoveredFlyoutButton = -1;
+            toolbarDirty = true;
+        }
+
         // Text toolbar button hover tracking
         int prevTextBtn = _hoveredTextBtn;
         _hoveredTextBtn = -1;
@@ -503,6 +534,8 @@ public sealed partial class RegionOverlayForm
         else if (_mode == CaptureMode.Text && !_isTyping)
             target = Cursors.IBeam;
         else if (btn >= 0)
+            target = Cursors.Hand;
+        else if (_flyoutOpen && GetFlyoutButtonAt(e.Location) >= 0)
             target = Cursors.Hand;
         else
             target = Cursors.Cross;
@@ -814,15 +847,29 @@ public sealed partial class RegionOverlayForm
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
+
+        // Check if the cursor actually left the form area. Child/overlay windows
+        // (toolbar, crosshair guides) trigger spurious mouse-leave events while
+        // the cursor is still logically within our bounds.
+        var screenPos = System.Windows.Forms.Cursor.Position;
+        var clientPos = PointToClient(screenPos);
+        bool actuallyLeft = clientPos.X < 0 || clientPos.Y < 0
+            || clientPos.X >= ClientSize.Width || clientPos.Y >= ClientSize.Height;
+
         _hoveredButton = -1;
         CloseCaptureMagnifier();
         _autoDetectTimer.Stop();
-        ClearCrosshairGuides();
-        _prevCursorPos = _lastCursorPos;
-        _lastCursorPos = Point.Empty;
-        _lastAutoDetectRect = Rectangle.Empty;
-        _autoDetectRect = Rectangle.Empty;
-        _autoDetectActive = false;
+
+        if (actuallyLeft)
+        {
+            ClearCrosshairGuides();
+            _prevCursorPos = _lastCursorPos;
+            _lastCursorPos = Point.Empty;
+            _lastAutoDetectRect = Rectangle.Empty;
+            _autoDetectRect = Rectangle.Empty;
+            _autoDetectActive = false;
+        }
+
         Invalidate();
         RefreshToolbar();
     }
@@ -1116,6 +1163,14 @@ public sealed partial class RegionOverlayForm
     {
         for (int i = 0; i < _toolbarButtons.Length; i++)
             if (_toolbarButtons[i].Contains(p)) return i;
+        return -1;
+    }
+
+    private int GetFlyoutButtonAt(Point p)
+    {
+        if (!_flyoutOpen || _flyoutButtonRects == null) return -1;
+        for (int i = 0; i < _flyoutButtonRects.Length; i++)
+            if (_flyoutButtonRects[i].Contains(p)) return i;
         return -1;
     }
 

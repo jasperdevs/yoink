@@ -158,6 +158,10 @@
             </Style.Triggers>
         </Style>
 
+        <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimaryBrush}"/>
+        </Style>
+
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="16,14"/>
@@ -169,7 +173,7 @@
 
         <Style x:Key="InlineTagChip" TargetType="Border">
             <Setter Property="CornerRadius" Value="3"/>
-            <Setter Property="Background" Value="#15FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource ThemeTabActiveBrush}"/>
             <Setter Property="Padding" Value="5,2"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
         </Style>
@@ -182,8 +186,8 @@
             <Setter Property="Width" Value="24"/>
             <Setter Property="Height" Value="24"/>
             <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Background" Value="#16FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#28FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource ThemeTabActiveBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThemeInputBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -284,8 +288,8 @@
     </Window.Resources>
 
         <Border Margin="1" CornerRadius="12">
-    <Border x:Name="OuterBorder" CornerRadius="12" ClipToBounds="True" Background="#1F1F1F"
-            BorderBrush="#12FFFFFF" BorderThickness="1">
+    <Border x:Name="OuterBorder" CornerRadius="12" ClipToBounds="True"
+            BorderThickness="1">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -293,7 +297,7 @@
         </Grid.RowDefinitions>
 
         <!-- Custom title bar -->
-        <Border x:Name="TitleBarBorder" Grid.Row="0" Padding="16,8,0,0" Background="#1A1A1A"
+        <Border x:Name="TitleBarBorder" Grid.Row="0" Padding="16,8,0,0"
                 CornerRadius="11,11,0,0"
                 MouseLeftButtonDown="TitleBar_MouseDown">
             <Grid>
@@ -305,14 +309,21 @@
                                FontFamily="Segoe UI Variable Display"
                                Foreground="{DynamicResource ThemeTextPrimaryBrush}" Opacity="0.85" VerticalAlignment="Center"/>
                 </StackPanel>
-                <Border Width="40" Height="34" CornerRadius="0,11,0,0" Cursor="Hand" Background="Transparent"
-                        MouseLeftButtonDown="CloseBtn_Click" MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave"
-                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,0,0">
-                    <Canvas Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Line X1="0" Y1="0" X2="12" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
-                        <Line X1="12" Y1="0" X2="0" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
-                    </Canvas>
-                </Border>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,0,0">
+                    <Border Width="40" Height="34" CornerRadius="0" Cursor="Hand" Background="Transparent"
+                            MouseLeftButtonDown="MinimizeBtn_Click" MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave">
+                        <Canvas Width="12" Height="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Line X1="0" Y1="1" X2="12" Y2="1" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
+                        </Canvas>
+                    </Border>
+                    <Border Width="40" Height="34" CornerRadius="0,11,0,0" Cursor="Hand" Background="Transparent"
+                            MouseLeftButtonDown="CloseBtn_Click" MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave">
+                        <Canvas Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Line X1="0" Y1="0" X2="12" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
+                            <Line X1="12" Y1="0" X2="0" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
+                        </Canvas>
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -334,6 +345,8 @@
                     <RadioButton x:Name="CaptureTab" Content="Capture" GroupName="Main"
                                  Click="TabChanged" Style="{StaticResource NavItem}"/>
                     <RadioButton x:Name="RecordingTab" Content="Recording" GroupName="Main"
+                                 Click="TabChanged" Style="{StaticResource NavItem}"/>
+                    <RadioButton x:Name="OcrTab" Content="OCR" GroupName="Main"
                                  Click="TabChanged" Style="{StaticResource NavItem}"/>
                     <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="8,6,8,6"/>
                     <RadioButton x:Name="HistoryTab" Content="History" GroupName="Main"
@@ -380,9 +393,21 @@
                         </Grid>
                     </Border>
 
+                    <TextBlock Text="Overlay" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
                     <Border Style="{StaticResource Card}">
-                        <CheckBox x:Name="ShowCursorCheck" Content="Show cursor in captures" FontSize="13"
-                                  Checked="ShowCursorCheck_Changed" Unchecked="ShowCursorCheck_Changed"/>
+                        <StackPanel>
+                            <CheckBox x:Name="ShowCursorCheck" Content="Show cursor in captures" FontSize="13"
+                                      Checked="ShowCursorCheck_Changed" Unchecked="ShowCursorCheck_Changed"/>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <CheckBox x:Name="CrosshairGuidesCheck" Content="Show crosshair guides" FontSize="13"
+                                      Checked="CrosshairGuidesCheck_Changed" Unchecked="CrosshairGuidesCheck_Changed"/>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <CheckBox x:Name="ShowCaptureMagnifierCheck" Content="Show pixel magnifier" FontSize="13"
+                                      Checked="ShowCaptureMagnifierCheck_Changed" Unchecked="ShowCaptureMagnifierCheck_Changed"/>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <CheckBox x:Name="AnnotationStrokeShadowCheck" Content="Annotation stroke and shadow" FontSize="13"
+                                      Checked="AnnotationStrokeShadowCheck_Changed" Unchecked="AnnotationStrokeShadowCheck_Changed"/>
+                        </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource Card}">
@@ -484,15 +509,6 @@
                                     <ComboBoxItem Content="480p" Tag="480"/>
                                 </ComboBox>
                             </Grid>
-                            <Grid Margin="0,10,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="OCR language" FontSize="13" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="OcrLanguageCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="145"
-                                          SelectionChanged="OcrLanguageCombo_SelectionChanged"/>
-                            </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0" x:Name="SaveDirPanel" Visibility="Collapsed">
                                 <TextBox x:Name="SaveDirBox" IsReadOnly="True" FontSize="11" Padding="7,4" Width="280"
                                           Background="{DynamicResource ThemeInputBackgroundBrush}" Foreground="{DynamicResource ThemeTextPrimaryBrush}" BorderBrush="{DynamicResource ThemeInputBorderBrush}" BorderThickness="1"/>
@@ -582,6 +598,118 @@
                 </StackPanel>
             </ScrollViewer>
 
+            <!-- OCR & Translation -->
+            <ScrollViewer x:Name="OcrPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" Padding="18,4,18,18">
+                <StackPanel>
+                    <TextBlock Text="Text Recognition" Style="{StaticResource SectionLabel}"/>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="OCR language" FontSize="13" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="OcrLanguageCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="180"
+                                          IsEditable="True" IsTextSearchEnabled="False"
+                                          PreviewTextInput="OcrCombo_PreviewTextInput" PreviewKeyDown="OcrCombo_PreviewKeyDown"
+                                          SelectionChanged="OcrLanguageCombo_SelectionChanged"/>
+                            </Grid>
+                            <TextBlock x:Name="OcrLanguageStatusText" FontSize="11" Opacity="0.35" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Translation" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Default source language" FontSize="13" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="TranslateFromCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="145"
+                                          IsEditable="True" IsTextSearchEnabled="False"
+                                          PreviewTextInput="OcrCombo_PreviewTextInput" PreviewKeyDown="OcrCombo_PreviewKeyDown"
+                                          SelectionChanged="TranslateFromCombo_Changed"/>
+                            </Grid>
+
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Default target language" FontSize="13" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="TranslateToCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="145"
+                                          IsEditable="True" IsTextSearchEnabled="False"
+                                          PreviewTextInput="OcrCombo_PreviewTextInput" PreviewKeyDown="OcrCombo_PreviewKeyDown"
+                                          SelectionChanged="TranslateToCombo_Changed"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Models" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Default model" FontSize="13" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="TranslateModelCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="160"
+                                      SelectionChanged="TranslateModelCombo_Changed">
+                                <ComboBoxItem Content="Argos Translate" Tag="0"/>
+                                <ComboBoxItem Content="Google Translate" Tag="1"/>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock FontSize="13">
+                                        <Hyperlink NavigateUri="https://github.com/argosopentech/argos-translate" RequestNavigate="Hyperlink_Navigate"
+                                                   Foreground="{DynamicResource ThemeAccentBrush}" FontSize="13">Argos Translate</Hyperlink>
+                                        <Run Text=" — open source, local, no API key" FontSize="11" Foreground="{DynamicResource ThemeMutedBrush}"/>
+                                    </TextBlock>
+                                    <TextBlock x:Name="ArgosStatusText" Text="Not installed" FontSize="11" Opacity="0.45" Margin="0,2,0,0"/>
+                                    <ProgressBar x:Name="ArgosProgressBar" Height="3" Margin="0,4,0,0"
+                                                 IsIndeterminate="True" Visibility="Collapsed"/>
+                                </StackPanel>
+                                <Button x:Name="ArgosInstallBtn" Grid.Column="1" Content="Install" FontSize="11" Padding="12,5"
+                                        Click="ArgosInstallBtn_Click"/>
+                            </Grid>
+
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Google Translate API key" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBox x:Name="GoogleApiKeyBox" Grid.Column="1" FontSize="11" Padding="7,5" MinWidth="200"
+                                         Background="{DynamicResource ThemeInputBackgroundBrush}"
+                                         Foreground="{DynamicResource ThemeTextPrimaryBrush}"
+                                         BorderBrush="{DynamicResource ThemeInputBorderBrush}" BorderThickness="1"
+                                         TextChanged="GoogleApiKeyBox_Changed"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
             <!-- Toolbar -->
             <!-- Toolbar panel removed — merged into Hotkeys panel above -->
 
@@ -591,15 +719,12 @@
             <!-- We need to close and reopen for the General section -->
             <ScrollViewer x:Name="SettingsPanel" VerticalScrollBarVisibility="Auto" Padding="18,4,18,18">
                 <StackPanel>
-                    <TextBlock Text="General" Style="{StaticResource SectionLabel}"/>
-
+                    <TextBlock Text="Sounds" Style="{StaticResource SectionLabel}"/>
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <CheckBox x:Name="MuteSoundsCheck" Content="Mute capture sounds" FontSize="13"
                                       Checked="MuteSoundsCheck_Changed" Unchecked="MuteSoundsCheck_Changed"/>
-
                             <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -613,19 +738,12 @@
                                     <ComboBoxItem Content="Retro"/>
                                 </ComboBox>
                             </Grid>
+                        </StackPanel>
+                    </Border>
 
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
-                            <CheckBox x:Name="CrosshairGuidesCheck" Content="Show crosshair guides" FontSize="13"
-                                      Checked="CrosshairGuidesCheck_Changed" Unchecked="CrosshairGuidesCheck_Changed"/>
-
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
-                            <CheckBox x:Name="ShowCaptureMagnifierCheck" Content="Show pixel magnifier in captures" FontSize="13"
-                                      Checked="ShowCaptureMagnifierCheck_Changed" Unchecked="ShowCaptureMagnifierCheck_Changed"/>
-
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
+                    <TextBlock Text="Notifications" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -640,9 +758,7 @@
                                     <ComboBoxItem Content="Top Right"/>
                                 </ComboBox>
                             </Grid>
-
                             <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -659,50 +775,46 @@
                                     <ComboBoxItem Content="5 seconds" Tag="5"/>
                                 </ComboBox>
                             </Grid>
+                        </StackPanel>
+                    </Border>
 
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
-                            <CheckBox x:Name="AutoPinPreviewsCheck" Content="Auto-pin screenshot previews" FontSize="13"
-                                      Checked="AutoPinPreviewsCheck_Changed" Unchecked="AutoPinPreviewsCheck_Changed"/>
-
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
-                            <CheckBox x:Name="ShowImageSearchBarCheck" Content="Show image search bar on Images" FontSize="13"
+                    <TextBlock Text="Search" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="ShowImageSearchBarCheck" Content="Show image search bar" FontSize="13"
                                       Checked="ShowImageSearchBarCheck_Changed" Unchecked="ShowImageSearchBarCheck_Changed"/>
-                            <CheckBox x:Name="ShowImageSearchDiagnosticsCheck" Content="Show image search diagnostics" FontSize="13" Margin="0,6,0,0"
-                                      Checked="ShowImageSearchDiagnosticsCheck_Changed" Unchecked="ShowImageSearchDiagnosticsCheck_Changed"/>
-                            <CheckBox x:Name="AutoIndexImagesCheck" Content="Auto-index images for search" FontSize="13" Margin="0,6,0,0"
+                            <CheckBox x:Name="AutoIndexImagesCheck" Content="Auto-index images" FontSize="13" Margin="0,6,0,0"
                                       Checked="AutoIndexImagesCheck_Changed" Unchecked="AutoIndexImagesCheck_Changed"/>
-
+                            <CheckBox x:Name="ShowImageSearchDiagnosticsCheck" Content="Show search diagnostics" FontSize="13" Margin="0,6,0,0"
+                                      Checked="ShowImageSearchDiagnosticsCheck_Changed" Unchecked="ShowImageSearchDiagnosticsCheck_Changed"/>
                             <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Image index cache" FontSize="13" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Clears screenshot OCR/search index and rebuilds it in the background." FontSize="11" Opacity="0.35" Margin="0,2,8,0" TextWrapping="Wrap"/>
-                                </StackPanel>
-                                <Button x:Name="ResetImageIndexesBtn" Grid.Column="1" Content="Reset image indexes" FontSize="11" Padding="10,5"
+                                <TextBlock Text="Image index cache" FontSize="13" VerticalAlignment="Center"/>
+                                <Button x:Name="ResetImageIndexesBtn" Grid.Column="1" Content="Reset" FontSize="11" Padding="10,5"
                                         Margin="8,0,0,0" Click="ResetImageIndexesBtn_Click"/>
                             </Grid>
+                        </StackPanel>
+                    </Border>
 
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
+                    <TextBlock Text="System" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
                             <CheckBox x:Name="StartWithWindowsCheck" Content="Launch on startup" FontSize="13"
                                       Checked="StartWithWindowsCheck_Changed" Unchecked="StartWithWindowsCheck_Changed"/>
-
                             <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                            <CheckBox x:Name="AutoPinPreviewsCheck" Content="Auto-pin screenshot previews" FontSize="13"
+                                      Checked="AutoPinPreviewsCheck_Changed" Unchecked="AutoPinPreviewsCheck_Changed"/>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <StackPanel Orientation="Horizontal">
                                 <Button Content="Export settings" FontSize="12" Padding="10,6"
                                         Margin="0,0,8,0" Click="ExportSettingsButton_Click"/>
                                 <Button Content="Import settings" FontSize="12" Padding="10,6"
                                         Click="ImportSettingsButton_Click"/>
                             </StackPanel>
-
                         </StackPanel>
                     </Border>
 
@@ -733,15 +845,35 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock x:Name="VersionText" FontSize="10.5" Opacity="0.22" HorizontalAlignment="Center" Margin="0,24,0,2">
-                        <Run Text="Yoink"/>
-                    </TextBlock>
-                    <TextBlock HorizontalAlignment="Center" Margin="0,0,0,4">
-                        <Hyperlink NavigateUri="https://github.com/jasperdevs/yoink" RequestNavigate="Hyperlink_Navigate"
-                                   Foreground="{DynamicResource ThemeAccentBrush}" FontSize="10.5">GitHub</Hyperlink>
-                    </TextBlock>
+                    <TextBlock Text="Links" Style="{StaticResource SectionLabel}" Margin="0,16,0,0"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,6">
+                                <Hyperlink NavigateUri="https://github.com/jasperdevs/yoink" RequestNavigate="Hyperlink_Navigate"
+                                           Foreground="{DynamicResource ThemeAccentBrush}" FontSize="12">Source Code</Hyperlink>
+                                <Run Text=" — GitHub repository" FontSize="11" Foreground="{DynamicResource ThemeTextSecondaryBrush}"/>
+                            </TextBlock>
+                            <TextBlock Margin="0,0,0,6">
+                                <Hyperlink NavigateUri="https://github.com/jasperdevs/yoink/releases/latest" RequestNavigate="Hyperlink_Navigate"
+                                           Foreground="{DynamicResource ThemeAccentBrush}" FontSize="12">Releases</Hyperlink>
+                                <Run Text=" — Download the latest version" FontSize="11" Foreground="{DynamicResource ThemeTextSecondaryBrush}"/>
+                            </TextBlock>
+                            <TextBlock Margin="0,0,0,6">
+                                <Hyperlink NavigateUri="https://github.com/jasperdevs/yoink/issues" RequestNavigate="Hyperlink_Navigate"
+                                           Foreground="{DynamicResource ThemeAccentBrush}" FontSize="12">Issues</Hyperlink>
+                                <Run Text=" — Report bugs or request features" FontSize="11" Foreground="{DynamicResource ThemeTextSecondaryBrush}"/>
+                            </TextBlock>
+                            <TextBlock>
+                                <Hyperlink NavigateUri="https://github.com/jasperdevs/yoink/blob/main/LICENSE" RequestNavigate="Hyperlink_Navigate"
+                                           Foreground="{DynamicResource ThemeAccentBrush}" FontSize="12">License</Hyperlink>
+                                <Run Text=" — MIT" FontSize="11" Foreground="{DynamicResource ThemeTextSecondaryBrush}"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
 
-                    <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,16,0,12"/>
+                    <TextBlock x:Name="VersionText" FontSize="10.5" Opacity="0.22" HorizontalAlignment="Center" Margin="0,20,0,6"/>
+
+                    <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,12,0,12"/>
 
                     <StackPanel Orientation="Horizontal">
                         <Button Content="Reset Settings" FontSize="12" Padding="10,6"
@@ -764,18 +896,13 @@
                 <Border Grid.Row="0" Padding="10,6,10,6">
                     <StackPanel>
                         <DockPanel>
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <StackPanel x:Name="ReindexAllProgressPanel" Orientation="Horizontal" VerticalAlignment="Center"
-                                            Margin="0,0,8,0" Visibility="Collapsed">
-                                    <ProgressBar x:Name="ReindexAllProgressBar" Width="72" Height="4" IsIndeterminate="True" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="ReindexAllProgressText" Text="Indexing..." FontSize="10.5" Opacity="0.56" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                </StackPanel>
-                                <Button x:Name="SelectBtn" Content="Select" FontSize="10.5" Padding="10,3"
-                                         Margin="0,0,4,0" Click="ToggleSelectMode"/>
-                                <Button x:Name="DeleteAllBtn" Content="Clear all" FontSize="10.5" Padding="10,3"
-                                        Click="DeleteAllClick"/>
-                                <Button x:Name="DeleteSelectedBtn" Content="Delete selected" FontSize="10.5"
-                                         Padding="10,3" Margin="4,0,0,0" Visibility="Collapsed" Click="DeleteSelectedClick"/>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Stretch">
+                                <Button x:Name="SelectBtn" Content="Select" FontSize="12" Padding="10,0"
+                                         Margin="0,0,4,0" VerticalAlignment="Stretch" MinHeight="0" Click="ToggleSelectMode"/>
+                                <Button x:Name="DeleteAllBtn" Content="Clear all" FontSize="12" Padding="10,0"
+                                        VerticalAlignment="Stretch" MinHeight="0" Click="DeleteAllClick"/>
+                                <Button x:Name="DeleteSelectedBtn" Content="Delete selected" FontSize="12"
+                                         Padding="10,0" Margin="4,0,0,0" VerticalAlignment="Stretch" MinHeight="0" Visibility="Collapsed" Click="DeleteSelectedClick"/>
                             </StackPanel>
                             <ComboBox x:Name="HistoryCategoryCombo" FontSize="12" Padding="8,5" MinWidth="130"
                                       VerticalAlignment="Center" SelectionChanged="HistoryCategoryCombo_Changed"
@@ -822,6 +949,10 @@
                                     <DockPanel Margin="22,10,0,0" LastChildFill="False">
                                         <TextBlock Text="Filters" FontSize="10.5" Opacity="0.42" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                         <TextBlock x:Name="ImageSearchFiltersSummaryText" FontSize="10.5" Opacity="0.62" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <StackPanel x:Name="ReindexAllProgressPanel" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+                                            <ProgressBar x:Name="ReindexAllProgressBar" Width="60" Height="3" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <Button x:Name="ReindexAllBtn" Content="Index" FontSize="10.5" Padding="10,3" VerticalAlignment="Center" Click="ReindexAllBtn_Click"/>
+                                        </StackPanel>
                                         <Button x:Name="ImageSearchFiltersBtn" Content="Edit filters" FontSize="10.5" Padding="10,3"
                                                 DockPanel.Dock="Right" Click="ImageSearchFiltersBtn_Click">
                                             <Button.ContextMenu>
@@ -874,7 +1005,7 @@
                 <!-- Color history -->
                 <ScrollViewer x:Name="ColorsPanel" Grid.Row="1" VerticalScrollBarVisibility="Auto"
                               Padding="14,2,14,14" Visibility="Collapsed">
-                    <WrapPanel x:Name="ColorStack"/>
+                    <StackPanel x:Name="ColorStack"/>
                 </ScrollViewer>
 
                 <!-- Sticker history -->
@@ -886,18 +1017,18 @@
 
                 <!-- Empty states -->
                 <StackPanel x:Name="HistoryEmptyText" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                            Visibility="Collapsed">
-                    <TextBlock Text="No items" FontSize="16" FontFamily="Segoe UI Variable Text" FontWeight="SemiBold" HorizontalAlignment="Center" Opacity="0.1"/>
+                            Visibility="Collapsed" Margin="0,0,0,40">
+                    <TextBlock Text="No items" FontSize="16" FontFamily="Segoe UI Variable Text" FontWeight="SemiBold" HorizontalAlignment="Center" Opacity="0.15"/>
                     <TextBlock x:Name="HistoryEmptyLabel" Text="No captures yet" FontSize="13" FontFamily="Segoe UI Variable Text"
-                               Opacity="0.2" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                               Opacity="0.3" HorizontalAlignment="Center" Margin="0,8,0,0"/>
                 </StackPanel>
 
                 <!-- Bottom bar -->
                 <Border Grid.Row="2" Padding="14,4,14,8">
                     <DockPanel LastChildFill="False">
-                        <TextBlock x:Name="HistoryCountText" FontSize="11" Opacity="0.25" VerticalAlignment="Center"
+                        <TextBlock x:Name="HistoryCountText" FontSize="11" Opacity="0.4" VerticalAlignment="Center"
                                    DockPanel.Dock="Left"/>
-                        <TextBlock x:Name="HistorySearchStatusText" FontSize="11" Opacity="0.24" VerticalAlignment="Center"
+                        <TextBlock x:Name="HistorySearchStatusText" FontSize="11" Opacity="0.35" VerticalAlignment="Center"
                                    HorizontalAlignment="Right" Margin="12,0,0,0"/>
                     </DockPanel>
                 </Border>
@@ -927,27 +1058,29 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Upload service" FontSize="13" VerticalAlignment="Center"/>
                                 <ComboBox x:Name="UploadDestCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="145"
+                                          IsEditable="True" IsTextSearchEnabled="False"
+                                          PreviewTextInput="UploadDestCombo_PreviewTextInput" PreviewKeyDown="UploadDestCombo_PreviewKeyDown"
                                           SelectionChanged="UploadDestCombo_Changed">
-                                    <ComboBoxItem Content="None"/>
-                                    <ComboBoxItem Content="Imgur"/>
-                                    <ComboBoxItem Content="ImgBB"/>
-                                    <ComboBoxItem Content="Catbox"/>
-                                    <ComboBoxItem Content="Litterbox (temp)"/>
-                                    <ComboBoxItem Content="Gyazo"/>
-                                    <ComboBoxItem Content="file.io"/>
-                                    <ComboBoxItem Content="Uguu (temp)"/>
-                                    <ComboBoxItem Content="transfer.sh"/>
-                                    <ComboBoxItem Content="Dropbox"/>
-                                    <ComboBoxItem Content="Google Drive"/>
-                                    <ComboBoxItem Content="OneDrive"/>
-                                    <ComboBoxItem Content="Azure Blob"/>
-                                    <ComboBoxItem Content="GitHub"/>
-                                    <ComboBoxItem Content="Immich"/>
-                                    <ComboBoxItem Content="FTP"/>
-                                    <ComboBoxItem Content="SFTP"/>
-                                    <ComboBoxItem Content="WebDAV"/>
-                                    <ComboBoxItem Content="S3 / R2 / B2"/>
-                                    <ComboBoxItem Content="Custom HTTP"/>
+                                    <ComboBoxItem Content="None" Tag="0"/>
+                                    <ComboBoxItem Content="Litterbox (temp)" Tag="4"/>
+                                    <ComboBoxItem Content="Uguu (temp)" Tag="7"/>
+                                    <ComboBoxItem Content="file.io (temp)" Tag="6"/>
+                                    <ComboBoxItem Content="transfer.sh (temp)" Tag="8"/>
+                                    <ComboBoxItem Content="Catbox" Tag="3"/>
+                                    <ComboBoxItem Content="Imgur" Tag="1"/>
+                                    <ComboBoxItem Content="ImgBB" Tag="2"/>
+                                    <ComboBoxItem Content="Gyazo" Tag="5"/>
+                                    <ComboBoxItem Content="Dropbox" Tag="9"/>
+                                    <ComboBoxItem Content="Google Drive" Tag="10"/>
+                                    <ComboBoxItem Content="OneDrive" Tag="11"/>
+                                    <ComboBoxItem Content="Azure Blob" Tag="12"/>
+                                    <ComboBoxItem Content="GitHub" Tag="13"/>
+                                    <ComboBoxItem Content="Immich" Tag="14"/>
+                                    <ComboBoxItem Content="FTP" Tag="15"/>
+                                    <ComboBoxItem Content="SFTP" Tag="16"/>
+                                    <ComboBoxItem Content="WebDAV" Tag="17"/>
+                                    <ComboBoxItem Content="S3 / R2 / B2" Tag="18"/>
+                                    <ComboBoxItem Content="Custom HTTP" Tag="19"/>
                                 </ComboBox>
                             </Grid>
                         </StackPanel>
@@ -1446,12 +1579,12 @@
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <Button x:Name="StickerDownloadRembgBtn" Content="Warm up model" FontSize="12" Padding="12,6"
+                                    <Button x:Name="StickerDownloadRembgBtn" Content="Download model" FontSize="12" Padding="12,6"
                                             Click="StickerDownloadRembgBtn_Click" Cursor="Hand"/>
                                     <Button x:Name="StickerOpenLocalEngineRepoBtn" Content="Open rembg" FontSize="12" Padding="12,6" Margin="8,0,0,0"
                                             Click="StickerOpenLocalEngineRepoBtn_Click" Cursor="Hand"/>
                                     <Button x:Name="StickerRemoveAllModelsBtn" Content="Remove all models" FontSize="12" Padding="12,6" Margin="8,0,0,0"
-                                            Click="StickerRemoveAllModelsBtn_Click" Cursor="Hand"/>
+                                            Click="StickerRemoveAllModelsBtn_Click" Cursor="Hand" Visibility="Collapsed"/>
                                 </StackPanel>
                         </StackPanel>
                     </controls:ProviderSection>

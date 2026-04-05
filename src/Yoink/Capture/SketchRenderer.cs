@@ -108,8 +108,29 @@ public static class SketchRenderer
             DrawSketchyLine(g, pen, corners[i], corners[(i + 1) % 4], seed + i * 1000, roughness);
     }
 
+    // Match text annotation shadow/stroke values exactly
+    private static readonly Color AnnotShadow1 = Color.FromArgb(50, 0, 0, 0);
+    private static readonly Color AnnotShadow2 = Color.FromArgb(25, 0, 0, 0);
+    private static readonly Color AnnotStroke = Color.FromArgb(60, 0, 0, 0);
+
+    private static void DrawPenWithStrokeShadow(Graphics g, Pen mainPen, PointF from, PointF to)
+    {
+        // Shadow: two offset passes (matching text shadow)
+        using var s1 = new Pen(AnnotShadow1, mainPen.Width) { StartCap = mainPen.StartCap, EndCap = mainPen.EndCap };
+        using var s2 = new Pen(AnnotShadow2, mainPen.Width) { StartCap = mainPen.StartCap, EndCap = mainPen.EndCap };
+        g.DrawLine(s1, from.X + 2, from.Y + 2, to.X + 2, to.Y + 2);
+        g.DrawLine(s2, from.X + 3, from.Y + 3, to.X + 3, to.Y + 3);
+
+        // Stroke: 8-direction offset (matching text stroke)
+        using var strokePen = new Pen(AnnotStroke, mainPen.Width) { StartCap = mainPen.StartCap, EndCap = mainPen.EndCap };
+        for (int ox = -1; ox <= 1; ox++)
+            for (int oy = -1; oy <= 1; oy++)
+                if (ox != 0 || oy != 0)
+                    g.DrawLine(strokePen, from.X + ox, from.Y + oy, to.X + ox, to.Y + oy);
+    }
+
     /// <summary>Draw a straight line (no arrowhead).</summary>
-    public static void DrawLine(Graphics g, PointF from, PointF to, Color color, int seed)
+    public static void DrawLine(Graphics g, PointF from, PointF to, Color color, int seed, bool strokeShadow = false)
     {
         float dx = to.X - from.X, dy = to.Y - from.Y;
         float len = MathF.Sqrt(dx * dx + dy * dy);
@@ -119,16 +140,19 @@ public static class SketchRenderer
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Main pass
         using var pen = new Pen(color, thickness)
             { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+
+        if (strokeShadow)
+            DrawPenWithStrokeShadow(g, pen, from, to);
+
         g.DrawLine(pen, from, to);
 
         g.SmoothingMode = SmoothingMode.Default;
     }
 
     /// <summary>Draw a clean arrow with proportional arrowhead (Excalidraw style).</summary>
-    public static void DrawArrow(Graphics g, PointF from, PointF to, Color color, int seed, float roughness = 0.5f, bool includeShadow = true)
+    public static void DrawArrow(Graphics g, PointF from, PointF to, Color color, int seed, float roughness = 0.5f, bool strokeShadow = false)
     {
         float dx = to.X - from.X, dy = to.Y - from.Y;
         float len = MathF.Sqrt(dx * dx + dy * dy);
@@ -138,7 +162,26 @@ public static class SketchRenderer
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Main pass
+        if (strokeShadow)
+        {
+            // Shadow passes
+            using var s1 = new Pen(AnnotShadow1, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            g.DrawLine(s1, from.X + 2, from.Y + 2, to.X + 2, to.Y + 2);
+            DrawArrowhead(g, new PointF(to.X + 2, to.Y + 2), dx / len, dy / len, len, AnnotShadow1, thickness + 0.5f);
+            using var s2 = new Pen(AnnotShadow2, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            g.DrawLine(s2, from.X + 3, from.Y + 3, to.X + 3, to.Y + 3);
+
+            // Stroke passes (8 directions)
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                    if (ox != 0 || oy != 0)
+                    {
+                        using var sp = new Pen(AnnotStroke, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+                        g.DrawLine(sp, from.X + ox, from.Y + oy, to.X + ox, to.Y + oy);
+                        DrawArrowhead(g, new PointF(to.X + ox, to.Y + oy), dx / len, dy / len, len, AnnotStroke, thickness + 0.5f);
+                    }
+        }
+
         using var pen = new Pen(color, thickness)
             { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         g.DrawLine(pen, from, to);
@@ -149,7 +192,7 @@ public static class SketchRenderer
     }
 
     /// <summary>Draw a curved arrow (smooth line with arrowhead at tip).</summary>
-    public static void DrawCurvedArrow(Graphics g, List<Point> points, Color color, int seed)
+    public static void DrawCurvedArrow(Graphics g, List<Point> points, Color color, int seed, bool strokeShadow = false)
     {
         if (points.Count < 2) return;
 
@@ -163,7 +206,29 @@ public static class SketchRenderer
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Main pass
+        if (strokeShadow)
+        {
+            // Shadow passes
+            var s1Pts = points.Select(p => new Point(p.X + 2, p.Y + 2)).ToArray();
+            var s2Pts = points.Select(p => new Point(p.X + 3, p.Y + 3)).ToArray();
+            using var s1Pen = new Pen(AnnotShadow1, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+            using var s2Pen = new Pen(AnnotShadow2, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+            if (s1Pts.Length >= 4) { g.DrawCurve(s1Pen, s1Pts, 0.5f); g.DrawCurve(s2Pen, s2Pts, 0.5f); }
+            else { g.DrawLines(s1Pen, s1Pts); g.DrawLines(s2Pen, s2Pts); }
+
+            // Stroke passes (8 directions)
+            var ptsArr = points.ToArray();
+            using var strokePen = new Pen(AnnotStroke, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                    if (ox != 0 || oy != 0)
+                    {
+                        var offsetPts = ptsArr.Select(p => new Point(p.X + ox, p.Y + oy)).ToArray();
+                        if (offsetPts.Length >= 4) g.DrawCurve(strokePen, offsetPts, 0.5f);
+                        else g.DrawLines(strokePen, offsetPts);
+                    }
+        }
+
         using var pen = new Pen(color, thickness)
             { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         if (points.Count >= 4)
@@ -171,11 +236,19 @@ public static class SketchRenderer
         else
             g.DrawLines(pen, points.ToArray());
 
+        // Use the last two points for arrowhead direction (closest to the tip)
         var last = points[^1];
-        var prev = points[Math.Max(0, points.Count - Math.Min(12, points.Count / 3 + 1))];
+        var prev = points.Count >= 3 ? points[^3] : points[^2];
         float dx = last.X - prev.X, dy = last.Y - prev.Y;
         float l = MathF.Sqrt(dx * dx + dy * dy);
-        if (l > 2)
+        if (l < 1 && points.Count >= 2)
+        {
+            // Fallback: use last two points
+            prev = points[^2];
+            dx = last.X - prev.X; dy = last.Y - prev.Y;
+            l = MathF.Sqrt(dx * dx + dy * dy);
+        }
+        if (l > 1)
             DrawArrowhead(g, new PointF(last.X, last.Y), dx / l, dy / l, len, color, thickness + 0.5f);
 
         g.SmoothingMode = SmoothingMode.Default;
@@ -205,7 +278,7 @@ public static class SketchRenderer
     /// <summary>
     /// Draw a freehand stroke as a variable-width filled outline (like perfect-freehand).
     /// </summary>
-    public static void DrawFreehandStroke(Graphics g, List<Point> points, Color color, float size)
+    public static void DrawFreehandStroke(Graphics g, List<Point> points, Color color, float size, bool strokeShadow = false)
     {
         if (points.Count < 2) return;
         var floatPts = points.Select(p => new PointF(p.X, p.Y)).ToList();
@@ -246,6 +319,34 @@ public static class SketchRenderer
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
         using var path = OutlineToPath(outline);
+
+        if (strokeShadow)
+        {
+            // Shadow passes (matching text)
+            using var shadow1 = (GraphicsPath)path.Clone();
+            using var shadow2 = (GraphicsPath)path.Clone();
+            var m1 = new System.Drawing.Drawing2D.Matrix(); m1.Translate(2, 2);
+            var m2 = new System.Drawing.Drawing2D.Matrix(); m2.Translate(3, 3);
+            shadow1.Transform(m1);
+            shadow2.Transform(m2);
+            using var sb1 = new SolidBrush(AnnotShadow1);
+            using var sb2 = new SolidBrush(AnnotShadow2);
+            g.FillPath(sb1, shadow1);
+            g.FillPath(sb2, shadow2);
+
+            // Stroke passes (8 directions, matching text)
+            using var strokeBrush = new SolidBrush(AnnotStroke);
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                    if (ox != 0 || oy != 0)
+                    {
+                        using var sp = (GraphicsPath)path.Clone();
+                        var sm = new System.Drawing.Drawing2D.Matrix(); sm.Translate(ox, oy);
+                        sp.Transform(sm);
+                        g.FillPath(strokeBrush, sp);
+                    }
+        }
+
         // Main pass
         using var brush = new SolidBrush(color);
         g.FillPath(brush, path);
@@ -265,20 +366,53 @@ public static class SketchRenderer
         g.SmoothingMode = SmoothingMode.Default;
     }
 
-    public static void DrawRectShape(Graphics g, Rectangle rect, Color color)
+    public static void DrawRectShape(Graphics g, Rectangle rect, Color color, bool strokeShadow = false)
     {
         if (rect.Width < 1 || rect.Height < 1) return;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using var path = RoundedRect(rect, 3);
+
+        if (strokeShadow)
+        {
+            using var s1Path = RoundedRect(new Rectangle(rect.X + 2, rect.Y + 2, rect.Width, rect.Height), 3);
+            using var s2Path = RoundedRect(new Rectangle(rect.X + 3, rect.Y + 3, rect.Width, rect.Height), 3);
+            using var s1Pen = new Pen(AnnotShadow1, 2.2f) { LineJoin = LineJoin.Round };
+            using var s2Pen = new Pen(AnnotShadow2, 2.2f) { LineJoin = LineJoin.Round };
+            g.DrawPath(s1Pen, s1Path);
+            g.DrawPath(s2Pen, s2Path);
+            using var strokePen = new Pen(AnnotStroke, 2.2f) { LineJoin = LineJoin.Round };
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                    if (ox != 0 || oy != 0)
+                    {
+                        using var sp = RoundedRect(new Rectangle(rect.X + ox, rect.Y + oy, rect.Width, rect.Height), 3);
+                        g.DrawPath(strokePen, sp);
+                    }
+        }
+
         using var pen = new Pen(color, 2.2f) { LineJoin = LineJoin.Round };
         g.DrawPath(pen, path);
         g.SmoothingMode = SmoothingMode.Default;
     }
 
-    public static void DrawCircleShape(Graphics g, Rectangle rect, Color color)
+    public static void DrawCircleShape(Graphics g, Rectangle rect, Color color, bool strokeShadow = false)
     {
         if (rect.Width < 1 || rect.Height < 1) return;
         g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        if (strokeShadow)
+        {
+            using var s1Pen = new Pen(AnnotShadow1, 2.2f);
+            using var s2Pen = new Pen(AnnotShadow2, 2.2f);
+            g.DrawEllipse(s1Pen, new Rectangle(rect.X + 2, rect.Y + 2, rect.Width, rect.Height));
+            g.DrawEllipse(s2Pen, new Rectangle(rect.X + 3, rect.Y + 3, rect.Width, rect.Height));
+            using var strokePen = new Pen(AnnotStroke, 2.2f);
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                    if (ox != 0 || oy != 0)
+                        g.DrawEllipse(strokePen, new Rectangle(rect.X + ox, rect.Y + oy, rect.Width, rect.Height));
+        }
+
         using var pen = new Pen(color, 2.2f) { LineJoin = LineJoin.Round };
         g.DrawEllipse(pen, rect);
         g.SmoothingMode = SmoothingMode.Default;
@@ -339,7 +473,7 @@ public static class SketchRenderer
     /// <summary>Convert outline points to a smooth GraphicsPath using quadratic bezier approximation.</summary>
     public static GraphicsPath OutlineToPath(PointF[] pts)
     {
-        var path = new GraphicsPath();
+        var path = new GraphicsPath(FillMode.Winding);
         if (pts.Length < 3) return path;
 
         path.StartFigure();

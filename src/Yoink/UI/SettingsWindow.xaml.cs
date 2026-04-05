@@ -261,6 +261,8 @@ public partial class SettingsWindow : Window
 
     private void CloseBtn_Click(object sender, MouseButtonEventArgs e) => Close();
 
+    private void MinimizeBtn_Click(object sender, MouseButtonEventArgs e) => WindowState = WindowState.Minimized;
+
     private void TitleBtn_Enter(object sender, System.Windows.Input.MouseEventArgs e)
     {
         if (sender is Border b) b.Background = Theme.Brush(Theme.AccentHover);

@@ -1,33 +1,35 @@
-# Yoink v0.6.2
-
-## Highlights
-- Fixed installer-first release builds failing during fresh install when launched from a normal folder like Downloads.
-- Reworked screenshot-mode hover performance so window detection, magnifier updates, and selection feedback no longer feel delayed behind the cursor.
-- Fixed multiple capture-overlay paint artifacts across normal screenshot, scrolling capture, and recording selection flows.
-- Restored real annotation hotkeys and tooltip labels so the overlay matches the configured tool bindings instead of shifted tool positions.
+# Yoink v0.7.0
 
 ## Added
-- Added a capture-magnifier preference to onboarding so new installs can enable or disable the loupe immediately.
-- Added a lightweight dedicated crosshair guide window path instead of routing guide rendering through the main overlay paint path.
-- Added explicit uninstall cleanup for local runtime caches used by sticker/background-removal models.
+- OCR result window — text captures now open a dedicated window instead of copying straight to clipboard
+- Translation support with Argos Translate (offline) and Google Translate API
+- OCR settings panel with language selection, translation defaults, and model management
+- Tessdata auto-download — selecting an OCR language installs its pack on the fly
+- Stroke and shadow effects on all annotation tools (arrows, lines, shapes, freehand)
+- Hotkey hints in the tray menu, right-aligned and muted
+- Searchable dropdowns for language selectors and upload destination
+- About section with links to source, releases, issues, and license
+- Smooth cursor blink in text annotation mode
+- Installer completion animation with logo scale effect
+- Setup wizard page transitions with fade animations
 
 ## Changed
-- Changed hover window detection to use direct point lookup with top-level z-order probing instead of desktop-wide window enumeration.
-- Changed selection overlay invalidation to avoid creating a graphics context on every drag frame just to measure the size label.
-- Changed capture magnifier behavior so it stays visible during active selection, hides over dock/popup UI, and follows the cursor more tightly.
-- Changed active-tool visuals so the selected tool indicator is dimmer and no longer uses the overly bright stroked circle.
-- Changed installer payload copying so standalone release exes copy only the app payload instead of treating the containing folder as the install source tree.
-
-## Removed
-- Removed position-based annotation hotkey switching in the overlay; tool switching now follows saved hotkey mappings only.
-- Removed the reversible/XOR crosshair experiment that caused visual corruption and clipping artifacts.
-- Removed reliance on implicit app-data deletion alone for local model cleanup during uninstall.
+- Tray icon tooltip now shows "Click to capture, right-click for menu"
+- Settings reorganized — General split into Sounds, Notifications, Search, System sections
+- Overlay settings (crosshair, magnifier, annotation stroke) moved to Capture tab
+- Upload destination combo uses tag-based selection instead of index
+- Version display cleaned up to 3-part format (v0.7.0 not v0.7.0.0)
+- Registry entries updated with proper publisher, repo links, and full install size
+- Crosshair guides now 3px with shadow edges instead of 1px lines
+- Installer skips for dev builds running from Visual Studio
 
 ## Fixed
-- Fixed screenshot-mode magnifier updates stalling or only refreshing every few seconds.
-- Fixed hover tooltip hotkeys showing the wrong number even when the configured tool hotkey was different.
-- Fixed scrolling capture and recording selection leaving paint trails or stale UI behind the moving selection/magnifier.
-- Fixed window-detection preview regressing into a broken or inconsistent border path.
-- Fixed screenshot crosshair guides lagging behind cursor movement and glitching when crossing overlay UI.
-- Fixed uninstall cleanup leaving downloaded local sticker model/runtime data behind.
-- Fixed fresh install failures caused by installer-first release exes being launched from folders with unrelated user files.
+- Draw tool inverting fills (switched GraphicsPath to Winding fill mode)
+- Text cursor misaligned with drawn text (GDI vs GDI+ measurement mismatch)
+- Curved arrow tips disappearing (direction now uses last few points, not distant lookback)
+- Dropdown search skipping first typed character
+- Non-Latin text (CJK, Arabic, Cyrillic) garbled in translation output
+- Hardcoded dark-mode colors breaking light mode in several UI elements
+- Old Windows checkbox style overriding modern template
+- Setup wizard shadow and button border not adapting to light mode
+- Duplicate LooksLikeBuildOutputPath between install and uninstall services

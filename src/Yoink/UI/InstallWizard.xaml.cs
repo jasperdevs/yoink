@@ -2,6 +2,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 using Yoink.Services;
 
 namespace Yoink.UI;
@@ -110,18 +111,18 @@ public partial class InstallWizard : Window
             });
 
             StatusText.Text = "Installed!";
-            StatusDetail.Text = "Yoink has been installed successfully.";
-            ProgressBar.IsIndeterminate = false;
-            ProgressBar.Value = 100;
+            StatusDetail.Text = "";
+            ProgressBar.Visibility = Visibility.Collapsed;
 
             InstallCompleted = true;
             InstalledPath = targetDir;
             LaunchAfter = launchAfter;
 
-            // Brief pause to show success, then close
-            await Task.Delay(800);
-            DialogResult = true;
-            Close();
+            // Hide bottom bar and text, play completion animation
+            CancelBtn.Visibility = Visibility.Collapsed;
+            StatusDetail.Visibility = Visibility.Collapsed;
+
+            await PlayCompletionAnimation();
         }
         catch (Exception ex)
         {
@@ -134,6 +135,62 @@ public partial class InstallWizard : Window
             CancelBtn.Content = "Close";
             InstallBtn.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private async Task PlayCompletionAnimation()
+    {
+        System.Windows.Controls.Panel.SetZIndex(Page2, 10);
+
+        // Fade text out instantly
+        StatusText.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(1, 0, new Duration(TimeSpan.FromMilliseconds(120))));
+
+        await Task.Delay(80);
+
+        // Tint the logo toward the window bg color as it grows
+        var bgColor = Theme.BgPrimary;
+        var tintOverlay = new System.Windows.Controls.Border
+        {
+            Background = new System.Windows.Media.SolidColorBrush(bgColor),
+            Opacity = 0,
+            IsHitTestVisible = false,
+            Width = 48,
+            Height = 48,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            VerticalAlignment = System.Windows.VerticalAlignment.Top,
+            Margin = new Thickness(0, 0, 0, 16),
+            RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
+            RenderTransform = LogoScale // share the same scale transform
+        };
+        InstallingContent.Children.Insert(1, tintOverlay);
+
+        // Logo explodes to 500x in 300ms
+        var growDuration = new Duration(TimeSpan.FromMilliseconds(300));
+        var ease = new ExponentialEase { Exponent = 5, EasingMode = EasingMode.EaseIn };
+
+        LogoScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(1, 500, growDuration) { EasingFunction = ease });
+        LogoScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(1, 500, growDuration) { EasingFunction = ease });
+
+        // Tint overlay on the logo fades in as it grows
+        tintOverlay.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(250)))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(100)
+            });
+
+        // Window bg overlay catches the end
+        CompletionOverlay.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(150)))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(180)
+            });
+
+        await Task.Delay(1100);
+
+        DialogResult = true;
+        Close();
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

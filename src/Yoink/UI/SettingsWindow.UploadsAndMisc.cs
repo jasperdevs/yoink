@@ -9,17 +9,25 @@ namespace Yoink.UI;
 
 public partial class SettingsWindow
 {
+    private Services.UploadDestination GetSelectedUploadDest()
+    {
+        if (UploadDestCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            item.Tag is string tag && int.TryParse(tag, out var val))
+            return (Services.UploadDestination)val;
+        return Services.UploadDestination.None;
+    }
+
     private void UploadDestCombo_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;
-        _settingsService.Settings.ImageUploadDestination = (Services.UploadDestination)UploadDestCombo.SelectedIndex;
+        _settingsService.Settings.ImageUploadDestination = GetSelectedUploadDest();
         _settingsService.Save();
         UpdateUploadSettingsVisibility();
     }
 
     private void UpdateUploadSettingsVisibility()
     {
-        var dest = (Services.UploadDestination)UploadDestCombo.SelectedIndex;
+        var dest = GetSelectedUploadDest();
         ImgurSettings.Visibility = dest == Services.UploadDestination.Imgur ? Visibility.Visible : Visibility.Collapsed;
         ImgBBSettings.Visibility = dest == Services.UploadDestination.ImgBB ? Visibility.Visible : Visibility.Collapsed;
         CatboxSettings.Visibility = dest == Services.UploadDestination.Catbox ? Visibility.Visible : Visibility.Collapsed;
@@ -450,6 +458,91 @@ public partial class SettingsWindow
             try { System.IO.File.Delete(tempPath); } catch { }
             TestUploadBtn.Content = "Test Upload";
             TestUploadBtn.IsEnabled = true;
+        }
+    }
+
+    private readonly List<ComboBoxItem> _uploadDestItems = new();
+    private bool _uploadDestItemsCached;
+
+    private void CacheUploadDestItems()
+    {
+        if (_uploadDestItemsCached) return;
+        _uploadDestItemsCached = true;
+        _uploadDestItems.Clear();
+        foreach (var item in UploadDestCombo.Items.OfType<ComboBoxItem>())
+            _uploadDestItems.Add(item);
+    }
+
+    private void SelectUploadDestByTag(int destValue)
+    {
+        var tag = destValue.ToString();
+        foreach (ComboBoxItem item in UploadDestCombo.Items)
+        {
+            if (item.Tag as string == tag)
+            {
+                UploadDestCombo.SelectedItem = item;
+                return;
+            }
+        }
+        if (UploadDestCombo.Items.Count > 0)
+            UploadDestCombo.SelectedIndex = 0;
+    }
+
+    private void UploadDestCombo_PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+    {
+        CacheUploadDestItems();
+        UploadDestCombo.IsDropDownOpen = true;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            var editText = UploadDestCombo.Text?.Trim() ?? "";
+            UploadDestCombo.Items.Clear();
+
+            if (string.IsNullOrEmpty(editText))
+            {
+                foreach (var item in _uploadDestItems)
+                    UploadDestCombo.Items.Add(item);
+            }
+            else
+            {
+                var lower = editText.ToLowerInvariant();
+                foreach (var item in _uploadDestItems)
+                {
+                    var content = (item.Content as string ?? "").ToLowerInvariant();
+                    if (content.Contains(lower))
+                        UploadDestCombo.Items.Add(item);
+                }
+            }
+
+            UploadDestCombo.IsDropDownOpen = true;
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private void UploadDestCombo_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.Delete)
+        {
+            CacheUploadDestItems();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var editText = UploadDestCombo.Text?.Trim() ?? "";
+                UploadDestCombo.Items.Clear();
+
+                if (string.IsNullOrEmpty(editText))
+                {
+                    foreach (var item in _uploadDestItems)
+                        UploadDestCombo.Items.Add(item);
+                }
+                else
+                {
+                    var lower = editText.ToLowerInvariant();
+                    foreach (var item in _uploadDestItems)
+                    {
+                        var content = (item.Content as string ?? "").ToLowerInvariant();
+                        if (content.Contains(lower))
+                            UploadDestCombo.Items.Add(item);
+                    }
+                }
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
     }
 }

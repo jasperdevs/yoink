@@ -103,10 +103,17 @@
 
         <!-- Page 2: Installing / Complete -->
         <Grid x:Name="Page2" Grid.Row="0" Margin="36,24,36,0" Visibility="Collapsed">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <Image Source="pack://application:,,,/yoink.ico" Width="48" Height="48"
-                       RenderOptions.BitmapScalingMode="HighQuality"
-                       HorizontalAlignment="Center" Margin="0,0,0,16"/>
+            <StackPanel x:Name="InstallingContent" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <!-- Render ICO at 256px source, display at 48px so scaling stays crisp -->
+                <Image x:Name="Page2Logo" Source="pack://application:,,,/yoink.ico"
+                       Width="48" Height="48"
+                       RenderOptions.BitmapScalingMode="Fant"
+                       HorizontalAlignment="Center" Margin="0,0,0,16"
+                       RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <ScaleTransform x:Name="LogoScale" ScaleX="1" ScaleY="1"/>
+                    </Image.RenderTransform>
+                </Image>
                 <TextBlock x:Name="StatusText" Text="Installing..." FontSize="22" FontWeight="SemiBold"
                            FontFamily="Segoe UI Variable Display"
                            Foreground="{DynamicResource WizFg}" HorizontalAlignment="Center"/>
@@ -117,6 +124,10 @@
                              Foreground="{DynamicResource WizProgressFg}" Background="{DynamicResource WizProgressBg}"/>
             </StackPanel>
         </Grid>
+
+        <!-- Completion fade overlay — inside WizardBorder so corner radius clips it -->
+        <Border x:Name="CompletionOverlay" Grid.RowSpan="2" Background="{DynamicResource WizBg}"
+                Opacity="0" IsHitTestVisible="False"/>
 
         <!-- Bottom bar -->
         <Border Grid.Row="1" Padding="28,10,28,18">

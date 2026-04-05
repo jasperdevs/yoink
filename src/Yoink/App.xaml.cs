@@ -97,7 +97,11 @@ public partial class App : Application
 
         _settingsService = new SettingsService();
         _settingsService.Load();
-        EnsureImageSearchIndexService();
+        if (_settingsService.Settings.AutoIndexImages)
+        {
+            EnsureHistoryService();
+            EnsureImageSearchIndexService();
+        }
 
         // After a fresh install, force onboarding
         if (isPostInstall)
@@ -125,7 +129,7 @@ public partial class App : Application
             openSettingsAfterWizard = wizard.Tag as string == "OpenSettings";
         }
 
-        _trayIcon = new TrayIcon();
+        _trayIcon = new TrayIcon(_settingsService?.Settings);
         _trayIcon.OnCapture += () => OnHotkeyPressed();
         _trayIcon.OnOcr += () => OnOcrHotkeyPressed();
         _trayIcon.OnColorPicker += () => OnPickerHotkeyPressed();

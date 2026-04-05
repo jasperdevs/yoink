@@ -31,6 +31,7 @@ public partial class SettingsWindow
         TitleBarBorder.Background = Theme.Brush(Theme.TitleBar);
         TitleText.Foreground = Theme.Brush(Theme.TextPrimary);
         Foreground = Theme.Brush(Theme.TextPrimary);
+
         ApplyThemeToVisualTree(OuterBorder);
         UpdateSectionIcons();
     }
@@ -124,6 +125,7 @@ public partial class SettingsWindow
         ToastPositionCombo.SelectedIndex = (int)s.ToastPosition;
         WindowDetectionCombo.SelectedIndex = (int)s.WindowDetection;
         ShowCursorCheck.IsChecked = s.ShowCursor;
+        AnnotationStrokeShadowCheck.IsChecked = s.AnnotationStrokeShadow;
         CaptureDelayCombo.SelectedIndex = s.CaptureDelaySeconds switch { 3 => 1, 5 => 2, 10 => 3, _ => 0 };
         AutoPinPreviewsCheck.IsChecked = s.AutoPinPreviews;
         SoundPackCombo.SelectedIndex = (int)s.SoundPack;
@@ -138,7 +140,7 @@ public partial class SettingsWindow
         int durIdx = dur switch { 1.5 => 0, 2.0 => 1, 2.5 => 2, 3.0 => 3, 4.0 => 4, 5.0 => 5, _ => 2 };
         ToastDurationCombo.SelectedIndex = durIdx;
 
-        UploadDestCombo.SelectedIndex = (int)s.ImageUploadDestination;
+        SelectUploadDestByTag((int)s.ImageUploadDestination);
         AutoUploadScreenshotsCheck.IsChecked = s.AutoUploadScreenshots;
         AutoUploadGifsCheck.IsChecked = s.AutoUploadGifs;
         AutoUploadVideosCheck.IsChecked = s.AutoUploadVideos;
@@ -177,6 +179,7 @@ public partial class SettingsWindow
         HotkeysPanel.Visibility = HotkeysTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         CapturePanel.Visibility = CaptureTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         RecordingPanel.Visibility = RecordingTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        OcrPanel.Visibility = OcrTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         HistoryPanel.Visibility = HistoryTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         UploadsPanel.Visibility = UploadsTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         AboutPanel.Visibility = AboutTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
@@ -186,6 +189,7 @@ public partial class SettingsWindow
 
         if (HistoryTab.IsChecked == true) LoadCurrentHistoryTab();
         if (UploadsTab.IsChecked == true) UpdateUploadTabVisibility();
+        if (OcrTab.IsChecked == true) LoadOcrTab();
         UpdateHistoryMonitorState();
     }
 
@@ -215,6 +219,15 @@ public partial class SettingsWindow
 
     private void LoadCurrentHistoryTab()
     {
+        // Reset selection mode and search state when switching tabs
+        _selectMode = false;
+        SelectBtn.Content = "Select";
+        DeleteSelectedBtn.Visibility = Visibility.Collapsed;
+        _ocrSearchGrid = null;
+        _ocrSearchQuery = "";
+        _imageSearchQuery = "";
+        if (ImageSearchBox != null) ImageSearchBox.Text = "";
+
         ImagesPanel.Visibility = Visibility.Collapsed;
         GifsPanel.Visibility = Visibility.Collapsed;
         TextPanel.Visibility = Visibility.Collapsed;

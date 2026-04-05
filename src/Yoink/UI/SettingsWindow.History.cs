@@ -71,9 +71,19 @@ public partial class SettingsWindow
             _allHistoryItemsByPath[e.FilePath] = vm;
         }
 
-        RefreshImageSearchTexts();
+        if (_settingsService.Settings.ShowImageSearchBar)
+            RefreshImageSearchTexts();
+
         if (_settingsService.Settings.AutoIndexImages)
-            _imageSearchIndexService.RequestSync(entries, _settingsService.Settings.OcrLanguageTag);
+            Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    if (IsLoaded && HistoryTab.IsChecked == true && HistoryCategoryCombo.SelectedIndex == 0)
+                        _imageSearchIndexService.RequestSync(entries, _settingsService.Settings.OcrLanguageTag);
+                }
+                catch { }
+            }, System.Windows.Threading.DispatcherPriority.Background);
         ApplyImageSearchFilter();
         DeleteSelectedBtn.Visibility = _selectMode ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -109,6 +119,16 @@ public partial class SettingsWindow
             string label = group.Key == DateTime.Today ? "Today"
                 : group.Key == DateTime.Today.AddDays(-1) ? "Yesterday"
                 : group.Key.ToString("MMMM d, yyyy");
+
+            if (HistoryStack.Children.Count > 0)
+            {
+                HistoryStack.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = Theme.Brush(Theme.BorderSubtle),
+                    Margin = new Thickness(6, 14, 6, 0)
+                });
+            }
 
             HistoryStack.Children.Add(new TextBlock
             {
@@ -168,7 +188,17 @@ public partial class SettingsWindow
         var searchEnabled = sources != ImageSearchSourceOptions.None;
         var usingSearch = searchEnabled && !string.IsNullOrWhiteSpace(query);
         var sizeStr = FormatStorageSize(visibleBytes);
-        HistoryCountText.Text = $"{_filteredHistoryItems.Count} capture{(_filteredHistoryItems.Count == 1 ? "" : "s")} · {sizeStr}";
+        var totalCount = _allHistoryItems.Count;
+        if (usingSearch)
+        {
+            HistoryCountText.Text = $"{_filteredHistoryItems.Count} of {totalCount} capture{(totalCount == 1 ? "" : "s")} · {sizeStr}";
+        }
+        else
+        {
+            var indexedCount = _imageSearchIndexService.CountReadyEntries(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
+            var indexSuffix = totalCount > 0 ? $" · {indexedCount}/{totalCount} indexed" : "";
+            HistoryCountText.Text = $"{_filteredHistoryItems.Count} capture{(_filteredHistoryItems.Count == 1 ? "" : "s")} · {sizeStr}{indexSuffix}";
+        }
 
         HistoryEmptyText.Visibility = _filteredHistoryItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         HistoryEmptyLabel.Text = !searchEnabled && !string.IsNullOrWhiteSpace(query)
@@ -255,7 +285,8 @@ public partial class SettingsWindow
             _historyRenderCount = Math.Min(HistoryPageSize, _filteredHistoryItems.Count);
 
             var sizeStr = FormatStorageSize(visibleBytes);
-            HistoryCountText.Text = $"{_filteredHistoryItems.Count} capture{(_filteredHistoryItems.Count == 1 ? "" : "s")} · {sizeStr}";
+            var totalCount = _allHistoryItems.Count;
+            HistoryCountText.Text = $"{_filteredHistoryItems.Count} of {totalCount} capture{(totalCount == 1 ? "" : "s")} · {sizeStr}";
 
             HistoryEmptyText.Visibility = _filteredHistoryItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             HistoryEmptyLabel.Text = _filteredHistoryItems.Count == 0
@@ -389,26 +420,31 @@ public partial class SettingsWindow
             return;
 
         var isImages = HistoryCategoryCombo.SelectedIndex == 0;
-        var pendingCount = _imageSearchIndexService.CountPendingEntries(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
         var status = _imageSearchIndexService.StatusText;
         var isIndexing = status.StartsWith("Indexing screenshots", StringComparison.OrdinalIgnoreCase);
 
-        if (isImages && _settingsService.Settings.AutoIndexImages && pendingCount > 0 && !isIndexing)
-        {
-            _imageSearchIndexService.RequestSync(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
-            status = _imageSearchIndexService.StatusText;
-            isIndexing = status.StartsWith("Indexing screenshots", StringComparison.OrdinalIgnoreCase);
-        }
-
-        ReindexAllProgressPanel.Visibility = isImages ? Visibility.Visible : Visibility.Collapsed;
         ReindexAllProgressBar.Visibility = isIndexing ? Visibility.Visible : Visibility.Collapsed;
-        ReindexAllProgressText.Text = isIndexing
-            ? status
-            : pendingCount <= 0
-                ? "None to index"
-                : _settingsService.Settings.AutoIndexImages
-                    ? $"{pendingCount} left to index"
-                    : $"{pendingCount} waiting";
+
+        var entries = _historyService.ImageEntries;
+        var ocrTag = _settingsService.Settings.OcrLanguageTag;
+        int total = entries.Count;
+        int indexed = _imageSearchIndexService.CountReadyEntries(entries, ocrTag);
+
+        if (isIndexing)
+        {
+            ReindexAllBtn.Content = status;
+            ReindexAllBtn.IsEnabled = false;
+        }
+        else if (indexed < total)
+        {
+            ReindexAllBtn.Content = $"Index {total - indexed} remaining";
+            ReindexAllBtn.IsEnabled = true;
+        }
+        else
+        {
+            ReindexAllBtn.Content = $"{indexed}/{total} indexed";
+            ReindexAllBtn.IsEnabled = false;
+        }
     }
 
     private void UpdateImageSearchPlaceholderText()
@@ -416,12 +452,10 @@ public partial class SettingsWindow
         if (!IsLoaded)
             return;
 
-        var totalCount = _allHistoryItems.Count;
-        var indexedCount = _imageSearchIndexService.CountReadyEntries(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
         var isIndexing = _imageSearchIndexService.StatusText.StartsWith("Indexing screenshots", StringComparison.OrdinalIgnoreCase);
         ImageSearchPlaceholder.Text = isIndexing
-            ? $"Search {indexedCount}/{totalCount} files (indexing...)"
-            : $"Search {indexedCount}/{totalCount} files";
+            ? "Search screenshots (indexing...)"
+            : "Search screenshots";
     }
 
     private void UpdateImageSearchSourceSummary()
@@ -581,6 +615,12 @@ public partial class SettingsWindow
         }
     }
 
+    private void ReindexAllBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _imageSearchIndexService.RequestSync(_historyService.ImageEntries, _settingsService.Settings.OcrLanguageTag);
+        LoadCurrentHistoryTab();
+    }
+
     private void ImageSearchFiltersBtn_Click(object sender, RoutedEventArgs e)
     {
         ImageSearchFiltersMenu.PlacementTarget = ImageSearchFiltersBtn;
@@ -731,20 +771,31 @@ public partial class SettingsWindow
             }
             else if (HistoryCategoryCombo.SelectedIndex == 1)
             {
-                var toDelete = OcrStack.Children.OfType<Border>().Where(b => b.Tag as bool? == true).ToList();
-                var toDeleteEntries = toDelete
-                    .Select(card =>
-                    {
-                        int idx = OcrStack.Children.IndexOf(card);
-                        return idx >= 0 && idx < _historyService.OcrEntries.Count ? _historyService.OcrEntries[idx] : null;
-                    })
-                    .OfType<OcrHistoryEntry>()
+                var toDelete = OcrStack.Children.OfType<Border>()
+                    .Where(b => b.Tag is true)
                     .ToList();
-                _historyService.DeleteOcrEntries(toDeleteEntries);
+                // Map selected cards to their OcrHistoryEntry by matching text content
+                var allEntries = _historyService.OcrEntries;
+                var entriesToDelete = new List<OcrHistoryEntry>();
+                foreach (var card in toDelete)
+                {
+                    if (card.Child is Grid root && root.Children.OfType<StackPanel>().FirstOrDefault() is { } stack)
+                    {
+                        var textBox = stack.Children.OfType<System.Windows.Controls.TextBox>().FirstOrDefault();
+                        if (textBox != null)
+                        {
+                            var match = allEntries.FirstOrDefault(e =>
+                                e.Text == textBox.Text || e.Text.StartsWith(textBox.Text.TrimEnd('.', ' ')));
+                            if (match != null) entriesToDelete.Add(match);
+                        }
+                    }
+                }
+                _historyService.DeleteOcrEntries(entriesToDelete);
             }
             else if (HistoryCategoryCombo.SelectedIndex == 3)
             {
-                var toDelete = ColorStack.Children.OfType<StackPanel>().Select(s => s.Tag).OfType<ColorHistoryEntry>().ToList();
+                var toDelete = ColorStack.Children.OfType<Border>()
+                    .Select(s => s.Tag).OfType<ColorHistoryEntry>().ToList();
                 _historyService.DeleteColorEntries(toDelete);
             }
             else if (HistoryCategoryCombo.SelectedIndex == 4)
@@ -753,6 +804,7 @@ public partial class SettingsWindow
                 _historyService.DeleteEntries(toDelete);
             }
 
+            LoadCurrentHistoryTab();
             UpdateImageSearchActionButtons();
         }
         catch (Exception ex)
@@ -797,6 +849,16 @@ public partial class SettingsWindow
             string label = group.Key == DateTime.Today ? "Today"
                 : group.Key == DateTime.Today.AddDays(-1) ? "Yesterday"
                 : group.Key.ToString("MMMM d, yyyy");
+
+            if (StickerStack.Children.Count > 0)
+            {
+                StickerStack.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = Theme.Brush(Theme.BorderSubtle),
+                    Margin = new Thickness(6, 14, 6, 0)
+                });
+            }
 
             StickerStack.Children.Add(new TextBlock
             {

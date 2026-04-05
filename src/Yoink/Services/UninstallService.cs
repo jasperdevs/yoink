@@ -59,23 +59,33 @@ public static class UninstallService
             return;
 
         var installDir = GetInstallDirectory();
-        var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(4) ?? "1.0.0";
-        var sizeKb = (int)Math.Max(1, new FileInfo(exe).Length / 1024);
+        var v = Assembly.GetEntryAssembly()?.GetName().Version;
+        var version = v is null ? "1.0.0" : $"{v.Major}.{v.Minor}.{Math.Max(v.Build, 0)}";
 
         using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Yoink");
         if (key is null) return;
 
         key.SetValue("DisplayName", "Yoink", RegistryValueKind.String);
         key.SetValue("DisplayVersion", version, RegistryValueKind.String);
-        key.SetValue("Publisher", "Yoink Contributors", RegistryValueKind.String);
+        key.SetValue("Publisher", "jasperdevs", RegistryValueKind.String);
         key.SetValue("InstallLocation", installDir, RegistryValueKind.String);
         key.SetValue("DisplayIcon", exe, RegistryValueKind.String);
         key.SetValue("UninstallString", $"\"{exe}\" --uninstall", RegistryValueKind.String);
         key.SetValue("QuietUninstallString", $"\"{exe}\" --uninstall", RegistryValueKind.String);
+        key.SetValue("URLInfoAbout", "https://github.com/jasperdevs/yoink", RegistryValueKind.String);
+        key.SetValue("URLUpdateInfo", "https://github.com/jasperdevs/yoink/releases/latest", RegistryValueKind.String);
+        key.SetValue("HelpLink", "https://github.com/jasperdevs/yoink/issues", RegistryValueKind.String);
         key.SetValue("NoModify", 1, RegistryValueKind.DWord);
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
-        key.SetValue("EstimatedSize", sizeKb, RegistryValueKind.DWord);
         key.SetValue("InstallDate", DateTime.Now.ToString("yyyyMMdd"), RegistryValueKind.String);
+        try
+        {
+            long totalBytes = 0;
+            foreach (var f in Directory.EnumerateFiles(installDir, "*", SearchOption.AllDirectories))
+                try { totalBytes += new FileInfo(f).Length; } catch { }
+            key.SetValue("EstimatedSize", (int)Math.Max(1, totalBytes / 1024), RegistryValueKind.DWord);
+        }
+        catch { }
     }
 
     public static void RemoveInstalledAppEntry()
@@ -171,12 +181,5 @@ public static class UninstallService
         }
     }
 
-    private static bool LooksLikeBuildOutputPath(string path)
-    {
-        var normalized = path.Replace('/', '\\').TrimEnd('\\');
-        return normalized.Contains(@"\bin\Debug\", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains(@"\bin\Release\", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains(@"\obj\", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains(@"\src\Yoink\bin\", StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool LooksLikeBuildOutputPath(string path) => InstallService.LooksLikeBuildOutputPath(path);
 }

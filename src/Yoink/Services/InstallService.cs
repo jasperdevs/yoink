@@ -72,8 +72,9 @@ public static class InstallService
     /// <summary>Check if we should show the installer.</summary>
     public static bool ShouldShowInstaller()
     {
+        // Never show installer for debug/release builds — devs run from Visual Studio.
         if (LooksLikeBuildOutputPath(GetAppDirectory()))
-            return true;
+            return false;
 
         // Running from the installed location — no installer needed.
         if (IsInstalled())
@@ -447,26 +448,44 @@ public static class InstallService
             if (LooksLikeBuildOutputPath(exePath))
                 return;
 
-            var version = string.IsNullOrWhiteSpace(versionLabel)
-                ? System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(4) ?? "1.0.0"
-                : versionLabel.Trim().TrimStart('v', 'V');
+            string version;
+            if (!string.IsNullOrWhiteSpace(versionLabel))
+            {
+                version = versionLabel.Trim().TrimStart('v', 'V');
+            }
+            else
+            {
+                var v = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
+                version = v is null ? "1.0.0" : $"{v.Major}.{v.Minor}.{Math.Max(v.Build, 0)}";
+            }
             using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Yoink");
             if (key is null) return;
             key.SetValue("DisplayName", "Yoink");
             key.SetValue("DisplayVersion", version);
-            key.SetValue("Publisher", "Yoink Contributors");
+            key.SetValue("Publisher", "jasperdevs");
             key.SetValue("InstallLocation", installDir);
             key.SetValue("DisplayIcon", exePath);
             key.SetValue("UninstallString", $"\"{exePath}\" --uninstall");
             key.SetValue("QuietUninstallString", $"\"{exePath}\" --uninstall");
+            key.SetValue("URLInfoAbout", "https://github.com/jasperdevs/yoink");
+            key.SetValue("URLUpdateInfo", "https://github.com/jasperdevs/yoink/releases/latest");
+            key.SetValue("HelpLink", "https://github.com/jasperdevs/yoink/issues");
             key.SetValue("NoModify", 1, RegistryValueKind.DWord);
             key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
             key.SetValue("InstallDate", DateTime.Now.ToString("yyyyMMdd"));
+            try
+            {
+                long totalBytes = 0;
+                foreach (var f in Directory.EnumerateFiles(installDir, "*", SearchOption.AllDirectories))
+                    try { totalBytes += new FileInfo(f).Length; } catch { }
+                key.SetValue("EstimatedSize", (int)Math.Max(1, totalBytes / 1024), RegistryValueKind.DWord);
+            }
+            catch { }
         }
         catch { }
     }
 
-    private static bool LooksLikeBuildOutputPath(string path)
+    internal static bool LooksLikeBuildOutputPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
             return false;

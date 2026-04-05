@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Yoink.Native;
 using Yoink.Helpers;
 using Yoink.Services;
+using Yoink.UI;
 
 namespace Yoink.Capture;
 
@@ -311,6 +312,7 @@ public sealed class RecordingForm : Form
             Bitmap? firstFrame = gifRec?.GetFirstFrame();
             try
             {
+                try { System.Windows.Application.Current?.Dispatcher.Invoke(() => ToastWindow.Show("Recording", "Encoding, please wait...")); } catch { }
                 gifRec?.StopAndEncode(_savePath);
                 vidRec?.StopAndEncode(_savePath);
                 RecordingCompleted?.Invoke(_savePath, firstFrame);

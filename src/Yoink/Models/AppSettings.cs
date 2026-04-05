@@ -81,6 +81,12 @@ public sealed class AppSettings
     public uint OcrHotkeyModifiers { get; set; } = Native.User32.MOD_ALT | Native.User32.MOD_SHIFT;
     public uint OcrHotkeyKey { get; set; } = 0xC0;
     public string OcrLanguageTag { get; set; } = "auto";
+    public string OcrDefaultTranslateFrom { get; set; } = "auto";
+    public string OcrDefaultTranslateTo { get; set; } = "en";
+    public string? GoogleTranslateApiKey { get; set; }
+    public bool TranslationRuntimeInstalled { get; set; }
+    public int TranslationModel { get; set; } // 0 = Argos (fast), 1 = Google
+    public bool AnnotationStrokeShadow { get; set; } = true;
 
     // Color picker hotkey: Alt+C
     public uint PickerHotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
@@ -139,7 +145,7 @@ public sealed class AppSettings
     public bool AutoIndexImages { get; set; } = true;
 
     // Upload settings
-    public bool AutoUploadScreenshots { get; set; }
+    public bool AutoUploadScreenshots { get; set; } = true;
     public bool AutoUploadGifs { get; set; }
     public bool AutoUploadVideos { get; set; }
     public Services.UploadDestination ImageUploadDestination { get; set; } = Services.UploadDestination.None;
@@ -301,9 +307,9 @@ public sealed record ToolDef(string Id, string Label, char Icon, CaptureMode? Mo
         AllTools.Select(t => t.Id).ToList();
 
     public static HashSet<string> DefaultToolbarDisabledIds() =>
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            "step",
-            "ruler",
-        };
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>All Group 1 (annotation) tool IDs — these go in the flyout panel.</summary>
+    public static HashSet<string> FlyoutToolIds() =>
+        new(AllTools.Where(t => t.Group == 1).Select(t => t.Id), StringComparer.OrdinalIgnoreCase);
 }

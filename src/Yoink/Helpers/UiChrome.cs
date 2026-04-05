@@ -13,17 +13,17 @@ public static class UiChrome
     public const int SurfaceGap = 8;
     public const int SurfaceRadius = 12;
 
-    public const int ToolbarHeight = 44;
-    public const int ToolbarButtonSize = 32;
-    public const int ToolbarButtonSpacing = 2;
+    public const int ToolbarHeight = 46;
+    public const int ToolbarButtonSize = 34;
+    public const int ToolbarButtonSpacing = 3;
     public const int ToolbarTopMargin = 16;
-    public const int ToolbarGroupGap = 16;
+    public const int ToolbarGroupGap = 14;
 
     public const int PopupMargin = 20;
     public const int PopupGap = 8;
     public const int PopupRadius = 12;
 
-    public const float IconGlyphSize = 14f;
+    public const float IconGlyphSize = 15f;
     public const float ChromeBodySize = 9.5f;
     public const float ChromeBodyBoldSize = 10f;
     public const float ChromeSmallSize = 8.25f;

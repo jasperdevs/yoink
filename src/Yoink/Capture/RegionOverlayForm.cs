@@ -29,12 +29,21 @@ public sealed partial class RegionOverlayForm : Form
 
     // Dynamic toolbar built from enabled tools + fixed buttons (color, gear, close)
     private ToolDef[] _visibleTools = ToolDef.AllTools;
-    private int BtnCount => _visibleTools.Length + 3; // +3 for color, gear, close
+    private ToolDef[] _mainBarTools = Array.Empty<ToolDef>();
+    private ToolDef[] _flyoutTools = Array.Empty<ToolDef>();
+    private int BtnCount => _mainBarTools.Length + (_flyoutTools.Length > 0 ? 1 : 0) + 2; // +more +color +close
+    private int _moreButtonIndex = -1; // index of "..." button in _toolbarButtons
     private Rectangle[] _toolbarButtons = Array.Empty<Rectangle>();
     private string[] _toolbarIcons = Array.Empty<string>();
     private string[] _toolbarLabels = Array.Empty<string>();
     private CaptureMode?[] _toolbarModes = Array.Empty<CaptureMode?>();
     private int _hoveredButton = -1;
+
+    // Flyout state
+    private bool _flyoutOpen;
+    private Rectangle _flyoutRect;
+    private Rectangle[] _flyoutButtonRects = Array.Empty<Rectangle>();
+    private int _hoveredFlyoutButton = -1;
     private bool _showToolNumberBadges = true;
     private Rectangle _toolbarRect;
     private float _toolbarAnim;
@@ -340,6 +349,8 @@ public sealed partial class RegionOverlayForm : Form
     }
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool ShowCrosshairGuides { get; set; }
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public bool AnnotationStrokeShadow { get; set; } = true;
 
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool DetectWindows { get; set; } = true;
@@ -349,9 +360,17 @@ public sealed partial class RegionOverlayForm : Form
 
     public void SetEnabledTools(List<string>? enabledIds)
     {
-        _visibleTools = enabledIds == null
-            ? ToolDef.AllTools
-            : ToolDef.AllTools.Where(t => enabledIds.Contains(t.Id)).ToArray();
+        var flyoutIds = ToolDef.FlyoutToolIds();
+        if (enabledIds == null)
+        {
+            _visibleTools = ToolDef.AllTools;
+        }
+        else
+        {
+            _visibleTools = ToolDef.AllTools.Where(t => enabledIds.Contains(t.Id)).ToArray();
+        }
+        _mainBarTools = _visibleTools.Where(t => !flyoutIds.Contains(t.Id)).ToArray();
+        _flyoutTools = _visibleTools.Where(t => flyoutIds.Contains(t.Id)).ToArray();
         RefreshToolbar();
     }
 
@@ -456,6 +475,9 @@ public sealed partial class RegionOverlayForm : Form
         Focus();
         Invalidate(new Rectangle(_toolbarRect.X - 12, _toolbarRect.Y - 48,
             _toolbarRect.Width + 24, _toolbarRect.Height + 96));
+
+        // Pre-snapshot all visible window rects for instant detection during mouse moves.
+        WindowDetector.SnapshotWindows(_virtualBounds);
     }
 
     protected override void OnDeactivate(EventArgs e)
@@ -710,37 +732,47 @@ public sealed partial class RegionOverlayForm : Form
 
     private void CalcToolbar()
     {
+        bool hasMore = _flyoutTools.Length > 0;
         _toolbarButtons = new Rectangle[BtnCount];
         _toolbarIcons = new string[BtnCount];
         _toolbarLabels = new string[BtnCount];
         _toolbarModes = new CaptureMode?[BtnCount];
 
-        for (int i = 0; i < _visibleTools.Length; i++)
+        for (int i = 0; i < _mainBarTools.Length; i++)
         {
-            _toolbarIcons[i] = _visibleTools[i].Id;
-            _toolbarLabels[i] = _visibleTools[i].Label;
-            _toolbarModes[i] = _visibleTools[i].Mode;
+            _toolbarIcons[i] = _mainBarTools[i].Id;
+            _toolbarLabels[i] = _mainBarTools[i].Label;
+            _toolbarModes[i] = _mainBarTools[i].Mode;
         }
-        int toolCount = _visibleTools.Length;
-        _toolbarIcons[toolCount] = "color";
-        _toolbarLabels[toolCount] = "Color";
-        _toolbarModes[toolCount] = null;
-        _toolbarIcons[toolCount + 1] = "gear";
-        _toolbarLabels[toolCount + 1] = "Settings";
-        _toolbarModes[toolCount + 1] = null;
-        _toolbarIcons[toolCount + 2] = "close";
-        _toolbarLabels[toolCount + 2] = "Close (Esc)";
-        _toolbarModes[toolCount + 2] = null;
+        int idx = _mainBarTools.Length;
+        if (hasMore)
+        {
+            _moreButtonIndex = idx;
+            _toolbarIcons[idx] = "more";
+            _toolbarLabels[idx] = "More tools";
+            _toolbarModes[idx] = null;
+            idx++;
+        }
+        else
+        {
+            _moreButtonIndex = -1;
+        }
+        _toolbarIcons[idx] = "color";
+        _toolbarLabels[idx] = "Color";
+        _toolbarModes[idx] = null;
+        _toolbarIcons[idx + 1] = "close";
+        _toolbarLabels[idx + 1] = "Close (Esc)";
+        _toolbarModes[idx + 1] = null;
 
         // Compute group gaps: between tool groups
         var gaps = new List<int>();
-        for (int i = 0; i < _visibleTools.Length - 1; i++)
-            if (_visibleTools[i].Group != _visibleTools[i + 1].Group || _visibleTools[i].Mode == CaptureMode.Freeform)
+        for (int i = 0; i < _mainBarTools.Length - 1; i++)
+            if (_mainBarTools[i].Group != _mainBarTools[i + 1].Group || _mainBarTools[i].Mode == CaptureMode.Freeform)
                 gaps.Add(i);
-        gaps.Add(_visibleTools.Length - 1); // gap before color/gear/close
+        gaps.Add(_mainBarTools.Length - 1 + (hasMore ? 1 : 0)); // gap before color/gear/close
         _sepAfter = gaps.ToArray();
 
-        int pad = 10;
+        int pad = 12;
         int w = UiChrome.ToolbarButtonSize * BtnCount + UiChrome.ToolbarButtonSpacing * (BtnCount - 1) + pad * 2 + _sepAfter.Length * UiChrome.ToolbarGroupGap;
         Rectangle screenBounds;
         try
@@ -762,6 +794,33 @@ public sealed partial class RegionOverlayForm : Form
             cx += UiChrome.ToolbarButtonSize + UiChrome.ToolbarButtonSpacing;
             if (Array.IndexOf(_sepAfter, i) >= 0) cx += GroupGap;
         }
+
+        // Calculate flyout rect (positioned above the toolbar, centered on the "more" button)
+        if (hasMore && _flyoutTools.Length > 0)
+        {
+            int flyPad = 10;
+            int flyW = UiChrome.ToolbarButtonSize * _flyoutTools.Length
+                     + UiChrome.ToolbarButtonSpacing * (_flyoutTools.Length - 1) + flyPad * 2;
+            int flyH = UiChrome.ToolbarHeight;
+            int flyX = _moreButtonIndex >= 0
+                ? _toolbarButtons[_moreButtonIndex].X + _toolbarButtons[_moreButtonIndex].Width / 2 - flyW / 2
+                : _toolbarRect.X + _toolbarRect.Width / 2 - flyW / 2;
+            // Clamp horizontally to screen
+            flyX = Math.Max(4, Math.Min(flyX, ClientSize.Width - flyW - 4));
+            // Position below the toolbar
+            int flyY = _toolbarRect.Bottom + 8;
+
+            _flyoutRect = new Rectangle(flyX, flyY, flyW, flyH);
+            _flyoutButtonRects = new Rectangle[_flyoutTools.Length];
+            int fcx = flyX + flyPad;
+            for (int i = 0; i < _flyoutTools.Length; i++)
+            {
+                _flyoutButtonRects[i] = new Rectangle(
+                    fcx, flyY + (flyH - UiChrome.ToolbarButtonSize) / 2,
+                    UiChrome.ToolbarButtonSize, UiChrome.ToolbarButtonSize);
+                fcx += UiChrome.ToolbarButtonSize + UiChrome.ToolbarButtonSpacing;
+            }
+        }
     }
 
     private static Cursor CreateBlankCursor()
@@ -782,6 +841,7 @@ public sealed partial class RegionOverlayForm : Form
         tbBounds.Inflate(8, 8);
         tbBounds.Height += 10;
         if (tbBounds.Contains(p)) return true;
+        if (_flyoutOpen) { var fb = _flyoutRect; fb.Inflate(8, 8); if (fb.Contains(p)) return true; }
         if (_emojiPickerOpen && _emojiPickerRect.Contains(p)) return true;
         if (_fontPickerOpen && _fontPickerRect.Contains(p)) return true;
         if (_colorPickerOpen && _colorPickerRect.Contains(p)) return true;
@@ -821,9 +881,14 @@ public sealed partial class RegionOverlayForm : Form
 
         var oldDirty = InflateForRepaint(oldDetect);
         var newDirty = InflateForRepaint(detected);
-        if (!oldDirty.IsEmpty)
+        if (!oldDirty.IsEmpty && !newDirty.IsEmpty)
+        {
+            Invalidate(Rectangle.Union(oldDirty, newDirty));
+            Update(); // Force immediate repaint for responsive feel
+        }
+        else if (!oldDirty.IsEmpty)
             Invalidate(oldDirty);
-        if (!newDirty.IsEmpty)
+        else if (!newDirty.IsEmpty)
             Invalidate(newDirty);
     }
 
@@ -855,8 +920,8 @@ public sealed partial class RegionOverlayForm : Form
 
         int screenX = _virtualBounds.X + point.X;
         int screenY = _virtualBounds.Y + point.Y;
-        _verticalCrosshairForm.UpdateLine(new Rectangle(screenX, _virtualBounds.Top, 1, _virtualBounds.Height));
-        _horizontalCrosshairForm.UpdateLine(new Rectangle(_virtualBounds.Left, screenY, _virtualBounds.Width, 1));
+        _verticalCrosshairForm.UpdateLine(new Rectangle(screenX - 1, _virtualBounds.Top, 3, _virtualBounds.Height));
+        _horizontalCrosshairForm.UpdateLine(new Rectangle(_virtualBounds.Left, screenY - 1, _virtualBounds.Width, 3));
     }
 
     private void ClearCrosshairGuides()
@@ -1071,6 +1136,7 @@ public sealed partial class RegionOverlayForm : Form
             _horizontalCrosshairForm?.Close();
             _horizontalCrosshairForm?.Dispose();
             WindowDetector.UnregisterIgnoredWindow(Handle);
+            WindowDetector.ClearSnapshot();
             if (_toolbarForm != null)
                 WindowDetector.UnregisterIgnoredWindow(_toolbarForm.Handle);
             CloseMagWindow();

@@ -132,6 +132,16 @@ public partial class SettingsWindow
                 : group.Key == DateTime.Today.AddDays(-1) ? "Yesterday"
                 : group.Key.ToString("MMMM d, yyyy");
 
+            if (GifStack.Children.Count > 0)
+            {
+                GifStack.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = Theme.Brush(Theme.BorderSubtle),
+                    Margin = new Thickness(6, 14, 6, 0)
+                });
+            }
+
             GifStack.Children.Add(new TextBlock
             {
                 Text = label,
@@ -219,6 +229,27 @@ public partial class SettingsWindow
             }
             catch { }
         });
+
+        var playIcon = new Border
+        {
+            Width = 36, Height = 36,
+            CornerRadius = new CornerRadius(18),
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(160, 0, 0, 0)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+            Child = new System.Windows.Shapes.Path
+            {
+                Data = System.Windows.Media.Geometry.Parse("M8,5 L8,19 L19,12 Z"),
+                Fill = System.Windows.Media.Brushes.White,
+                Stretch = System.Windows.Media.Stretch.Uniform,
+                Width = 14, Height = 14,
+                Margin = new Thickness(2, 0, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            }
+        };
+        shell.ImageContainer.Children.Add(playIcon);
 
         AddMediaInfo(shell.InfoPanel, vm.Entry.FileName, vm.TimeAgo, filePath);
         return shell.Card;

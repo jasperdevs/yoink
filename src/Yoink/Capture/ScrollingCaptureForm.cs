@@ -160,6 +160,8 @@ public sealed class ScrollingCaptureForm : Form
 
     // ─── Control bar — starts capturing instantly (same as recording) ──
 
+    private static readonly Color TransKey = Color.FromArgb(1, 2, 3);
+
     private void ShowControlBar()
     {
         _screenRegion = new Rectangle(
@@ -167,8 +169,10 @@ public sealed class ScrollingCaptureForm : Form
             _selection.Y + _virtualBounds.Y,
             _selection.Width, _selection.Height);
 
-        // Hide the overlay so the user can see the content underneath
-        Hide();
+        // Make the overlay transparent so the user can see content, but keep the border visible
+        BackColor = TransKey;
+        TransparencyKey = TransKey;
+        Invalidate();
 
         _controlBar = new CaptureControlBar(_screenRegion);
         _controlBar.StopClicked += () => StopCapturing();
@@ -511,6 +515,19 @@ public sealed class ScrollingCaptureForm : Form
     {
         if (_state == State.Selecting)
             PaintSelectionPhase(e.Graphics);
+        else if (_state == State.Capturing)
+            PaintCapturingPhase(e.Graphics);
+    }
+
+    private void PaintCapturingPhase(Graphics g)
+    {
+        g.Clear(TransKey);
+        if (_selection.Width > 2 && _selection.Height > 2)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var borderRect = Rectangle.Inflate(_selection, 2, 2);
+            g.DrawRectangle(_selPen, borderRect);
+        }
     }
 
     private void PaintSelectionPhase(Graphics g)

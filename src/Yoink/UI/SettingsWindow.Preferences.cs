@@ -104,6 +104,13 @@ public partial class SettingsWindow
         _settingsService.Save();
     }
 
+    private void AnnotationStrokeShadowCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.AnnotationStrokeShadow = AnnotationStrokeShadowCheck.IsChecked == true;
+        _settingsService.Save();
+    }
+
     private void ToastPositionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;

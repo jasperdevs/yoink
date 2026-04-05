@@ -32,6 +32,18 @@ public static class ScreenCapture
         return CaptureAllScreensLegacy(includeCursor);
     }
 
+    /// <summary>Captures only the monitor that currently contains the cursor.</summary>
+    public static (Bitmap Bitmap, Rectangle Bounds) CaptureCurrentScreen(bool includeCursor = false)
+    {
+        Screen screen;
+        try { screen = Screen.FromPoint(System.Windows.Forms.Cursor.Position); }
+        catch { screen = Screen.PrimaryScreen ?? Screen.AllScreens[0]; }
+
+        var bounds = screen.Bounds;
+        var bmp = CaptureRegion(bounds, includeCursor);
+        return (bmp, bounds);
+    }
+
     public static Bitmap CaptureRegion(Rectangle region, bool includeCursor = false)
     {
         try

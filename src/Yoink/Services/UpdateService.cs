@@ -40,7 +40,12 @@ public static class UpdateService
             : new Version(version.Major, version.Minor, Math.Max(version.Build, 0), Math.Max(version.Revision, 0));
     }
 
-    public static string GetCurrentVersionLabel() => $"v{GetCurrentVersion()}";
+    public static string GetCurrentVersionLabel()
+    {
+        var v = GetCurrentVersion();
+        // Show 3-part "v0.6.2" unless revision is non-zero
+        return v.Revision > 0 ? $"v{v}" : $"v{v.Major}.{v.Minor}.{v.Build}";
+    }
 
     public static async Task<UpdateCheckResult> CheckForUpdatesAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
@@ -138,7 +143,7 @@ public static class UpdateService
         {
             Timeout = TimeSpan.FromSeconds(8)
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersion()}");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersionLabel()}");
         client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         client.DefaultRequestHeaders.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
         return client;
@@ -150,7 +155,7 @@ public static class UpdateService
         {
             Timeout = TimeSpan.FromMinutes(5)
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersion()}");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersionLabel()}");
         client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         return client;
     }

@@ -97,7 +97,8 @@ public partial class SettingsWindow
 
         StickerDownloadRembgBtn.Visibility = Visibility.Visible;
         StickerOpenLocalEngineRepoBtn.Content = "Open rembg";
-        StickerDownloadRembgBtn.Content = downloaded ? "Remove model" : "Warm up model";
+        StickerDownloadRembgBtn.Content = downloaded ? "Remove model" : "Download model";
+        StickerRemoveAllModelsBtn.Visibility = RembgRuntimeService.HasAnyCachedModels() ? Visibility.Visible : Visibility.Collapsed;
 
         if (!IsLoaded)
             return;

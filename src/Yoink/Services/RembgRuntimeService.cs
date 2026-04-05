@@ -33,6 +33,12 @@ public static class RembgRuntimeService
 
     public static bool IsModelCached(LocalStickerEngine engine) => File.Exists(GetModelPath(engine));
 
+    public static bool HasAnyCachedModels()
+    {
+        try { return Directory.Exists(ModelCacheDir) && Directory.EnumerateFiles(ModelCacheDir, "*.onnx").Any(); }
+        catch { return false; }
+    }
+
     public static bool RemoveCachedModel(LocalStickerEngine engine)
     {
         var modelPath = GetModelPath(engine);

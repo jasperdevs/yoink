@@ -57,13 +57,13 @@ public sealed partial class RegionOverlayForm
             if (bounds.Width > 0 && bounds.Height > 0)
             {
                 var selRect = Rectangle.Inflate(bounds, 4, 4);
-                using var selPen = new Pen(Color.FromArgb(200, 100, 149, 237), 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                var selPen = _selectDashPen ??= new Pen(Color.FromArgb(200, 100, 149, 237), 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
                 g.DrawRectangle(selPen, selRect);
 
                 // Corner handles
                 int hs = 6;
-                using var hBrush = new SolidBrush(UiChrome.SurfaceTextPrimary);
-                using var hPen = new Pen(Color.FromArgb(200, 100, 149, 237), 1f);
+                var hBrush = _selectHandleBrush ??= new SolidBrush(UiChrome.SurfaceTextPrimary);
+                var hPen = _selectHandlePen ??= new Pen(Color.FromArgb(200, 100, 149, 237), 1f);
                 var corners = new[] {
                     new Rectangle(selRect.X - hs / 2, selRect.Y - hs / 2, hs, hs),
                     new Rectangle(selRect.Right - hs / 2, selRect.Y - hs / 2, hs, hs),
@@ -79,16 +79,19 @@ public sealed partial class RegionOverlayForm
 
         if (isSelectionMode && !_isSelecting && _autoDetectActive && _autoDetectRect.Width > 0)
         {
-            using var adShadow = new Pen(Color.FromArgb(30, 0, 0, 0), 4f);
-            g.DrawRectangle(adShadow, _autoDetectRect.X + 1, _autoDetectRect.Y + 1, _autoDetectRect.Width, _autoDetectRect.Height);
-            using var adPen = DashedPen(180);
-            g.DrawRectangle(adPen, _autoDetectRect);
+            // Clamp the rect so dashes stay within the visible client area
+            var drawRect = ClampRectToClient(_autoDetectRect);
+            if (drawRect.Width > 0 && drawRect.Height > 0)
+            {
+                g.DrawRectangle(ShadowPen(30), drawRect.X + 1, drawRect.Y + 1, drawRect.Width, drawRect.Height);
+                g.DrawRectangle(DashedPen(180), drawRect);
+            }
             _lastAutoDetectRect = _autoDetectRect;
         }
         else if (isSelectionMode && !_hasSelection && !_isSelecting)
         {
-            using var pen = new Pen(UiChrome.SurfaceTextPrimary, 2f);
-            g.DrawRectangle(pen, 1, 1, ClientSize.Width - 3, ClientSize.Height - 3);
+            // Full-screen fallback border: use dashed pattern to match auto-detect style
+            g.DrawRectangle(DashedPen(120), 2, 2, ClientSize.Width - 5, ClientSize.Height - 5);
             _lastAutoDetectRect = Rectangle.Empty;
         }
 
@@ -100,17 +103,13 @@ public sealed partial class RegionOverlayForm
             case CaptureMode.Scan when _hasSelection:
             case CaptureMode.Sticker when _hasSelection:
                 // Subtle outer shadow
-                using (var shadowPen = new Pen(Color.FromArgb(40, 0, 0, 0), 4f))
                 {
                     var sr = _selectionRect;
                     sr.Inflate(1, 1);
-                    g.DrawRectangle(shadowPen, sr);
+                    g.DrawRectangle(ShadowPen(40), sr);
                 }
                 // Static dashed border
-                using (var marchPen = DashedPen(255))
-                {
-                    g.DrawRectangle(marchPen, _selectionRect);
-                }
+                g.DrawRectangle(DashedPen(255), _selectionRect);
                 DrawLabel(g, _selectionRect, isOcr, isScan);
                 _lastSelectionRect = _selectionRect;
                 break;
@@ -186,7 +185,7 @@ public sealed partial class RegionOverlayForm
                                 path.AddPolygon(loopPts);
                                 using var region = new Region(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
                                 region.Exclude(path);
-                                using var dimBrush = new SolidBrush(Color.FromArgb(100, 0, 0, 0));
+                                var dimBrush = _freeformDimBrush ??= new SolidBrush(Color.FromArgb(100, 0, 0, 0));
                                 g.FillRegion(dimBrush, region);
                             }
                             catch (ArgumentException)
@@ -208,15 +207,12 @@ public sealed partial class RegionOverlayForm
 
                 // Dashed border matching rectangle selection style
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var shadowPen = new Pen(Color.FromArgb(30, 0, 0, 0), 4f))
-                    g.DrawLines(shadowPen, pts);
-                using (var pen = DashedPen(220))
+                g.DrawLines(ShadowPen(30), pts);
+                var freeformPen = DashedPen(220);
+                g.DrawLines(freeformPen, pts);
+                if (hasClosed && closedLoopPts is { Length: >= 3 })
                 {
-                    g.DrawLines(pen, pts);
-                    if (hasClosed && closedLoopPts is { Length: >= 3 })
-                    {
-                        g.DrawLine(pen, closedLoopPts[^1], closedLoopPts[0]);
-                    }
+                    g.DrawLine(freeformPen, closedLoopPts[^1], closedLoopPts[0]);
                 }
                 g.SmoothingMode = SmoothingMode.Default;
                 break;
@@ -228,12 +224,59 @@ public sealed partial class RegionOverlayForm
         g.SmoothingMode = SmoothingMode.Default;
     }
 
-    /// <summary>Static dashed pen for all selection borders.</summary>
-    private static Pen DashedPen(int alpha, float width = 2f) => new Pen(Color.FromArgb(alpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), width)
+    /// <summary>Clamp a rectangle so it stays 2px inside the client area (prevents dashes from being cut off at screen edges).</summary>
+    private Rectangle ClampRectToClient(Rectangle rect)
     {
-        DashStyle = DashStyle.Dash,
-        DashPattern = new[] { 6f, 4f }
-    };
+        const int pad = 2;
+        int x = Math.Max(pad, rect.X);
+        int y = Math.Max(pad, rect.Y);
+        int right = Math.Min(ClientSize.Width - pad - 1, rect.Right);
+        int bottom = Math.Min(ClientSize.Height - pad - 1, rect.Bottom);
+        return new Rectangle(x, y, Math.Max(0, right - x), Math.Max(0, bottom - y));
+    }
+
+    // Cached GDI objects for hot-path rendering (avoid allocation per frame).
+    private static Pen? _cachedDash180, _cachedDash255, _cachedDash120, _cachedDash220;
+    private static Pen? _cachedShadow30, _cachedShadow40;
+    private static SolidBrush? _freeformDimBrush;
+    private static Pen? _selectDashPen, _selectHandlePen;
+    private static SolidBrush? _selectHandleBrush;
+
+    /// <summary>Cached dashed pen for selection borders. Reuses instances for common alpha values.</summary>
+    private static Pen DashedPen(int alpha, float width = 2f)
+    {
+        // Fast path: return cached instance for the common alpha values used every frame.
+        ref Pen? slot = ref _cachedDash180; // dummy init
+        if (width == 2f)
+        {
+            switch (alpha)
+            {
+                case 120: slot = ref _cachedDash120; break;
+                case 180: slot = ref _cachedDash180; break;
+                case 220: slot = ref _cachedDash220; break;
+                case 255: slot = ref _cachedDash255; break;
+                default: slot = ref _cachedDash180; goto create; // uncommon alpha, always create
+            }
+            if (slot != null) return slot;
+        }
+        else goto create;
+
+        create:
+        var pen = new Pen(Color.FromArgb(alpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), width)
+        {
+            DashStyle = DashStyle.Dash,
+            DashPattern = new[] { 6f, 4f }
+        };
+        if (width == 2f && (alpha is 120 or 180 or 220 or 255))
+            slot = pen;
+        return pen;
+    }
+
+    private static Pen ShadowPen(int alpha)
+    {
+        ref Pen? slot = ref alpha == 30 ? ref _cachedShadow30 : ref _cachedShadow40;
+        return slot ??= new Pen(Color.FromArgb(alpha, 0, 0, 0), 4f);
+    }
 
     private static bool SegmentsIntersect(Point p1, Point p2, Point q1, Point q2)
     {
@@ -356,18 +399,18 @@ public sealed partial class RegionOverlayForm
         {
             var pr = GetShapeRect(PointToClient(System.Windows.Forms.Cursor.Position));
             if (pr.Width > 1 && pr.Height > 1)
-                SketchRenderer.DrawRectShape(g, pr, _toolColor);
+                SketchRenderer.DrawRectShape(g, pr, _toolColor, AnnotationStrokeShadow);
         }
         if (_mode == CaptureMode.CircleShape && _isCircleShapeDragging)
         {
             var pr = GetShapeRect(PointToClient(System.Windows.Forms.Cursor.Position));
             if (pr.Width > 1 && pr.Height > 1)
-                SketchRenderer.DrawCircleShape(g, pr, _toolColor);
+                SketchRenderer.DrawCircleShape(g, pr, _toolColor, AnnotationStrokeShadow);
         }
         if (_mode == CaptureMode.Line && _isLineDragging)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
-            SketchRenderer.DrawLine(g, _lineStart, cur, _toolColor, _lineStart.GetHashCode());
+            SketchRenderer.DrawLine(g, _lineStart, cur, _toolColor, _lineStart.GetHashCode(), AnnotationStrokeShadow);
         }
         if (_mode == CaptureMode.Ruler && _isRulerDragging)
         {
@@ -377,10 +420,10 @@ public sealed partial class RegionOverlayForm
         if (_mode == CaptureMode.Arrow && _isArrowDragging)
         {
             var cur = PointToClient(System.Windows.Forms.Cursor.Position);
-            SketchRenderer.DrawArrow(g, _arrowStart, cur, _toolColor, _arrowStart.GetHashCode(), includeShadow: false);
+            SketchRenderer.DrawArrow(g, _arrowStart, cur, _toolColor, _arrowStart.GetHashCode(), strokeShadow: AnnotationStrokeShadow);
         }
         if (_mode == CaptureMode.CurvedArrow && _isCurvedArrowDragging && _currentCurvedArrow is { Count: >= 2 })
-            SketchRenderer.DrawCurvedArrow(g, _currentCurvedArrow, _toolColor, 42);
+            SketchRenderer.DrawCurvedArrow(g, _currentCurvedArrow, _toolColor, 42, AnnotationStrokeShadow);
         if (_mode == CaptureMode.Draw && _isSelecting && _currentStroke is { Count: >= 1 })
         {
             if ((ModifierKeys & Keys.Shift) != 0)
@@ -388,11 +431,11 @@ public sealed partial class RegionOverlayForm
                 var start = _currentStroke[0];
                 var end = GetConstrainedDrawPoint(PointToClient(System.Windows.Forms.Cursor.Position));
                 if (start != end)
-                    SketchRenderer.DrawLine(g, start, end, _toolColor, start.GetHashCode());
+                    SketchRenderer.DrawLine(g, start, end, _toolColor, start.GetHashCode(), AnnotationStrokeShadow);
             }
             else if (_currentStroke.Count >= 2)
             {
-                SketchRenderer.DrawFreehandStroke(g, _currentStroke, _toolColor, 6f);
+                SketchRenderer.DrawFreehandStroke(g, _currentStroke, _toolColor, 6f, AnnotationStrokeShadow);
             }
         }
 
@@ -406,23 +449,19 @@ public sealed partial class RegionOverlayForm
             string display = _textBuffer.Length > 0 ? _textBuffer : "Type here...";
             var textSize = g.MeasureString(display, font);
 
-            // Dashed selection border
-            var textRect = new RectangleF(_textPos.X - 6, _textPos.Y - 4,
-                Math.Max(textSize.Width + 12, 100), textSize.Height + 8);
+            // Dashed selection border — use cached rect so handles match hit areas
+            var textRect = GetActiveTextRect();
             using var dashPen = new Pen(UiChrome.SurfaceTextPrimary, 1f) { DashStyle = DashStyle.Dash };
             g.DrawRectangle(dashPen, textRect.X, textRect.Y, textRect.Width, textRect.Height);
 
-            // Corner resize handles
-            int hs = 6;
-            var handles = new RectangleF[] {
-                new(textRect.X - hs/2, textRect.Y - hs/2, hs, hs),
-                new(textRect.Right - hs/2, textRect.Y - hs/2, hs, hs),
-                new(textRect.X - hs/2, textRect.Bottom - hs/2, hs, hs),
-                new(textRect.Right - hs/2, textRect.Bottom - hs/2, hs, hs),
-            };
+            // Corner resize handles — draw at cached handle positions with shadow outline
+            using var handleShadow = new Pen(Color.FromArgb(80, 0, 0, 0), 1f);
             using var handleBrush = new SolidBrush(UiChrome.SurfaceTextPrimary);
-            foreach (var h in handles)
+            foreach (var h in _activeTextHandleCache)
+            {
                 g.FillRectangle(handleBrush, h);
+                g.DrawRectangle(handleShadow, h.X, h.Y, h.Width, h.Height);
+            }
 
             // Render text with stroke/shadow
             if (_textBuffer.Length > 0)
@@ -436,11 +475,22 @@ public sealed partial class RegionOverlayForm
                 g.DrawString(display, font, placeholderBrush, _textPos.X, _textPos.Y);
             }
 
-            // Blinking cursor
-            if (_textBuffer.Length > 0)
+            // Blinking cursor — use Graphics.MeasureString to match DrawString positioning
             {
-                var cursorX = _textPos.X + _activeTextMeasureWidth - 2;
-                using var cursorPen = new Pen(_toolColor, 2f);
+                float cursorX;
+                if (_textBuffer.Length > 0)
+                {
+                    var cursorSize = g.MeasureString(_textBuffer, font, PointF.Empty, StringFormat.GenericDefault);
+                    cursorX = _textPos.X + cursorSize.Width - 2;
+                }
+                else
+                {
+                    cursorX = _textPos.X;
+                }
+                // Smooth cursor blink using sine wave
+                float blinkAlpha = (float)(Math.Sin(Environment.TickCount64 / 400.0 * Math.PI) * 0.5 + 0.5);
+                int alpha = (int)(blinkAlpha * _toolColor.A);
+                using var cursorPen = new Pen(Color.FromArgb(alpha, _toolColor), 2f);
                 g.DrawLine(cursorPen, cursorX, _textPos.Y + 2, cursorX, _textPos.Y + textSize.Height - 4);
             }
 
@@ -854,8 +904,8 @@ public sealed partial class RegionOverlayForm
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y,
             _toolbarRect.Width, _toolbarRect.Height);
 
-        // Pill background -- solid dark, barely-visible border like Windows Snipping Tool
-        PaintShadow(g, r, UiChrome.ToolbarHeight / 2f, 58, 1f);
+        // Pill background -- solid dark, subtle border and shadow
+        PaintShadow(g, r, UiChrome.ToolbarHeight / 2f, 70, 1.2f);
         using (var p = RRect(r, UiChrome.ToolbarHeight / 2))
         {
             using var bg = new SolidBrush(UiChrome.SurfacePill);
@@ -865,8 +915,8 @@ public sealed partial class RegionOverlayForm
         }
 
         // Separator lines at group boundaries
-        int sepY1 = r.Y + 12;
-        int sepY2 = r.Bottom - 12;
+        int sepY1 = r.Y + 10;
+        int sepY2 = r.Bottom - 10;
         foreach (int idx in _sepAfter)
         {
             if (idx < 0 || idx >= _toolbarButtons.Length - 1) continue;
@@ -875,10 +925,14 @@ public sealed partial class RegionOverlayForm
             g.DrawLine(sepPen, sx, sepY1, sx, sepY2);
         }
 
+        // Check if active mode is a flyout tool (to highlight the "more" button)
+        bool flyoutToolActive = _flyoutTools.Any(t => t.Mode == _mode);
+
         for (int i = 0; i < BtnCount; i++)
         {
             var btn = _toolbarButtons[i];
             bool active = _toolbarModes[i] is { } m && _mode == m;
+            if (i == _moreButtonIndex) active = flyoutToolActive; // only highlight if a flyout tool is active, not just open
             bool hover = _hoveredButton == i;
 
             // Color dot button
@@ -887,43 +941,103 @@ public sealed partial class RegionOverlayForm
                 if (hover)
                 {
                     using var hoverBrush = new SolidBrush(UiChrome.SurfaceHover);
-                    g.FillEllipse(hoverBrush, btn.X, btn.Y, btn.Width, btn.Height);
+                    g.FillEllipse(hoverBrush, btn.X + 1f, btn.Y + 1f, btn.Width - 2f, btn.Height - 2f);
                 }
                 int dotSize = 16;
-                int dx = btn.X + (btn.Width - dotSize) / 2;
-                int dy = btn.Y + (btn.Height - dotSize) / 2;
+                float dx = btn.X + (btn.Width - dotSize) / 2f;
+                float dy = btn.Y + (btn.Height - dotSize) / 2f;
                 using var cBrush = new SolidBrush(_toolColor);
                 g.FillEllipse(cBrush, dx, dy, dotSize, dotSize);
                 continue;
             }
 
-            // Hover: pill-shaped highlight matching the dock radius
-            if (hover)
+            // "More" button: draw three dots instead of icon glyph
+            if (_toolbarIcons[i] == "more")
             {
-                using var hoverBrush = new SolidBrush(UiChrome.SurfaceHover);
-                g.FillEllipse(hoverBrush, btn.X, btn.Y, btn.Width, btn.Height);
+                if (active || hover)
+                {
+                    var hlColor = active
+                        ? Color.FromArgb(32, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B)
+                        : UiChrome.SurfaceHover;
+                    using var hlBrush = new SolidBrush(hlColor);
+                    g.FillEllipse(hlBrush, btn.X + 1f, btn.Y + 1f, btn.Width - 2f, btn.Height - 2f);
+                }
+                int dotAlpha = active ? 255 : hover ? 220 : 165;
+                using var dotBrush = new SolidBrush(Color.FromArgb(dotAlpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
+                float cy = btn.Y + btn.Height / 2f - 1.5f;
+                float cx = btn.X + btn.Width / 2f;
+                g.FillEllipse(dotBrush, cx - 8f, cy, 3f, 3f);
+                g.FillEllipse(dotBrush, cx - 1.5f, cy, 3f, 3f);
+                g.FillEllipse(dotBrush, cx + 5f, cy, 3f, 3f);
+                continue;
             }
 
+            // Active/hover circle highlight
             if (active)
             {
-                using var activeBrush = new SolidBrush(Color.FromArgb(28, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
-                g.FillEllipse(activeBrush, btn.X, btn.Y, btn.Width, btn.Height);
+                using var activeBrush = new SolidBrush(Color.FromArgb(32, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
+                g.FillEllipse(activeBrush, btn.X + 1f, btn.Y + 1f, btn.Width - 2f, btn.Height - 2f);
+            }
+            else if (hover)
+            {
+                using var hoverBrush = new SolidBrush(UiChrome.SurfaceHover);
+                g.FillEllipse(hoverBrush, btn.X + 1f, btn.Y + 1f, btn.Width - 2f, btn.Height - 2f);
             }
 
-            // Active = full white icon, default = dimmed, hover = mid
-            int ia = active ? 255 : hover ? 220 : i >= BtnCount - 2 ? 130 : 160;
+            int ia = active ? 255 : hover ? 220 : i >= BtnCount - 1 ? 135 : 165;
             var iconColor = UiChrome.SurfaceTextPrimary;
             DrawIcon(g, _toolbarIcons[i], btn, Color.FromArgb(ia, iconColor.R, iconColor.G, iconColor.B));
         }
 
-        // Tooltip with hotkey hint on hover (all tools)
+        // Flyout panel (above toolbar)
+        if (_flyoutOpen && _flyoutTools.Length > 0)
+        {
+            var fr = _flyoutRect;
+            PaintShadow(g, fr, UiChrome.ToolbarHeight / 2f, 70, 1.2f);
+            using (var fp = RRect(fr, UiChrome.ToolbarHeight / 2))
+            {
+                using var flyBg = new SolidBrush(UiChrome.SurfacePill);
+                using var flyBorder = new Pen(UiChrome.SurfaceBorder, 1f);
+                g.FillPath(flyBg, fp);
+                g.DrawPath(flyBorder, fp);
+            }
+
+            for (int i = 0; i < _flyoutTools.Length; i++)
+            {
+                var fb = _flyoutButtonRects[i];
+                bool fActive = _flyoutTools[i].Mode is { } fm && _mode == fm;
+                bool fHover = _hoveredFlyoutButton == i;
+
+                if (fActive)
+                {
+                    using var ab = new SolidBrush(Color.FromArgb(32, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
+                    g.FillEllipse(ab, fb.X + 2.5f, fb.Y + 2.5f, fb.Width - 5f, fb.Height - 5f);
+                }
+                else if (fHover)
+                {
+                    using var hb = new SolidBrush(UiChrome.SurfaceHover);
+                    g.FillEllipse(hb, fb.X + 2.5f, fb.Y + 2.5f, fb.Width - 5f, fb.Height - 5f);
+                }
+
+                int fia = fActive ? 255 : fHover ? 220 : 165;
+                var fic = UiChrome.SurfaceTextPrimary;
+                DrawIcon(g, _flyoutTools[i].Id, fb, Color.FromArgb(fia, fic.R, fic.G, fic.B));
+            }
+        }
+
+        // Tooltip for main bar or flyout
+        string? tipText = null;
+        Rectangle tipAnchor = default;
+        float tipBelow = r.Bottom + 6;
+
         if (_hoveredButton >= 0 && _hoveredButton < _toolbarLabels.Length)
         {
-            string tipText = _toolbarLabels[_hoveredButton];
+            tipText = _toolbarLabels[_hoveredButton];
+            tipAnchor = _toolbarButtons[_hoveredButton];
 
-            if (_hoveredButton < _visibleTools.Length)
+            if (_hoveredButton < _mainBarTools.Length)
             {
-                var tool = _visibleTools[_hoveredButton];
+                var tool = _mainBarTools[_hoveredButton];
                 if (tool.Group == 1 || tool.Group == 0)
                 {
                     var hk = Services.SettingsService.LoadStatic()?.GetToolHotkey(tool.Id) ?? (0u, 0u);
@@ -931,14 +1045,25 @@ public sealed partial class RegionOverlayForm
                         tipText += $"  ({Helpers.HotkeyFormatter.Format(hk.mod, hk.key)})";
                 }
             }
+        }
+        else if (_flyoutOpen && _hoveredFlyoutButton >= 0 && _hoveredFlyoutButton < _flyoutTools.Length)
+        {
+            tipText = _flyoutTools[_hoveredFlyoutButton].Label;
+            tipAnchor = _flyoutButtonRects[_hoveredFlyoutButton];
+            tipBelow = _flyoutRect.Bottom + 6; // tooltip below the flyout
 
+            var hk = Services.SettingsService.LoadStatic()?.GetToolHotkey(_flyoutTools[_hoveredFlyoutButton].Id) ?? (0u, 0u);
+            if (hk.key != 0)
+                tipText += $"  ({Helpers.HotkeyFormatter.Format(hk.mod, hk.key)})";
+        }
+
+        if (tipText != null)
+        {
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             var tipFont = UiChrome.ChromeFont(8.25f, FontStyle.Regular);
             var sz = g.MeasureString(tipText, tipFont);
-            var btnRect = _toolbarButtons[_hoveredButton];
-            float tx = btnRect.X + btnRect.Width / 2f - sz.Width / 2f;
-            float ty = r.Bottom + 6;
-            // Clamp tooltip to screen bounds
+            float tx = tipAnchor.X + tipAnchor.Width / 2f - sz.Width / 2f;
+            float ty = tipBelow;
             float tipW = sz.Width + 20;
             if (tx - 10 < 4) tx = 14;
             if (tx - 10 + tipW > Width - 4) tx = Width - 4 - tipW + 10;
@@ -1012,6 +1137,7 @@ public sealed partial class RegionOverlayForm
     {
         ["gear"]  = '\uE157', // lucide settings
         ["close"] = '\uE1B1', // lucide x
+        ["more"]  = '\uE0D4', // lucide ellipsis (more-horizontal)
     };
 
     private static Font? _iconFontCached;

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 using Yoink.Helpers;
 using Yoink.Models;
 using Yoink.Services;
@@ -160,11 +161,28 @@ public partial class SetupWizard : Window
         // Save current page
         SaveCurrentPage();
 
+        var oldPage = _page - 1;
         _page = page;
+
+        // Fade out old page, fade in new page
         for (int i = 0; i < _pages.Length; i++)
         {
-            _pages[i].Visibility = i == page - 1 ? Visibility.Visible : Visibility.Collapsed;
-            _dots[i].Opacity = i == page - 1 ? 0.7 : 0.2;
+            if (i == page - 1)
+            {
+                _pages[i].Opacity = 0;
+                _pages[i].Visibility = Visibility.Visible;
+                var fadeIn = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(200)));
+                _pages[i].BeginAnimation(OpacityProperty, fadeIn);
+            }
+            else
+            {
+                _pages[i].Visibility = Visibility.Collapsed;
+            }
+
+            // Animate dot opacity
+            var dotTarget = i == page - 1 ? 0.7 : 0.2;
+            _dots[i].BeginAnimation(OpacityProperty,
+                new DoubleAnimation(dotTarget, new Duration(TimeSpan.FromMilliseconds(200))));
         }
         BackBtn.Visibility = page > 1 ? Visibility.Visible : Visibility.Collapsed;
         NextBtn.Content = page == 3 ? "Get Started" : "Next";
@@ -231,8 +249,12 @@ public partial class SetupWizard : Window
             ? System.Windows.Media.Color.FromRgb(240, 240, 240) : System.Windows.Media.Color.FromRgb(30, 30, 30));
         Resources["WizBtnPrimaryFg"] = Theme.Brush(Theme.IsDark
             ? System.Windows.Media.Color.FromRgb(26, 26, 26) : System.Windows.Media.Color.FromRgb(240, 240, 240));
+        Resources["WizBtnPrimaryBorder"] = Theme.Brush(Theme.BorderSubtle);
         Resources["WizBtnSecondaryBg"] = Theme.Brush(Theme.AccentSubtle);
         Resources["WizBtnSecondaryFg"] = Theme.Brush(Theme.TextPrimary);
+        Resources["WizShadowColor"] = Theme.IsDark
+            ? System.Windows.Media.Color.FromArgb(128, 0, 0, 0)
+            : System.Windows.Media.Color.FromArgb(72, 0, 0, 0);
         Foreground = Theme.Brush(Theme.TextPrimary);
     }
 

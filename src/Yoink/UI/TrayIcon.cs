@@ -3,12 +3,14 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Windows.Forms;
 using Yoink.Helpers;
+using Yoink.Models;
 
 namespace Yoink.UI;
 
 public sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _notifyIcon;
+    private readonly AppSettings? _settings;
     private Icon? _defaultIcon;
     private Icon? _recordingIcon;
     private bool _isShowingRecording;
@@ -22,12 +24,13 @@ public sealed class TrayIcon : IDisposable
     public event Action? OnHistory;
     public event Action? OnQuit;
 
-    public TrayIcon()
+    public TrayIcon(AppSettings? settings = null)
     {
+        _settings = settings;
         _defaultIcon = CreateDefaultIcon();
         _notifyIcon = new NotifyIcon
         {
-            Text = "Yoink",
+            Text = "Yoink — Click to capture, right-click for menu",
             Icon = _defaultIcon,
             Visible = true
         };
@@ -64,7 +67,7 @@ public sealed class TrayIcon : IDisposable
         var hov = dark ? Color.FromArgb(58, 58, 58)     : Color.FromArgb(232, 232, 232);
         var sep = dark ? Color.FromArgb(60, 60, 60)     : Color.FromArgb(218, 218, 218);
         var mut = dark ? Color.FromArgb(115, 115, 115)  : Color.FromArgb(140, 140, 140);
-        var quitC = dark ? Color.FromArgb(150, 150, 150) : Color.FromArgb(120, 120, 120);
+        var quitC = dark ? Color.FromArgb(230, 80, 80) : Color.FromArgb(200, 50, 50);
         var recRed = Color.FromArgb(239, 68, 68);
 
         var menu = new ContextMenuStrip
@@ -77,7 +80,7 @@ public sealed class TrayIcon : IDisposable
             Font = UiChrome.ChromeFont(9f),
             DropShadowEnabled = true,
         };
-        menu.Renderer = new CleanMenuRenderer(bg, hov, sep, dark);
+        menu.Renderer = new CleanMenuRenderer(bg, hov, sep, mut, dark);
 
         menu.HandleCreated += (s, _) =>
         {
@@ -94,20 +97,21 @@ public sealed class TrayIcon : IDisposable
 
         bool isRec = Capture.RecordingForm.Current != null;
 
-        ToolStripMenuItem Item(string text, Color? color = null) => new(text)
+        ToolStripMenuItem Item(string text, string? hotkey = null, Color? color = null) => new(text)
         {
             ForeColor = color ?? fg,
             Padding = new Padding(12, 5, 16, 5),
+            Tag = hotkey,
         };
 
-        var captureItem  = Item("Screenshot");
-        var ocrItem      = Item("Text capture");
-        var pickerItem   = Item("Color picker");
-        var recordItem   = isRec ? Item("Stop recording", recRed) : Item("Record");
-        var scrollItem   = Item("Scroll capture");
+        var captureItem  = Item("Screenshot", HotkeyHint("rect"));
+        var ocrItem      = Item("Text capture", HotkeyHint("ocr"));
+        var pickerItem   = Item("Color picker", HotkeyHint("picker"));
+        var recordItem   = isRec ? Item("Stop recording", color: recRed) : Item("Record", HotkeyHint("_record"));
+        var scrollItem   = Item("Scroll capture", HotkeyHint("_scrollCapture"));
         var settingsItem = Item("Settings");
         var historyItem  = Item("History");
-        var quitItem     = Item("Quit", quitC);
+        var quitItem     = Item("Quit", color: quitC);
 
         captureItem.Click += (_, _) => OnCapture?.Invoke();
         ocrItem.Click     += (_, _) => OnOcr?.Invoke();
@@ -133,7 +137,52 @@ public sealed class TrayIcon : IDisposable
             quitItem,
         });
 
+        // Measure widest label+hint to size all items uniformly
+        int minWidth = 0;
+        using var measureG = Graphics.FromHwnd(IntPtr.Zero);
+        foreach (ToolStripItem item in menu.Items)
+        {
+            if (item is not ToolStripMenuItem mi) continue;
+            var textW = TextRenderer.MeasureText(measureG, mi.Text, mi.Font).Width;
+            var hintW = mi.Tag is string hint ? TextRenderer.MeasureText(measureG, hint, mi.Font).Width : 0;
+            var total = textW + hintW + (hintW > 0 ? 48 : 0);
+            if (total > minWidth) minWidth = total;
+        }
+        var fullWidth = minWidth + 44;
+        menu.MinimumSize = new System.Drawing.Size(fullWidth, 0);
+        // Force each item to stretch to full menu width
+        foreach (ToolStripItem item in menu.Items)
+        {
+            if (item is ToolStripMenuItem mi)
+            {
+                mi.AutoSize = false;
+                mi.Width = fullWidth;
+            }
+        }
+
         return menu;
+    }
+
+    private string? HotkeyHint(string toolId)
+    {
+        if (_settings == null) return null;
+        var (mod, key) = _settings.GetToolHotkey(toolId);
+        if (key == 0) return null;
+        var parts = new System.Text.StringBuilder();
+        if ((mod & Native.User32.MOD_CONTROL) != 0) parts.Append("Ctrl+");
+        if ((mod & Native.User32.MOD_ALT) != 0) parts.Append("Alt+");
+        if ((mod & Native.User32.MOD_SHIFT) != 0) parts.Append("Shift+");
+        if ((mod & Native.User32.MOD_WIN) != 0) parts.Append("Win+");
+        var keyName = ((System.Windows.Forms.Keys)key).ToString();
+        keyName = keyName switch
+        {
+            "Oemtilde" or "OemTilde" => "`",
+            "OemMinus" => "-",
+            "Oemplus" or "OemPlus" => "=",
+            _ => keyName.Replace("Oem", "")
+        };
+        parts.Append(keyName);
+        return parts.ToString();
     }
 
     private void ShowMenu()
@@ -251,12 +300,12 @@ public sealed class TrayIcon : IDisposable
 /// <summary>Clean Win11-style renderer. No icons, just text + right-aligned shortcuts.</summary>
 internal sealed class CleanMenuRenderer : ToolStripProfessionalRenderer
 {
-    private readonly Color _bg, _hover, _sep;
+    private readonly Color _bg, _hover, _sep, _muted;
 
-    public CleanMenuRenderer(Color bg, Color hover, Color sep, bool isDark)
+    public CleanMenuRenderer(Color bg, Color hover, Color sep, Color muted, bool isDark)
         : base(new Win11ColorTable(bg))
     {
-        _bg = bg; _hover = hover; _sep = sep;
+        _bg = bg; _hover = hover; _sep = sep; _muted = muted;
     }
 
     protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
@@ -274,10 +323,17 @@ internal sealed class CleanMenuRenderer : ToolStripProfessionalRenderer
         var g = e.Graphics;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
-        // Draw label
         var textRect = new Rectangle(14, 0, e.Item.Width - 28, e.Item.Height);
         TextRenderer.DrawText(g, e.Item.Text, e.Item.Font, textRect, e.Item.ForeColor,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+        // Draw hotkey hint right-aligned in muted color
+        if (e.Item.Tag is string hint && hint.Length > 0)
+        {
+            var hintRect = new Rectangle(14, 0, e.Item.Width - 28, e.Item.Height);
+            TextRenderer.DrawText(g, hint, e.Item.Font, hintRect, _muted,
+                TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        }
     }
 
     protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)

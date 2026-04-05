@@ -18,6 +18,8 @@
         <SolidColorBrush x:Key="WizBtnPrimaryFg" Color="#1A1A1A"/>
         <SolidColorBrush x:Key="WizBtnSecondaryBg" Color="#15FFFFFF"/>
         <SolidColorBrush x:Key="WizBtnSecondaryFg" Color="#CCF0F0F0"/>
+        <SolidColorBrush x:Key="WizBtnPrimaryBorder" Color="#20000000"/>
+        <Color x:Key="WizShadowColor">#80000000</Color>
 
         <Style x:Key="WizBtn" TargetType="Button" BasedOn="{StaticResource ChromeButtonBase}">
             <Setter Property="FontSize" Value="13"/>
@@ -29,7 +31,7 @@
         <Style x:Key="WizBtnPrimary" TargetType="Button" BasedOn="{StaticResource WizBtn}">
             <Setter Property="Background" Value="{DynamicResource WizBtnPrimaryBg}"/>
             <Setter Property="Foreground" Value="{DynamicResource WizBtnPrimaryFg}"/>
-            <Setter Property="BorderBrush" Value="#20000000"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource WizBtnPrimaryBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
@@ -61,7 +63,7 @@
 
     <Border Margin="16" CornerRadius="12">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="4" Opacity="0.5" Color="Black"/>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="4" Opacity="0.5" Color="{DynamicResource WizShadowColor}"/>
         </Border.Effect>
     <Border x:Name="WizardBorder" CornerRadius="12" ClipToBounds="True"
             Background="{DynamicResource WizBg}" BorderBrush="{DynamicResource WizBorder}" BorderThickness="1">

@@ -263,14 +263,15 @@ public partial class App
             try
             {
                 bool showCursor = _settingsService!.Settings.ShowCursor;
-                var (bmp, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
+                var (bmp, bounds) = ScreenCapture.CaptureCurrentScreen(showCursor);
                 screenshot = bmp;
 
                 var overlay = new RegionOverlayForm(screenshot, bounds, initialMode, _settingsService!.Settings.WindowDetection)
                 {
                     ShowCrosshairGuides = _settingsService!.Settings.ShowCrosshairGuides,
                     DetectWindows = _settingsService.Settings.DetectWindows,
-                    ShowCaptureMagnifier = _settingsService.Settings.ShowCaptureMagnifier
+                    ShowCaptureMagnifier = _settingsService.Settings.ShowCaptureMagnifier,
+                    AnnotationStrokeShadow = _settingsService.Settings.AnnotationStrokeShadow
                 };
                 overlay.SetEnabledTools(_settingsService.Settings.EnabledTools);
                 overlay.SetShowToolNumberBadges(_settingsService.Settings.ShowToolNumberBadges);
@@ -350,6 +351,7 @@ public partial class App
                     {
                         try
                         {
+                            ToastWindow.Show("Sticker", "Processing, please wait...");
                             var processed = await StickerService.ProcessAsync(sticker, _settingsService!.Settings.StickerUploadSettings);
                             if (processed.Success && processed.Image is not null)
                             {
@@ -357,12 +359,12 @@ public partial class App
                             }
                             else
                             {
-                                ToastWindow.ShowError("Sticker error", processed.Error);
+                                ToastWindow.ShowError("Sticker failed", processed.Error ?? "No sticker model configured");
                             }
                         }
                         catch (Exception ex)
                         {
-                            ToastWindow.ShowError("Sticker error", ex.Message);
+                            ToastWindow.ShowError("Sticker failed", ex.Message);
                         }
                         finally
                         {
@@ -451,9 +453,17 @@ public partial class App
         if (settings.SaveToFile)
         {
             var defaultPath = Path.Combine(settings.SaveDirectory, $"yoink_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}");
-            requestedPath = settings.AskForFileNameOnSave
-                ? ResolveSavePath(defaultPath, settings.CaptureImageFormat)
-                : defaultPath;
+            if (settings.AskForFileNameOnSave)
+            {
+                // SaveFileDialog must run on the WPF dispatcher thread
+                string? resolved = null;
+                Dispatcher.Invoke(() => resolved = ResolveSavePath(defaultPath, settings.CaptureImageFormat));
+                requestedPath = resolved;
+            }
+            else
+            {
+                requestedPath = defaultPath;
+            }
             if (requestedPath is null)
             {
                 result.Dispose();
@@ -634,16 +644,25 @@ public partial class App
         {
             try
             {
-                string text = await OcrService.RecognizeAsync(result, _settingsService?.Settings.OcrLanguageTag);
+                // Auto-download tessdata if needed
+                var langTag = _settingsService?.Settings.OcrLanguageTag;
+                if (!string.IsNullOrWhiteSpace(langTag) && langTag != "auto" && !Services.TessdataService.IsLanguageInstalled(langTag))
+                {
+                    ToastWindow.Show("OCR", $"Downloading {langTag}...");
+                    await Services.TessdataService.DownloadLanguageAsync(langTag);
+                }
+
+                string text = await OcrService.RecognizeAsync(result, langTag);
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     SoundService.PlayTextSound();
-                    ClipboardService.CopyTextToClipboard(text);
-                    var prev = text.Length > 100 ? text[..100] + "..." : text;
-                    ToastWindow.Show("Text copied", prev);
 
                     if (_settingsService!.Settings.SaveHistory)
                         EnsureHistoryService().SaveOcrEntry(text);
+
+                    // Open OCR result window instead of copying directly
+                    var window = new OcrResultWindow(text, _settingsService);
+                    window.Show();
                 }
                 else
                 {

@@ -87,7 +87,7 @@ public static class ToolListBuilder
             {
                 var cb = new CheckBox
                 {
-                    IsChecked = enabled.Contains(toolId) && !defaultDisabled.Contains(toolId),
+                    IsChecked = enabled.Contains(toolId),
                     Tag = toolId,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(0, 0, 8, 0),
@@ -166,8 +166,6 @@ public static class ToolListBuilder
                     enabledIds.Add(id);
             }
         }
-        enabledIds.Remove("step");
-        enabledIds.Remove("ruler");
         if (!enabledIds.Any(id => ToolDef.AllTools.Any(t => t.Id == id && t.Group == 0)))
             return; // must keep at least one capture tool
         svc.Settings.EnabledTools = enabledIds;
