@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  Capture, annotate, OCR, make stickers, record video, save locally, search images with OCR, and many more features.
+  Capture, annotate, OCR, translate, make stickers, record video, save locally, search images with OCR, and many more features.
 </p>
 
 <p align="center">
@@ -52,8 +52,10 @@ winget upgrade --id JasperDevs.Yoink -e
 ## Why Yoink
 
 - Region, fullscreen, active-window, and scrolling capture
-- Built-in annotation tools with configurable hotkeys
-- OCR, color picking, QR/barcode scanning, stickers, and screen recording
+- Built-in annotation tools with stroke/shadow effects and configurable hotkeys
+- OCR with dedicated result window and built-in translation (Argos Translate offline, Google Translate API)
+- Auto-download OCR language packs for 100+ languages
+- Color picking, QR/barcode scanning, stickers, and screen recording
 - Local history with image search using OCR and semantic matching
 - Optional uploads to public hosts, cloud storage, and self-hosted targets
 
