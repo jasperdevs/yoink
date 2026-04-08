@@ -15,6 +15,7 @@ namespace Yoink.UI;
 public partial class OcrResultWindow : Window
 {
     private readonly SettingsService _settingsService;
+    private readonly OcrResultWindowLifecycle _lifecycle = new();
     private CancellationTokenSource? _translateCts;
 
     // Store full item lists for filtering
@@ -62,7 +63,11 @@ public partial class OcrResultWindow : Window
 
     private void CloseWindow()
     {
+        if (!_lifecycle.TryBeginClose())
+            return;
+
         _translateCts?.Cancel();
+        StopTranslateTimer();
         Close();
     }
 
@@ -189,10 +194,17 @@ public partial class OcrResultWindow : Window
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
-        if (!IsLoaded || WindowState == WindowState.Minimized)
+        if (!_lifecycle.ShouldCloseOnDeactivate(IsLoaded, WindowState == WindowState.Minimized))
             return;
 
         CloseWindow();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _translateCts?.Cancel();
+        StopTranslateTimer();
+        base.OnClosed(e);
     }
 
     private void FromLanguageCombo_Changed(object sender, SelectionChangedEventArgs e) { }
@@ -392,17 +404,29 @@ public partial class OcrResultWindow : Window
         try
         {
             await TranslationService.EnsureReadyAsync(fromCode, model, token);
+            if (token.IsCancellationRequested || _lifecycle.IsCloseRequested)
+                return;
+
             var result = await TranslationService.TranslateAsync(text, fromCode, toCode, model, token);
+            if (token.IsCancellationRequested || _lifecycle.IsCloseRequested)
+                return;
+
             StopTranslationLoading(keepStatusVisible: false);
             TranslatedTextBox.Text = result;
             CopyTranslationBtn.Visibility = Visibility.Visible;
         }
         catch (OperationCanceledException)
         {
+            if (_lifecycle.IsCloseRequested)
+                return;
+
             StopTranslationLoading(keepStatusVisible: false);
         }
         catch (Exception ex)
         {
+            if (_lifecycle.IsCloseRequested)
+                return;
+
             StopTranslationLoading(keepStatusVisible: true);
             TranslateStatus.Text = $"Error: {ex.Message}";
         }
