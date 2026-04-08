@@ -75,15 +75,6 @@ Yoink can open a new chat or Lens page in your browser after capture, then keep 
 - Optional dedicated hotkey for redirect-only capture
 - Google Lens support with hosted image links when needed
 
-## Capture & Annotate
-
-Yoink covers the core screenshot flow, from quick capture to markup and export.
-
-- Rectangle, fullscreen, active-window, and scrolling capture
-- Annotation tools for arrows, text, shapes, blur, highlight, draw, and step numbers
-- Stroke and shadow options for cleaner callouts
-- Configurable tool hotkeys and toolbar layout
-
 ## Stickers
 
 Yoink can turn captures into stickers by removing the background, then saving, previewing, copying, and uploading them like normal images.
