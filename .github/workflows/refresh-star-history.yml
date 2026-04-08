@@ -1,0 +1,61 @@
+name: Refresh star history cache buster
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update README star history token
+        shell: pwsh
+        run: |
+          $path = "README.md"
+          $content = Get-Content -LiteralPath $path -Raw
+          $token = (Get-Date).ToUniversalTime().ToString("yyyyMMdd")
+          $updated = [regex]::Replace(
+            $content,
+            "v=\d{8}(?:-\d+)?",
+            "v=$token",
+            1
+          )
+
+          if ($updated -eq $content) {
+            "changed=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          Set-Content -LiteralPath $path -Value $updated -NoNewline
+          "changed=true" >> $env:GITHUB_OUTPUT
+        id: refresh
+
+      - name: Commit updated token
+        if: steps.refresh.outputs.changed == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "Refresh the README star history cache token" -m "The star chart embed is cache-sensitive, so the README token is rotated on a daily schedule to keep the chart fresh without manual edits.
+
+Constraint: The chart provider response is cached aggressively
+Rejected: Leave the token static | chart image can stay stale
+Rejected: Trigger this from release/build workflows | unrelated churn in higher-risk jobs
+Confidence: high
+Scope-risk: narrow
+Reversibility: clean
+Directive: Keep this workflow limited to the README star chart token unless the provider changes its cache behavior
+Tested: Scheduled/workflow-dispatch automation logic reviewed
+Not-tested: End-to-end run on GitHub Actions"
+          git push
