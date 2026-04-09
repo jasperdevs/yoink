@@ -8,6 +8,23 @@ namespace Yoink.Tests;
 public sealed class InstallServiceUpdateTests
 {
     [Fact]
+    public void Install_WhenCancelledBeforeStart_DoesNotCreateTargetDirectory()
+    {
+        var targetDir = Path.Combine(Path.GetTempPath(), "yoink-tests", Guid.NewGuid().ToString("N"), "target");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            InstallService.Install(
+                targetDir,
+                desktopShortcut: false,
+                startMenuShortcut: false,
+                startWithWindows: false,
+                cancellationToken: cancellation.Token));
+        Assert.False(Directory.Exists(targetDir));
+    }
+
+    [Fact]
     public void ApplyUpdateFromZip_CopiesFilesIntoTargetDirectory()
     {
         var root = Path.Combine(Path.GetTempPath(), "yoink-tests", Guid.NewGuid().ToString("N"));

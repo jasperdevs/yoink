@@ -12,6 +12,8 @@ public partial class InstallWizard : Window
     public bool InstallCompleted { get; private set; }
     public string InstalledPath { get; private set; } = "";
     public bool LaunchAfter { get; private set; }
+    private CancellationTokenSource? _installCancellation;
+    private bool _installInProgress;
 
     public InstallWizard()
     {
@@ -96,7 +98,12 @@ public partial class InstallWizard : Window
         Page2.Visibility = Visibility.Visible;
         InstallBtn.IsEnabled = false;
         InstallBtn.Visibility = Visibility.Collapsed;
-        CancelBtn.IsEnabled = false;
+        _installCancellation?.Dispose();
+        _installCancellation = new CancellationTokenSource();
+        var cancellationToken = _installCancellation.Token;
+        _installInProgress = true;
+        CancelBtn.IsEnabled = true;
+        CancelBtn.Content = "Cancel";
 
         try
         {
@@ -107,11 +114,12 @@ public partial class InstallWizard : Window
                     desktopShortcut,
                     startMenuShortcut,
                     startWithWindows,
-                    status => dispatcher.BeginInvoke(() => StatusDetail.Text = status));
-            });
+                    status => dispatcher.BeginInvoke(() => StatusDetail.Text = status),
+                    cancellationToken);
+            }, cancellationToken);
 
-            StatusText.Text = "Preparing runtimes...";
-            await PrepareBundledRuntimesAsync();
+            StatusText.Text = "Preparing semantic search...";
+            await PrepareBundledRuntimesAsync(cancellationToken);
 
             StatusText.Text = "Installed!";
             StatusDetail.Text = "";
@@ -127,6 +135,15 @@ public partial class InstallWizard : Window
 
             await PlayCompletionAnimation();
         }
+        catch (OperationCanceledException)
+        {
+            StatusText.Text = "Installation cancelled";
+            StatusDetail.Text = "";
+            ProgressBar.Visibility = Visibility.Collapsed;
+            CancelBtn.IsEnabled = true;
+            CancelBtn.Content = "Close";
+            InstallBtn.Visibility = Visibility.Collapsed;
+        }
         catch (Exception ex)
         {
             StatusText.Text = "Installation failed";
@@ -138,28 +155,26 @@ public partial class InstallWizard : Window
             CancelBtn.Content = "Close";
             InstallBtn.Visibility = Visibility.Collapsed;
         }
+        finally
+        {
+            _installInProgress = false;
+        }
     }
 
-    private async Task PrepareBundledRuntimesAsync()
+    private async Task PrepareBundledRuntimesAsync(CancellationToken cancellationToken)
     {
         var warnings = new List<string>();
 
         try
         {
-            StatusDetail.Text = "Installing Argos Translate...";
-            await TranslationService.EnsureInstalledAsync(
-                new Progress<string>(message => Dispatcher.BeginInvoke(() => StatusDetail.Text = message)));
-        }
-        catch (Exception ex)
-        {
-            warnings.Add($"Argos Translate: {TrimInstallWarning(ex.Message)}");
-        }
-
-        try
-        {
             StatusDetail.Text = "Installing semantic runtime...";
             await LocalClipRuntimeService.EnsureInstalledAsync(
-                new Progress<string>(message => Dispatcher.BeginInvoke(() => StatusDetail.Text = message)));
+                new Progress<string>(message => Dispatcher.BeginInvoke(() => StatusDetail.Text = message)),
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -169,7 +184,7 @@ public partial class InstallWizard : Window
         if (warnings.Count > 0)
         {
             StatusDetail.Text = string.Join("  |  ", warnings);
-            await Task.Delay(1400);
+            await Task.Delay(1400, cancellationToken);
         }
     }
 
@@ -245,6 +260,15 @@ public partial class InstallWizard : Window
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
+        if (_installInProgress)
+        {
+            CancelBtn.IsEnabled = false;
+            CancelBtn.Content = "Cancelling...";
+            StatusDetail.Text = "Cancelling installation...";
+            _installCancellation?.Cancel();
+            return;
+        }
+
         DialogResult = false;
         Close();
     }

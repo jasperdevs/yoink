@@ -114,11 +114,19 @@ public static class InstallService
     }
 
     /// <summary>Install Yoink to the target directory.</summary>
-    public static void Install(string targetDir, bool desktopShortcut, bool startMenuShortcut, bool startWithWindows, Action<string>? onProgress = null)
+    public static void Install(
+        string targetDir,
+        bool desktopShortcut,
+        bool startMenuShortcut,
+        bool startWithWindows,
+        Action<string>? onProgress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         onProgress?.Invoke("Closing any running Yoink instances...");
         KillRunningInstances();
 
+        cancellationToken.ThrowIfCancellationRequested();
         onProgress?.Invoke("Creating directory...");
         Directory.CreateDirectory(targetDir);
 
@@ -133,14 +141,16 @@ public static class InstallService
         if (string.IsNullOrWhiteSpace(currentExe) || !File.Exists(currentExe))
             throw new InvalidOperationException("Unable to locate the running Yoink executable.");
 
+        cancellationToken.ThrowIfCancellationRequested();
         var targetExe = Path.Combine(targetDirNorm, "Yoink.exe");
 
         if (!string.Equals(Path.GetFullPath(sourceDir).TrimEnd('\\', '/'), Path.GetFullPath(targetDirNorm).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
-            CopyInstallPayload(sourceDir, currentExe, targetDirNorm);
+            CopyInstallPayload(sourceDir, currentExe, targetDirNorm, cancellationToken);
 
         // Start menu shortcut
         if (startMenuShortcut)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             onProgress?.Invoke("Creating Start Menu shortcut...");
             CreateShortcut(
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -151,6 +161,7 @@ public static class InstallService
         // Desktop shortcut
         if (desktopShortcut)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             onProgress?.Invoke("Creating desktop shortcut...");
             CreateShortcut(
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Yoink.lnk"),
@@ -158,12 +169,14 @@ public static class InstallService
         }
 
         // Register in Add/Remove Programs
+        cancellationToken.ThrowIfCancellationRequested();
         onProgress?.Invoke("Registering application...");
         RegisterApp(targetDirNorm, targetExe);
 
         // Startup registry
         if (startWithWindows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             const string rk = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
             using var key = Registry.CurrentUser.OpenSubKey(rk, true);
             key?.SetValue("Yoink", $"\"{targetExe}\"");
@@ -289,43 +302,45 @@ public static class InstallService
         }
     }
 
-    private static void CopyTree(string source, string target)
+    private static void CopyTree(string source, string target, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(target);
 
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var relativePath = Path.GetRelativePath(source, file);
 
             var destination = Path.Combine(target, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            CopyFileWithRetry(file, destination);
+            CopyFileWithRetry(file, destination, cancellationToken);
         }
     }
 
-    private static void CopyInstallPayload(string sourceDir, string currentExe, string targetDir)
+    private static void CopyInstallPayload(string sourceDir, string currentExe, string targetDir, CancellationToken cancellationToken)
     {
         if (ShouldCopyFullPayloadTree(sourceDir))
         {
-            CopyTree(sourceDir, targetDir);
+            CopyTree(sourceDir, targetDir, cancellationToken);
             return;
         }
 
-        CopyFileWithRetry(currentExe, Path.Combine(targetDir, "Yoink.exe"));
+        CopyFileWithRetry(currentExe, Path.Combine(targetDir, "Yoink.exe"), cancellationToken);
 
         foreach (var relativePath in GetOptionalPayloadEntries())
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var sourcePath = Path.Combine(sourceDir, relativePath);
             var destinationPath = Path.Combine(targetDir, relativePath);
 
             if (File.Exists(sourcePath))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-                CopyFileWithRetry(sourcePath, destinationPath);
+                CopyFileWithRetry(sourcePath, destinationPath, cancellationToken);
             }
             else if (Directory.Exists(sourcePath))
             {
-                CopyTree(sourcePath, destinationPath);
+                CopyTree(sourcePath, destinationPath, cancellationToken);
             }
         }
     }
@@ -358,12 +373,13 @@ public static class InstallService
         yield return Path.Combine("Assets", "Clip");
     }
 
-    private static void CopyFileWithRetry(string source, string destination)
+    private static void CopyFileWithRetry(string source, string destination, CancellationToken cancellationToken = default)
     {
         const int attempts = 8;
         Exception? lastError = null;
         for (int i = 0; i < attempts; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 File.Copy(source, destination, true);
@@ -372,7 +388,7 @@ public static class InstallService
             catch (Exception ex) when (i < attempts - 1)
             {
                 lastError = ex;
-                Thread.Sleep(200 * (i + 1));
+                cancellationToken.WaitHandle.WaitOne(200 * (i + 1));
             }
         }
 

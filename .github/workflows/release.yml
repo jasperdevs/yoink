@@ -116,4 +116,21 @@ jobs:
           files: |
             dist/**/*.exe
             dist/**/*.zip
+            dist/winget-manifests/**/*.yaml
           body_path: RELEASE_NOTES.md
+
+      - name: Submit release to WinGet
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINGET_TOKEN)) {
+            throw "WINGET_TOKEN secret is required to submit Yoink to microsoft/winget-pkgs."
+          }
+
+          $version = "${{ steps.version.outputs.version }}"
+          $manifestDir = Join-Path $PWD "dist\winget-manifests\$version"
+
+          & scripts/winget/Submit-WingetSubmission.ps1 `
+            -ManifestDirectory $manifestDir `
+            -GitHubToken $env:WINGET_TOKEN

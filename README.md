@@ -100,7 +100,7 @@ Yoink can extract text from any region of your screen and translate it instantly
 
 - Extract text from screenshots with Tesseract OCR
 - Auto-download language packs for 100+ languages
-- Translate with Argos Translate (offline) or Google Translate API
+- Translate with the open-source local translator, Google Translate API, or manually installed Argos Translate
 - Dedicated result window with copy and translate buttons
 
 ## Recording

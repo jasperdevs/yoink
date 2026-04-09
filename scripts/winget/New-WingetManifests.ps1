@@ -10,7 +10,7 @@ param(
     [string]$Publisher = 'Yoink Contributors',
     [string]$PublisherUrl = 'https://github.com/jasperdevs/yoink',
     [string]$PublisherSupportUrl = 'https://github.com/jasperdevs/yoink/issues',
-    [string]$License = 'MIT',
+    [string]$License = 'GPL-3.0',
     [string]$LicenseUrl = 'https://github.com/jasperdevs/yoink/blob/main/LICENSE',
     [string]$Moniker = 'yoink',
     [string]$Description = 'Screenshot, annotation, OCR, sticker, and recording tool for Windows',

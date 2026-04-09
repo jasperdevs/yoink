@@ -230,6 +230,7 @@ public partial class App : Application
 
         try
         {
+            InstallService.KillRunningInstances();
             InstallService.ApplyUpdateFromZip(packagePath, targetDir, versionLabel, launchAfter: true);
         }
         catch (Exception ex)
