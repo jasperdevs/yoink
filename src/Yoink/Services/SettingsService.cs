@@ -246,6 +246,11 @@ public sealed class SettingsService : IDisposable
         if (settings.StickerUploadSettings.Provider == StickerProvider.None)
             settings.StickerUploadSettings.Provider = StickerProvider.LocalCpu;
 
+        if (settings.ImageUploadDestination == UploadDestination.TransferSh)
+            settings.ImageUploadDestination = UploadDestination.TempHosts;
+        if (settings.ImageUploadSettings.AiChatUploadDestination == UploadDestination.TransferSh)
+            settings.ImageUploadSettings.AiChatUploadDestination = UploadDestination.Catbox;
+
         return settings;
     }
 }

@@ -191,4 +191,40 @@ public static partial class UploadService
             Error = "The public transfer.sh service is unavailable. Choose Temp Hosts, Catbox, Litterbox, Uguu, or file.io."
         };
     }
+
+    // ─── tmpfiles.org ───────────────────────────────────────────────
+
+    private static async Task<UploadResult> UploadTmpFiles(string filePath)
+    {
+        using var content = new MultipartFormDataContent();
+        content.Add(CreateFileStreamContent(filePath), "file", Path.GetFileName(filePath));
+
+        var resp = await Http.PostAsync("https://tmpfiles.org/api/v1/upload", content);
+        var json = await resp.Content.ReadAsStringAsync();
+        var node = TryParseJson(json);
+
+        if (!resp.IsSuccessStatusCode)
+            return new UploadResult { Error = BuildHttpError("tmpfiles.org", resp, json, node), IsRateLimit = (int)resp.StatusCode == 429 };
+
+        var pageUrl = node?["data"]?["url"]?.GetValue<string>();
+        var downloadUrl = ToTmpFilesDownloadUrl(pageUrl);
+        return !string.IsNullOrWhiteSpace(downloadUrl)
+            ? new UploadResult { Success = true, Url = downloadUrl }
+            : new UploadResult { Error = BuildHttpError("tmpfiles.org", resp, json, node) };
+    }
+
+    private static string? ToTmpFilesDownloadUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return null;
+
+        var path = uri.AbsolutePath.TrimStart('/');
+        if (path.StartsWith("dl/", StringComparison.OrdinalIgnoreCase))
+            return "https://tmpfiles.org/" + path;
+
+        return "https://tmpfiles.org/dl/" + path;
+    }
 }

@@ -68,6 +68,10 @@ public sealed class SettingsServiceTests
         {
           "CompressHistory": true,
           "CaptureImageFormat": 0,
+          "ImageUploadDestination": 8,
+          "ImageUploadSettings": {
+            "AiChatUploadDestination": 8
+          },
           "EnabledTools": ["rect"],
           "StickerUploadSettings": {
             "Provider": 0,
@@ -86,6 +90,8 @@ public sealed class SettingsServiceTests
         Assert.Equal(StickerProvider.LocalCpu, settings.StickerUploadSettings.Provider);
         Assert.Equal(LocalStickerEngine.BiRefNetLite, settings.StickerUploadSettings.LocalEngine);
         Assert.Equal(LocalStickerEngine.U2Netp, settings.StickerUploadSettings.LocalCpuEngine);
+        Assert.Equal(UploadDestination.TempHosts, settings.ImageUploadDestination);
+        Assert.Equal(UploadDestination.Catbox, settings.ImageUploadSettings.AiChatUploadDestination);
     }
 
     private static string CreateTempRoot()

@@ -1,6 +1,7 @@
 using Xunit;
 using Yoink.Services;
 using Yoink.Models;
+using System.Reflection;
 
 namespace Yoink.Tests;
 
@@ -14,6 +15,7 @@ public sealed class UploadServiceTests
     [InlineData(UploadDestination.S3Compatible, "S3")]
     [InlineData(UploadDestination.AiChat, "AI Redirects")]
     [InlineData(UploadDestination.TempHosts, "Filter between free temporary hosts")]
+    [InlineData(UploadDestination.TmpFiles, "tmpfiles.org")]
     public void GetName_ReturnsExpectedLabels(UploadDestination destination, string expected)
     {
         Assert.Equal(expected, UploadService.GetName(destination));
@@ -46,6 +48,7 @@ public sealed class UploadServiceTests
 
         Assert.False(UploadService.HasCredentials(UploadDestination.None, settings));
         Assert.True(UploadService.HasCredentials(UploadDestination.Catbox, settings));
+        Assert.True(UploadService.HasCredentials(UploadDestination.TmpFiles, settings));
         Assert.True(UploadService.HasCredentials(UploadDestination.AiChat, settings));
         Assert.False(UploadService.HasCredentials(UploadDestination.Imgur, settings));
 
@@ -145,5 +148,18 @@ public sealed class UploadServiceTests
         {
             try { File.Delete(filePath); } catch { }
         }
+    }
+
+    [Theory]
+    [InlineData("http://tmpfiles.org/123/name.png", "https://tmpfiles.org/dl/123/name.png")]
+    [InlineData("https://tmpfiles.org/dl/123/name.png", "https://tmpfiles.org/dl/123/name.png")]
+    public void ToTmpFilesDownloadUrl_ReturnsDirectDownloadUrl(string input, string expected)
+    {
+        var method = typeof(UploadService).GetMethod("ToTmpFilesDownloadUrl", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var actual = Assert.IsType<string>(method!.Invoke(null, new object?[] { input }));
+
+        Assert.Equal(expected, actual);
     }
 }

@@ -36,7 +36,8 @@ public enum UploadDestination
     S3Compatible,
     CustomHttp,
     AiChat,
-    TempHosts
+    TempHosts,
+    TmpFiles
 }
 
 public enum AiChatProvider
@@ -74,6 +75,7 @@ public static partial class UploadService
     {
         UploadDestination.Litterbox,
         UploadDestination.Uguu,
+        UploadDestination.TmpFiles,
         UploadDestination.FileIo
     };
 
@@ -150,6 +152,7 @@ public static partial class UploadService
         UploadDestination.CustomHttp => "Custom",
         UploadDestination.AiChat => "AI Redirects",
         UploadDestination.TempHosts => "Filter between free temporary hosts",
+        UploadDestination.TmpFiles => "tmpfiles.org",
         _ => ""
     };
 
@@ -297,6 +300,7 @@ public static partial class UploadService
             UploadDestination.S3Compatible => 5L * 1024 * 1024 * 1024,
             UploadDestination.AiChat => long.MaxValue,
             UploadDestination.TempHosts => 100L * 1024 * 1024,
+            UploadDestination.TmpFiles => 100L * 1024 * 1024,
             _ => long.MaxValue
         };
     }
@@ -320,6 +324,7 @@ public static partial class UploadService
         UploadDestination.CustomHttp => !string.IsNullOrWhiteSpace(settings.CustomUploadUrl),
         UploadDestination.AiChat => true,
         UploadDestination.TempHosts => true,
+        UploadDestination.TmpFiles => true,
         // These don't need credentials
         UploadDestination.Catbox or UploadDestination.Litterbox or UploadDestination.FileIo
             or UploadDestination.Uguu or UploadDestination.TransferSh => true,
@@ -381,6 +386,7 @@ public static partial class UploadService
                 UploadDestination.FileIo => await UploadFileIo(filePath),
                 UploadDestination.Uguu => await UploadUguu(filePath),
                 UploadDestination.TransferSh => await UploadTransferSh(filePath),
+                UploadDestination.TmpFiles => await UploadTmpFiles(filePath),
                 UploadDestination.Dropbox => await UploadDropbox(filePath, settings),
                 UploadDestination.GoogleDrive => await UploadGoogleDrive(filePath, settings),
                 UploadDestination.OneDrive => await UploadOneDrive(filePath, settings),

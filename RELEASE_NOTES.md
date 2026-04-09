@@ -1,4 +1,4 @@
-# Yoink v0.8.3.8
+# Yoink v0.8.3.9
 
 ## Changed
 - Settings import now uses the same migration/defaulting path as normal app startup, so imported files pick up newer defaults instead of applying raw stale values.
@@ -12,4 +12,5 @@
 - Update downloads now clean up their temporary directory when a download fails instead of leaving partial packages behind.
 - Installer shutdown now attempts a graceful close before forcing a running Yoink process down.
 - Settings write failures no longer silently clear the dirty state, and failed clipboard writes now leave a diagnostic log entry.
-- Rotating temporary-host uploads no longer wait on the unavailable public transfer.sh service, and explicit transfer.sh selection now fails fast with an actionable error.
+- Removed the unavailable public transfer.sh service from upload destination pickers and from rotating temporary-host uploads.
+- Added tmpfiles.org to the rotating Temp Hosts upload mode.
