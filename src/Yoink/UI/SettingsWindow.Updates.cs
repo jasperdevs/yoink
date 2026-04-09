@@ -96,7 +96,7 @@ public partial class SettingsWindow
         try
         {
             var packagePath = await UpdateService.DownloadUpdatePackageAsync(_latestUpdate);
-            var targetDir = InstallService.GetInstalledLocation() ?? InstallService.GetRunningAppDirectory();
+            var targetDir = InstallService.GetPreferredUpdateTargetDirectory();
             var helperPath = CreateUpdateHelper();
             StartUpdateHelper(helperPath, packagePath, targetDir, _latestUpdate.LatestVersionLabel);
             ToastWindow.Show("Updating Yoink", "Yoink will close, update, and reopen.");

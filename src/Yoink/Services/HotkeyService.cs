@@ -27,6 +27,7 @@ public sealed class HotkeyService : IDisposable
     private bool _activeWindowRegistered;
     private bool _scrollCaptureRegistered;
     private bool _aiRedirectRegistered;
+    private bool _registered;
 
     public event Action? HotkeyPressed;
     public event Action? OcrHotkeyPressed;
@@ -69,7 +70,11 @@ public sealed class HotkeyService : IDisposable
 
     public bool Register(uint modifiers, uint key)
     {
-        ComponentDispatcher.ThreadPreprocessMessage += OnMsg;
+        if (!_registered)
+        {
+            ComponentDispatcher.ThreadPreprocessMessage += OnMsg;
+            _registered = true;
+        }
         if (key == 0) { _captureRegistered = false; return true; }
         _captureRegistered = User32.RegisterHotKey(
             IntPtr.Zero, HOTKEY_CAPTURE, modifiers | User32.MOD_NOREPEAT, key);
@@ -169,7 +174,11 @@ public sealed class HotkeyService : IDisposable
         if (_activeWindowRegistered) { User32.UnregisterHotKey(IntPtr.Zero, HOTKEY_ACTIVE_WINDOW); _activeWindowRegistered = false; }
         if (_scrollCaptureRegistered) { User32.UnregisterHotKey(IntPtr.Zero, HOTKEY_SCROLL_CAPTURE); _scrollCaptureRegistered = false; }
         if (_aiRedirectRegistered) { User32.UnregisterHotKey(IntPtr.Zero, HOTKEY_AI_REDIRECT); _aiRedirectRegistered = false; }
-        ComponentDispatcher.ThreadPreprocessMessage -= OnMsg;
+        if (_registered)
+        {
+            ComponentDispatcher.ThreadPreprocessMessage -= OnMsg;
+            _registered = false;
+        }
     }
 
     private void OnMsg(ref MSG msg, ref bool handled)

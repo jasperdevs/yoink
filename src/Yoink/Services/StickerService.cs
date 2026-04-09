@@ -230,7 +230,15 @@ public static class StickerService
     private static string SaveTempPng(Bitmap input)
     {
         var temp = Path.Combine(Path.GetTempPath(), $"yoink_sticker_{Guid.NewGuid():N}.png");
-        input.Save(temp, ImageFormat.Png);
+        try
+        {
+            input.Save(temp, ImageFormat.Png);
+        }
+        catch
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            throw;
+        }
         return temp;
     }
 }

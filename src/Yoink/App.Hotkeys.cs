@@ -57,64 +57,55 @@ public partial class App
 
     private void OnHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchOverlay(_settingsService!.Settings.DefaultCaptureMode);
     }
 
     private void OnToolHotkeyPressed(CaptureMode mode)
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchOverlay(mode);
     }
 
     private void OnOcrHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchOverlay(CaptureMode.Ocr);
     }
 
     private void OnPickerHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchOverlay(CaptureMode.ColorPicker);
     }
 
     private void OnGifHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchGifRecording();
     }
 
     private void OnScrollCaptureHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchScrollingCapture();
     }
 
     private void OnAiRedirectHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchOverlay(_settingsService!.Settings.DefaultCaptureMode, useAiRedirect: true);
     }
 
     private void OnFullscreenHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchWithDelay(CaptureFullscreenNow);
     }
 
     private void OnActiveWindowHotkeyPressed()
     {
-        if (_isCapturing) return;
-        _isCapturing = true;
+        if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
         LaunchWithDelay(CaptureActiveWindowNow);
     }
 

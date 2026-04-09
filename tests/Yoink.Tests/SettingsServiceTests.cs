@@ -1,4 +1,5 @@
 using System.IO;
+using Yoink.Models;
 using Yoink.Services;
 using Xunit;
 
@@ -58,6 +59,33 @@ public sealed class SettingsServiceTests
         {
             TryDeleteRoot(root);
         }
+    }
+
+    [Fact]
+    public void TryDeserialize_AppliesSettingsMigrations()
+    {
+        const string json = """
+        {
+          "CompressHistory": true,
+          "CaptureImageFormat": 0,
+          "EnabledTools": ["rect"],
+          "StickerUploadSettings": {
+            "Provider": 0,
+            "LocalEngine": 3
+          }
+        }
+        """;
+
+        var ok = SettingsService.TryDeserialize(json, out var settings);
+
+        Assert.True(ok);
+        Assert.Equal(CaptureImageFormat.Jpeg, settings.CaptureImageFormat);
+        Assert.NotNull(settings.EnabledTools);
+        Assert.Contains("rect", settings.EnabledTools!);
+        Assert.Contains(ToolDef.DefaultEnabledIds().First(), settings.EnabledTools!);
+        Assert.Equal(StickerProvider.LocalCpu, settings.StickerUploadSettings.Provider);
+        Assert.Equal(LocalStickerEngine.BiRefNetLite, settings.StickerUploadSettings.LocalEngine);
+        Assert.Equal(LocalStickerEngine.U2Netp, settings.StickerUploadSettings.LocalCpuEngine);
     }
 
     private static string CreateTempRoot()

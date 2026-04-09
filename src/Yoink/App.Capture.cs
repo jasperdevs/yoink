@@ -13,6 +13,8 @@ namespace Yoink;
 
 public partial class App
 {
+    private void ResetCapturing() => Volatile.Write(ref _isCapturing, 0);
+
     private sealed class PersistedCaptureResult
     {
         public required Bitmap Output { get; init; }
@@ -107,7 +109,7 @@ public partial class App
                     Dispatcher.BeginInvoke(() =>
                     {
                         _trayIcon?.UpdateRecordingState(false);
-                        _isCapturing = false;
+                        ResetCapturing();
                         ToastWindow.ShowError("Recording error", ex.Message);
                         ScheduleIdleMemoryTrim();
                     });
@@ -118,7 +120,7 @@ public partial class App
                     Dispatcher.BeginInvoke(() =>
                     {
                         _trayIcon?.UpdateRecordingState(false);
-                        _isCapturing = false;
+                        ResetCapturing();
                     });
                 };
 
@@ -127,7 +129,7 @@ public partial class App
                     Dispatcher.BeginInvoke(() =>
                     {
                         _trayIcon?.UpdateRecordingState(false);
-                        _isCapturing = false;
+                        ResetCapturing();
                     });
                 };
 
@@ -137,7 +139,7 @@ public partial class App
             {
                 Dispatcher.BeginInvoke(() =>
                 {
-                    _isCapturing = false;
+                    ResetCapturing();
                     ToastWindow.ShowError("Recording error", "Recording failed");
                 });
             }
@@ -170,15 +172,15 @@ public partial class App
                 {
                     Dispatcher.BeginInvoke(() =>
                     {
-                        _isCapturing = false;
+                        ResetCapturing();
                         ToastWindow.ShowError("Scroll capture error", message);
                         ScheduleIdleMemoryTrim();
                     });
                 };
 
-                form.CaptureCancelled += () => Dispatcher.BeginInvoke(() => _isCapturing = false);
+                form.CaptureCancelled += () => Dispatcher.BeginInvoke(ResetCapturing);
 
-                form.FormClosed += (_, _) => Dispatcher.BeginInvoke(() => _isCapturing = false);
+                form.FormClosed += (_, _) => Dispatcher.BeginInvoke(ResetCapturing);
 
                 System.Windows.Forms.Application.Run(form);
             }
@@ -186,7 +188,7 @@ public partial class App
             {
                 Dispatcher.BeginInvoke(() =>
                 {
-                    _isCapturing = false;
+                    ResetCapturing();
                     ToastWindow.ShowError("Scroll capture error", "Scrolling capture failed");
                 });
             }
@@ -208,7 +210,7 @@ public partial class App
         catch (Exception ex)
         {
             bmp?.Dispose();
-            _isCapturing = false;
+            ResetCapturing();
             ToastWindow.ShowError("Capture error", ex.Message);
         }
     }
@@ -220,20 +222,32 @@ public partial class App
         {
             (bmp, var bounds) = ScreenCapture.CaptureAllScreens(_settingsService!.Settings.ShowCursor);
             var hwnd = Native.User32.GetForegroundWindow();
-            if (hwnd == IntPtr.Zero || !Native.User32.GetWindowRect(hwnd, out var rect))
+            if (hwnd == IntPtr.Zero)
             {
                 bmp.Dispose();
-                _isCapturing = false;
+                ResetCapturing();
                 ToastWindow.ShowError("Capture error", "Couldn't find the active window.");
                 return;
             }
 
-            var crop = new Rectangle(rect.Left - bounds.X, rect.Top - bounds.Y, rect.Width, rect.Height);
+            var dwmRect = Native.Dwm.GetExtendedFrameBounds(hwnd);
+            var windowRect = Native.User32.GetWindowRect(hwnd, out var rawRect)
+                ? WindowDetector.ChoosePreferredBounds(dwmRect, rawRect.ToRectangle())
+                : dwmRect;
+            if (windowRect.Width <= 1 || windowRect.Height <= 1)
+            {
+                bmp.Dispose();
+                ResetCapturing();
+                ToastWindow.ShowError("Capture error", "Couldn't find the active window.");
+                return;
+            }
+
+            var crop = new Rectangle(windowRect.Left - bounds.X, windowRect.Top - bounds.Y, windowRect.Width, windowRect.Height);
             crop.Intersect(new Rectangle(System.Drawing.Point.Empty, bmp.Size));
             if (crop.Width <= 1 || crop.Height <= 1)
             {
                 bmp.Dispose();
-                _isCapturing = false;
+                ResetCapturing();
                 ToastWindow.ShowError("Capture error", "Active window is out of bounds.");
                 return;
             }
@@ -245,7 +259,7 @@ public partial class App
         catch (Exception ex)
         {
             bmp?.Dispose();
-            _isCapturing = false;
+            ResetCapturing();
             ToastWindow.ShowError("Capture error", ex.Message);
         }
     }
@@ -416,7 +430,7 @@ public partial class App
                         });
                     }
 
-                    Dispatcher.BeginInvoke(() => _isCapturing = false);
+                    Dispatcher.BeginInvoke(ResetCapturing);
                 };
 
                 try
@@ -433,7 +447,7 @@ public partial class App
                 screenshot?.Dispose();
                 Dispatcher.BeginInvoke(() =>
                 {
-                    _isCapturing = false;
+                    ResetCapturing();
                     ToastWindow.ShowError("Capture error", ex.Message);
                 });
             }

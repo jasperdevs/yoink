@@ -245,7 +245,7 @@ public sealed class TrayIcon : IDisposable
         g.FillEllipse(white, x - 1, y - 1, d + 2, d + 2);
         using var red = new SolidBrush(Color.FromArgb(239, 68, 68));
         g.FillEllipse(red, x, y, d, d);
-        var result = Icon.FromHandle(bmp.GetHicon());
+        var result = CreateOwnedIcon(bmp);
         baseIcon.Dispose();
         return result;
     }
@@ -267,7 +267,7 @@ public sealed class TrayIcon : IDisposable
             using var red = new SolidBrush(Color.FromArgb(239, 68, 68));
             g.FillEllipse(red, 21, 22, 10, 10);
         }
-        return Icon.FromHandle(bmp.GetHicon());
+        return CreateOwnedIcon(bmp);
     }
 
     private static Icon ToGrayscaleIcon(Icon icon)
@@ -287,7 +287,20 @@ public sealed class TrayIcon : IDisposable
         attrs.SetColorMatrix(matrix);
         g.DrawImage(bmp, new Rectangle(0, 0, gray.Width, gray.Height),
             0, 0, bmp.Width, bmp.Height, GraphicsUnit.Pixel, attrs);
-        return Icon.FromHandle(gray.GetHicon());
+        return CreateOwnedIcon(gray);
+    }
+
+    private static Icon CreateOwnedIcon(Bitmap bitmap)
+    {
+        var handle = bitmap.GetHicon();
+        try
+        {
+            return (Icon)Icon.FromHandle(handle).Clone();
+        }
+        finally
+        {
+            Native.User32.DestroyIcon(handle);
+        }
     }
 
     public void Dispose()

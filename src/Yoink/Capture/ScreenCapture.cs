@@ -228,9 +228,9 @@ public static class ScreenCapture
 
         try
         {
-            using var g = Graphics.FromImage(bitmap);
             using var cursorIcon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(cursorInfo.hCursor).Clone();
             using var cursorBmp = cursorIcon.ToBitmap();
+            using var g = Graphics.FromImage(bitmap);
             int x = cursorInfo.ptScreenPos.X - captureBounds.X - (int)iconInfo.xHotspot;
             int y = cursorInfo.ptScreenPos.Y - captureBounds.Y - (int)iconInfo.yHotspot;
             g.DrawImageUnscaled(cursorBmp, x, y);

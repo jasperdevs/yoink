@@ -1,18 +1,14 @@
-# Yoink v0.8.3.6
-
-## Added
-- New dedicated `Toast` settings tab with a visual button layout editor.
-- Configurable toast action buttons for `Close`, `Pin`, `Save`, and optional `Delete`.
-- Optional multi-monitor overlay capture setting so the region overlay can span all displays.
+# Yoink v0.8.3.7
 
 ## Changed
-- Moved toast-related settings out of `General` into the new `Toast` section.
-- Toast editor now supports both click placement and drag placement, plus swapping buttons between slots.
-- Hidden toast buttons now live in a shelf instead of separate show/hide toggles.
-- Toast overlay buttons were made larger and their hover behavior was tightened up.
+- Settings import now uses the same migration/defaulting path as normal app startup, so imported files pick up newer defaults instead of applying raw stale values.
+- The updater now verifies the SHA-256 digest GitHub publishes for release assets before applying a downloaded update package.
+- Release jobs now attach the generated winget manifests alongside the normal Windows artifacts.
 
 ## Fixed
-- Region capture overlay can now use the full virtual desktop instead of stopping at the active monitor when the new setting is enabled.
-- Toast editor layout was cleaned up to avoid clipped drag feedback, mismatched widths, and inconsistent slot availability.
-- Shelf drop feedback is now explicit instead of relying on a subtle border-only state.
-- Tooltip behavior on toast overlay buttons was reduced so it no longer lingers awkwardly while hovering those controls.
+- Sticker saves and toast preview exports now use the same atomic write path as normal screenshot saves.
+- Active-window capture now uses the same preferred window bounds logic as overlay window snapping, which reduces cropped shadows and frame mismatches.
+- Tray icon rendering no longer leaks icon handles when switching between normal and recording states.
+- Update downloads now clean up their temporary directory when a download fails instead of leaving partial packages behind.
+- Installer shutdown now attempts a graceful close before forcing a running Yoink process down.
+- Settings write failures no longer silently clear the dirty state, and failed clipboard writes now leave a diagnostic log entry.

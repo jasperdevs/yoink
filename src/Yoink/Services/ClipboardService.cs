@@ -12,15 +12,10 @@ public static class ClipboardService
 
     public static void CopyToClipboard(Bitmap bitmap, string? filePath = null)
     {
-        // Use WinForms clipboard since we may be called from a WinForms context.
-        // SetImage handles the format conversion automatically.
-        // We also add PNG format for apps that support it (e.g. Discord, Slack).
         var dataObject = new System.Windows.Forms.DataObject();
 
-        // Add as standard bitmap
         dataObject.SetData(System.Windows.Forms.DataFormats.Bitmap, bitmap);
 
-        // Add as PNG stream for better compatibility
         using var pngStream = new MemoryStream();
         if (PngEncoder is not null)
         {
@@ -34,24 +29,12 @@ public static class ClipboardService
         }
         dataObject.SetData("PNG", false, new MemoryStream(pngStream.ToArray()));
 
-        // Also include the original file when available. Some web apps treat
-        // pasted image files more reliably than raw bitmap clipboard formats.
         if (!string.IsNullOrWhiteSpace(filePath) && File.Exists(filePath))
         {
             dataObject.SetFileDropList(new StringCollection { filePath });
         }
 
-        try
-        {
-            System.Windows.Forms.Clipboard.SetDataObject(dataObject, true);
-        }
-        catch (Exception)
-        {
-            // Clipboard may be locked by another application - retry once
-            Thread.Sleep(50);
-            try { System.Windows.Forms.Clipboard.SetDataObject(dataObject, true); }
-            catch { }
-        }
+        SetClipboardWithRetry(dataObject);
     }
 
     public static void CopyTextToClipboard(string text)
@@ -60,15 +43,31 @@ public static class ClipboardService
         dataObject.SetData(System.Windows.Forms.DataFormats.UnicodeText, false, text);
         dataObject.SetData(System.Windows.Forms.DataFormats.Text, false, text);
 
-        try
+        SetClipboardWithRetry(dataObject);
+    }
+
+    private static void SetClipboardWithRetry(System.Windows.Forms.DataObject dataObject, int maxRetries = 3)
+    {
+        Exception? lastError = null;
+        for (int i = 0; i < maxRetries; i++)
         {
-            System.Windows.Forms.Clipboard.SetDataObject(dataObject, true);
+            try
+            {
+                System.Windows.Forms.Clipboard.SetDataObject(dataObject, true);
+                return;
+            }
+            catch (Exception) when (i < maxRetries - 1)
+            {
+                lastError = null;
+                System.Threading.Thread.Sleep(50 * (i + 1));
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
         }
-        catch (Exception)
-        {
-            Thread.Sleep(50);
-            try { System.Windows.Forms.Clipboard.SetDataObject(dataObject, true); }
-            catch { }
-        }
+
+        if (lastError is not null)
+            AppDiagnostics.LogWarning("clipboard.set", "Failed to write to clipboard after retries.", lastError);
     }
 }

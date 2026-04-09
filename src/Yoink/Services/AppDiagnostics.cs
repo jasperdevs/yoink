@@ -11,6 +11,9 @@ public static class AppDiagnostics
         "Yoink",
         "logs");
 
+    private const int MaxLogFilesToKeep = 30;
+    private const long MaxLogFileSizeBytes = 5 * 1024 * 1024;
+
     public static string CurrentLogPath => Path.Combine(LogDirectory, $"yoink-{DateTime.Now:yyyyMMdd}.log");
 
     public static void LogInfo(string context, string message)
@@ -44,11 +47,42 @@ public static class AppDiagnostics
                     builder.AppendLine(exception.ToString());
                 }
 
-                File.AppendAllText(CurrentLogPath, builder.ToString());
+                var logPath = CurrentLogPath;
+                File.AppendAllText(logPath, builder.ToString());
+
+                try
+                {
+                    var fileInfo = new FileInfo(logPath);
+                    if (fileInfo.Exists && fileInfo.Length > MaxLogFileSizeBytes)
+                    {
+                        var truncated = new List<string>(
+                            File.ReadAllLines(logPath).TakeLast(5000));
+                        File.WriteAllLines(logPath, truncated);
+                    }
+                }
+                catch { }
+
+                PurgeOldLogFiles();
             }
         }
         catch
         {
         }
+    }
+
+    private static void PurgeOldLogFiles()
+    {
+        try
+        {
+            var logFiles = Directory.GetFiles(LogDirectory, "yoink-*.log")
+                .OrderByDescending(f => f)
+                .Skip(MaxLogFilesToKeep);
+
+            foreach (var file in logFiles)
+            {
+                try { File.Delete(file); } catch { }
+            }
+        }
+        catch { }
     }
 }

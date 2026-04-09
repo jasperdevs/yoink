@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -16,6 +17,7 @@ public sealed record UpdateCheckResult(
     string ReleaseUrl,
     string? DownloadUrl,
     string? AssetName,
+    string? AssetSha256,
     DateTimeOffset? PublishedAt,
     bool IsUpdateAvailable,
     string StatusMessage);
@@ -94,6 +96,7 @@ public static class UpdateService
                 releaseUrl,
                 asset?.BrowserDownloadUrl,
                 asset?.Name,
+                TryExtractSha256Hex(asset?.Digest),
                 release.PublishedAt,
                 isUpdateAvailable,
                 status);
@@ -113,6 +116,8 @@ public static class UpdateService
         if (string.IsNullOrWhiteSpace(update.DownloadUrl))
             throw new InvalidOperationException("No update package is available to download.");
 
+        PurgeStaleUpdateDownloads();
+
         var extension = string.IsNullOrWhiteSpace(update.AssetName)
             ? ".zip"
             : Path.GetExtension(update.AssetName);
@@ -127,14 +132,82 @@ public static class UpdateService
             : update.AssetName;
         var packagePath = Path.Combine(downloadDir, fileName);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, update.DownloadUrl);
-        using var response = await DownloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, update.DownloadUrl);
+            using var response = await DownloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
 
-        await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        await using var destination = new FileStream(packagePath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
-        return packagePath;
+            await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            await using var destination = new FileStream(packagePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+
+            VerifyDownloadedAsset(packagePath, update.AssetSha256);
+            return packagePath;
+        }
+        catch
+        {
+            try
+            {
+                if (Directory.Exists(downloadDir))
+                    Directory.Delete(downloadDir, recursive: true);
+            }
+            catch { }
+
+            throw;
+        }
+    }
+
+    private static void VerifyDownloadedAsset(string packagePath, string? expectedSha256)
+    {
+        if (string.IsNullOrWhiteSpace(expectedSha256))
+            throw new InvalidOperationException("Update package checksum is missing from the release metadata.");
+
+        using var stream = File.OpenRead(packagePath);
+        using var sha256 = SHA256.Create();
+        var actual = Convert.ToHexString(sha256.ComputeHash(stream));
+        if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
+        {
+            try { File.Delete(packagePath); } catch { }
+            throw new InvalidOperationException("Update package checksum verification failed.");
+        }
+    }
+
+    private static string? TryExtractSha256Hex(string? digest)
+    {
+        if (string.IsNullOrWhiteSpace(digest))
+            return null;
+
+        const string prefix = "sha256:";
+        if (!digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var hash = digest[prefix.Length..].Trim();
+        if (hash.Length != 64 || !hash.All(Uri.IsHexDigit))
+            return null;
+
+        return hash.ToUpperInvariant();
+    }
+
+    private static void PurgeStaleUpdateDownloads()
+    {
+        try
+        {
+            var updatesDir = Path.Combine(Path.GetTempPath(), "Yoink", "Updates");
+            if (!Directory.Exists(updatesDir))
+                return;
+
+            foreach (var dir in Directory.EnumerateDirectories(updatesDir))
+            {
+                try
+                {
+                    if (Directory.GetLastWriteTimeUtc(dir) < DateTime.UtcNow.AddDays(-7))
+                        Directory.Delete(dir, recursive: true);
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 
     private static HttpClient CreateHttpClient()
@@ -232,5 +305,8 @@ public static class UpdateService
 
         [JsonPropertyName("browser_download_url")]
         public string BrowserDownloadUrl { get; set; } = string.Empty;
+
+        [JsonPropertyName("digest")]
+        public string? Digest { get; set; }
     }
 }

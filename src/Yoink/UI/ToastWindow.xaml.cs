@@ -7,6 +7,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Yoink.Capture;
 using Yoink.Helpers;
+using Yoink.Services;
 using Color = System.Windows.Media.Color;
 
 namespace Yoink.UI;
@@ -423,14 +424,22 @@ public partial class ToastWindow : Window
         if (dlg.ShowDialog(this) != true)
             return;
 
-        var fmt = dlg.FilterIndex switch
+        var format = dlg.FilterIndex switch
         {
-            2 => System.Drawing.Imaging.ImageFormat.Jpeg,
-            3 => System.Drawing.Imaging.ImageFormat.Bmp,
-            _ => System.Drawing.Imaging.ImageFormat.Png
+            2 => Models.CaptureImageFormat.Jpeg,
+            3 => Models.CaptureImageFormat.Bmp,
+            _ => Models.CaptureImageFormat.Png
         };
-        _previewBitmap.Save(dlg.FileName, fmt);
-        Show(ToastSpec.Standard("Saved", Path.GetFileName(dlg.FileName)));
+
+        try
+        {
+            CaptureOutputService.SaveBitmap(_previewBitmap, dlg.FileName, format, jpegQuality: 92);
+            Show(ToastSpec.Standard("Saved", Path.GetFileName(dlg.FileName)));
+        }
+        catch (Exception ex)
+        {
+            Show(ToastSpec.Error("Save failed", ex.Message));
+        }
     }
 
     private void DeleteBtn_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

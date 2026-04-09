@@ -65,6 +65,20 @@ public sealed class SettingsService : IDisposable
         catch { return null; }
     }
 
+    public static bool TryDeserialize(string json, out AppSettings settings)
+    {
+        try
+        {
+            settings = DeserializeSettings(json);
+            return true;
+        }
+        catch
+        {
+            settings = new AppSettings();
+            return false;
+        }
+    }
+
     public void Load()
     {
         if (!File.Exists(_settingsPath))
@@ -79,9 +93,9 @@ public sealed class SettingsService : IDisposable
             Settings = DeserializeSettings(json);
             CacheSettings(_settingsPath, Settings);
         }
-        catch
+        catch (Exception ex)
         {
-            // Corrupted settings file, use defaults
+            AppDiagnostics.LogError("settings.load", ex, $"Failed to load settings from {_settingsPath}. Using defaults.");
         }
     }
 
@@ -132,17 +146,39 @@ public sealed class SettingsService : IDisposable
         Directory.CreateDirectory(_settingsDir);
         var json = JsonSerializer.Serialize(Settings, JsonOptions);
         var tmpPath = _settingsPath + ".tmp";
+        bool wrote = false;
         try
         {
             File.WriteAllText(tmpPath, json);
             File.Move(tmpPath, _settingsPath, overwrite: true);
+            wrote = true;
         }
-        catch
+        catch (IOException ex)
         {
-            File.WriteAllText(_settingsPath, json);
+            wrote = TryWriteSettingsFallback_NoLock(tmpPath, json, ex.Message, "IO");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            wrote = TryWriteSettingsFallback_NoLock(tmpPath, json, ex.Message, "access");
         }
 
-        _settingsDirty = false;
+        if (wrote)
+            _settingsDirty = false;
+    }
+
+    private bool TryWriteSettingsFallback_NoLock(string tmpPath, string json, string initialError, string errorKind)
+    {
+        try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { }
+        try
+        {
+            File.WriteAllText(_settingsPath, json);
+            return true;
+        }
+        catch (Exception fallbackEx)
+        {
+            AppDiagnostics.LogError("settings.save", fallbackEx, $"Failed to persist settings after {errorKind} error writing {_settingsPath}. Initial error: {initialError}");
+            return false;
+        }
     }
 
     private static string ResolveSettingsPath(string? settingsPath) =>

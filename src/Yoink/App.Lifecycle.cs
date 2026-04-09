@@ -220,7 +220,7 @@ public partial class App
     {
         _idleTrimTimer?.Stop();
 
-        if (_isCapturing || Volatile.Read(ref _activeUploadCount) > 0)
+        if (_isCapturing != 0 || Volatile.Read(ref _activeUploadCount) > 0)
         {
             ScheduleIdleMemoryTrim();
             return;

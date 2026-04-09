@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.IO;
 using Yoink.Models;
 
 namespace Yoink.Services;
@@ -40,6 +41,10 @@ public static class CaptureOutputService
 
     public static void SaveBitmap(Bitmap bitmap, string filePath, CaptureImageFormat format, int jpegQuality)
     {
+        var dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
         switch (format)
         {
             case CaptureImageFormat.Jpeg:
@@ -47,15 +52,30 @@ public static class CaptureOutputService
                 var encoder = ImageCodecInfo.GetImageEncoders().First(e => e.MimeType == "image/jpeg");
                 using var parameters = new EncoderParameters(1);
                 parameters.Param[0] = new EncoderParameter(Encoder.Quality, (long)Math.Clamp(jpegQuality, 1, 100));
-                bitmap.Save(filePath, encoder, parameters);
+                SaveWithAtomicWrite(bitmap, filePath, (bmp, path) => bmp.Save(path, encoder, parameters));
                 break;
             }
             case CaptureImageFormat.Bmp:
-                bitmap.Save(filePath, ImageFormat.Bmp);
+                SaveWithAtomicWrite(bitmap, filePath, (bmp, path) => bmp.Save(path, ImageFormat.Bmp));
                 break;
             default:
-                bitmap.Save(filePath, ImageFormat.Png);
+                SaveWithAtomicWrite(bitmap, filePath, (bmp, path) => bmp.Save(path, ImageFormat.Png));
                 break;
+        }
+    }
+
+    private static void SaveWithAtomicWrite(Bitmap bitmap, string filePath, Action<Bitmap, string> saveAction)
+    {
+        var tmpPath = filePath + ".tmp";
+        try
+        {
+            saveAction(bitmap, tmpPath);
+            File.Move(tmpPath, filePath, overwrite: true);
+        }
+        catch (Exception) when (File.Exists(tmpPath))
+        {
+            try { File.Delete(tmpPath); } catch { }
+            saveAction(bitmap, filePath);
         }
     }
 }

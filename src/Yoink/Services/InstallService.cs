@@ -12,6 +12,13 @@ public static class InstallService
 
     public static string GetRunningAppDirectory() => GetAppDirectory();
 
+    public static string GetPreferredUpdateTargetDirectory()
+    {
+        var runningDir = GetRunningAppDirectory();
+        var installedLocation = GetInstalledLocation();
+        return ResolveUpdateTargetDirectory(installedLocation, runningDir, IsInstalled());
+    }
+
     public static string? GetInstalledLocation()
     {
         try
@@ -91,7 +98,18 @@ public static class InstallService
         foreach (var proc in Process.GetProcessesByName("Yoink"))
         {
             if (proc.Id == currentPid) continue;
-            try { proc.Kill(); proc.WaitForExit(5000); } catch { }
+            try
+            {
+                if (!proc.HasExited && proc.CloseMainWindow())
+                    proc.WaitForExit(5000);
+
+                if (!proc.HasExited)
+                {
+                    proc.Kill();
+                    proc.WaitForExit(5000);
+                }
+            }
+            catch { }
         }
     }
 
@@ -241,6 +259,14 @@ public static class InstallService
         }
 
         return false;
+    }
+
+    private static string ResolveUpdateTargetDirectory(string? installedLocation, string runningAppDirectory, bool runningInstalledCopy)
+    {
+        if (runningInstalledCopy && !string.IsNullOrWhiteSpace(installedLocation))
+            return installedLocation;
+
+        return runningAppDirectory;
     }
 
     private static void CopyDirectory(string source, string target)

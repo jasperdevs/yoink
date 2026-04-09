@@ -36,7 +36,7 @@ public partial class App
             if (requestedPath is null)
             {
                 result.Dispose();
-                _isCapturing = false;
+                ResetCapturing();
                 return;
             }
         }
@@ -48,7 +48,7 @@ public partial class App
                 {
                     Dispatcher.BeginInvoke(() =>
                     {
-                        _isCapturing = false;
+                        ResetCapturing();
                         ToastWindow.ShowError("Capture error", task.Exception?.GetBaseException().Message ?? "Capture failed");
                         ScheduleIdleMemoryTrim();
                     });
@@ -61,7 +61,7 @@ public partial class App
                     var action = NormalizeAfterCaptureAction(settings.AfterCapture);
                     if (ShouldCopyAfterCapture(action))
                         ClipboardService.CopyToClipboard(persisted.Output);
-                    _isCapturing = false;
+                    ResetCapturing();
 
                     bool willUpload = UploadService.ShouldUploadScreenshot(
                         settings,
@@ -107,7 +107,7 @@ public partial class App
             if (requestedPath is null)
             {
                 result.Dispose();
-                _isCapturing = false;
+                ResetCapturing();
                 return;
             }
         }
@@ -119,7 +119,7 @@ public partial class App
                 {
                     Dispatcher.BeginInvoke(() =>
                     {
-                        _isCapturing = false;
+                        ResetCapturing();
                         ToastWindow.ShowError("Sticker error", task.Exception?.GetBaseException().Message ?? "Sticker processing failed");
                         ScheduleIdleMemoryTrim();
                     });
@@ -132,7 +132,7 @@ public partial class App
                     var action = NormalizeAfterCaptureAction(settings.AfterCapture);
                     if (ShouldCopyAfterCapture(action))
                         ClipboardService.CopyToClipboard(persisted.Output);
-                    _isCapturing = false;
+                    ResetCapturing();
 
                     if (ShouldPreviewAfterCapture(action))
                     {
@@ -185,7 +185,7 @@ public partial class App
 
                     Directory.CreateDirectory(directory);
                     if (isSticker)
-                        output.Save(requestedPath, ImageFormat.Png);
+                        CaptureOutputService.SaveBitmap(output, requestedPath, CaptureImageFormat.Png, jpegQuality);
                     else
                         CaptureOutputService.SaveBitmap(output, requestedPath, captureFormat, jpegQuality);
 

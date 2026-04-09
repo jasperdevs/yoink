@@ -44,8 +44,7 @@ public partial class SettingsWindow
             if (dlg.ShowDialog(this) != true) return;
 
             var json = File.ReadAllText(dlg.FileName);
-            var imported = JsonSerializer.Deserialize<AppSettings>(json);
-            if (imported is null)
+            if (!SettingsService.TryDeserialize(json, out var imported))
             {
                 ToastWindow.ShowError("Import failed", "Invalid settings file.");
                 return;
@@ -53,6 +52,7 @@ public partial class SettingsWindow
 
             _settingsService.Settings = imported;
             _settingsService.Save();
+            HotkeyChanged?.Invoke();
             LoadSettings();
             ToastWindow.Show("Settings imported", "Settings have been applied.");
         }

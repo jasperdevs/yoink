@@ -106,6 +106,20 @@ public sealed class InstallServiceUpdateTests
         Assert.Contains(Path.Combine("Assets", "Clip"), entries);
     }
 
+    [Theory]
+    [InlineData("C:\\Installed\\Yoink", "C:\\Portable\\Yoink", true, "C:\\Installed\\Yoink")]
+    [InlineData("C:\\Installed\\Yoink", "C:\\Portable\\Yoink", false, "C:\\Portable\\Yoink")]
+    [InlineData(null, "C:\\Portable\\Yoink", false, "C:\\Portable\\Yoink")]
+    public void ResolveUpdateTargetDirectory_PrefersInstalledPathOnlyWhenRunningInstalledCopy(string? installedLocation, string runningDir, bool runningInstalledCopy, string expected)
+    {
+        var method = typeof(InstallService).GetMethod("ResolveUpdateTargetDirectory", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var actual = Assert.IsType<string>(method!.Invoke(null, new object?[] { installedLocation, runningDir, runningInstalledCopy }));
+
+        Assert.Equal(expected, actual);
+    }
+
     private static bool InvokeShouldCopyFullPayloadTree(string sourceDir)
     {
         var method = typeof(InstallService).GetMethod("ShouldCopyFullPayloadTree", BindingFlags.NonPublic | BindingFlags.Static);

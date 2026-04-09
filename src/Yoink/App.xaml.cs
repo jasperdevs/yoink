@@ -21,7 +21,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private DispatcherTimer? _idleTrimTimer;
     private int _activeUploadCount;
-    private volatile bool _isCapturing;
+    private int _isCapturing;
     private bool _historyRecovered;
     private bool _historyChangedHooked;
     private bool _historyMaintenanceScheduled;

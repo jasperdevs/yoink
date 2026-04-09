@@ -192,6 +192,10 @@ internal static partial class User32
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool DestroyIcon(IntPtr hIcon);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool DestroyWindow(IntPtr hWnd);
 
     [LibraryImport("user32.dll")]
