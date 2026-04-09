@@ -155,6 +155,7 @@ public partial class App : Application
         Theme.ApplyTo(Resources);
         ToastWindow.SetPosition(_settingsService.Settings.ToastPosition);
         ToastWindow.SetDuration(_settingsService.Settings.ToastDurationSeconds);
+        ToastWindow.SetButtonLayout(_settingsService.Settings.ToastButtons);
         ToastWindow.SetFadeOutBehavior(_settingsService.Settings.ToastFadeOutEnabled, _settingsService.Settings.ToastFadeOutSeconds);
 
         _idleTrimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };

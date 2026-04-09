@@ -34,6 +34,7 @@ public partial class SettingsWindow
 
         ApplyThemeToVisualTree(OuterBorder);
         UpdateSectionIcons();
+        RefreshToastButtonEditor();
     }
 
     private void UpdateSectionIcons()
@@ -123,6 +124,7 @@ public partial class SettingsWindow
         MuteSoundsCheck.IsChecked = s.MuteSounds;
         CrosshairGuidesCheck.IsChecked = s.ShowCrosshairGuides;
         ShowCaptureMagnifierCheck.IsChecked = s.ShowCaptureMagnifier;
+        OverlayAllMonitorsCheck.IsChecked = s.OverlayCaptureAllMonitors;
         ShowToolNumberBadgesCheck.IsChecked = s.ShowToolNumberBadges;
         AskFileNameCheck.IsChecked = s.AskForFileNameOnSave;
         LoadFileNameTemplateCombo(s.FileNameTemplate);
@@ -149,6 +151,7 @@ public partial class SettingsWindow
         int fadeDurIdx = fadeDur switch { 1.0 => 0, 2.0 => 1, 3.0 => 2, 5.0 => 3, _ => 2 };
         ToastFadeDurationCombo.SelectedIndex = fadeDurIdx;
         ToastFadeDurationRow.Visibility = s.ToastFadeOutEnabled ? Visibility.Visible : Visibility.Collapsed;
+        LoadToastButtonEditor();
 
         SelectUploadDestByTag((int)s.ImageUploadDestination);
         AutoUploadScreenshotsCheck.IsChecked = s.AutoUploadScreenshots;
@@ -192,6 +195,7 @@ public partial class SettingsWindow
     private void ApplyMainTabSelection()
     {
         SettingsPanel.Visibility = SettingsTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        ToastPanel.Visibility = ToastTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         HotkeysPanel.Visibility = HotkeysTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         CapturePanel.Visibility = CaptureTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         RecordingPanel.Visibility = RecordingTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;

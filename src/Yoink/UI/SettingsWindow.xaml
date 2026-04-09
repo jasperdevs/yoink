@@ -340,6 +340,8 @@
                 <StackPanel>
                     <RadioButton x:Name="SettingsTab" Content="General" GroupName="Main"
                                  IsChecked="True" Click="TabChanged" Style="{StaticResource NavItem}"/>
+                    <RadioButton x:Name="ToastTab" Content="Toast" GroupName="Main"
+                                 Click="TabChanged" Style="{StaticResource NavItem}"/>
                     <RadioButton x:Name="HotkeysTab" Content="Tools" GroupName="Main"
                                  Click="TabChanged" Style="{StaticResource NavItem}"/>
                     <RadioButton x:Name="CaptureTab" Content="Capture" GroupName="Main"
@@ -404,6 +406,9 @@
                             <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
                             <CheckBox x:Name="ShowCaptureMagnifierCheck" Content="Show pixel magnifier" FontSize="13"
                                       Checked="ShowCaptureMagnifierCheck_Changed" Unchecked="ShowCaptureMagnifierCheck_Changed"/>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <CheckBox x:Name="OverlayAllMonitorsCheck" Content="Span screenshot overlay across all monitors" FontSize="13"
+                                      Checked="OverlayAllMonitorsCheck_Changed" Unchecked="OverlayAllMonitorsCheck_Changed"/>
                             <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
                             <CheckBox x:Name="AnnotationStrokeShadowCheck" Content="Annotation stroke and shadow" FontSize="13"
                                       Checked="AnnotationStrokeShadowCheck_Changed" Unchecked="AnnotationStrokeShadowCheck_Changed"/>
@@ -783,63 +788,6 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="Notifications" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Toast position" FontSize="13" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="ToastPositionCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="125"
-                                          SelectionChanged="ToastPositionCombo_SelectionChanged">
-                                    <ComboBoxItem Content="Right"/>
-                                    <ComboBoxItem Content="Left"/>
-                                    <ComboBoxItem Content="Top Left"/>
-                                    <ComboBoxItem Content="Top Right"/>
-                                </ComboBox>
-                            </Grid>
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Toast duration" FontSize="13" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="ToastDurationCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="125"
-                                          SelectionChanged="ToastDurationCombo_SelectionChanged">
-                                    <ComboBoxItem Content="1.5 seconds" Tag="1.5"/>
-                                    <ComboBoxItem Content="2 seconds" Tag="2"/>
-                                    <ComboBoxItem Content="2.5 seconds" Tag="2.5"/>
-                                    <ComboBoxItem Content="3 seconds" Tag="3"/>
-                                    <ComboBoxItem Content="4 seconds" Tag="4"/>
-                                    <ComboBoxItem Content="5 seconds" Tag="5"/>
-                                </ComboBox>
-                            </Grid>
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-                            <CheckBox x:Name="AutoPinPreviewsCheck" Content="Auto-pin screenshot previews" FontSize="13"
-                                      Checked="AutoPinPreviewsCheck_Changed" Unchecked="AutoPinPreviewsCheck_Changed"/>
-                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-                            <CheckBox x:Name="ToastFadeOutCheck" Content="Fade out instead of sliding away" FontSize="13"
-                                      Checked="ToastFadeOutCheck_Changed" Unchecked="ToastFadeOutCheck_Changed"/>
-                            <Grid x:Name="ToastFadeDurationRow" Margin="0,10,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Fade-out duration" FontSize="13" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="ToastFadeDurationCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="125"
-                                          SelectionChanged="ToastFadeDurationCombo_SelectionChanged">
-                                    <ComboBoxItem Content="1 second" Tag="1"/>
-                                    <ComboBoxItem Content="2 seconds" Tag="2"/>
-                                    <ComboBoxItem Content="3 seconds" Tag="3"/>
-                                    <ComboBoxItem Content="5 seconds" Tag="5"/>
-                                </ComboBox>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
                     <TextBlock Text="Search" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
                     <Border x:Name="GeneralImageSearchSettingsCard" Style="{StaticResource Card}">
                         <StackPanel>
@@ -879,6 +827,354 @@
                         </StackPanel>
                     </Border>
 
+                </StackPanel>
+            </ScrollViewer>
+
+            <ScrollViewer x:Name="ToastPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" Padding="18,4,18,18"
+                          PreviewMouseMove="ToastPanel_PreviewMouseMove"
+                          PreviewMouseLeftButtonUp="ToastPanel_PreviewMouseLeftButtonUp">
+                <StackPanel>
+                    <TextBlock Text="Placement" Style="{StaticResource SectionLabel}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Toast position" FontSize="13" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="ToastPositionCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="125"
+                                          SelectionChanged="ToastPositionCombo_SelectionChanged">
+                                    <ComboBoxItem Content="Right"/>
+                                    <ComboBoxItem Content="Left"/>
+                                    <ComboBoxItem Content="Top Left"/>
+                                    <ComboBoxItem Content="Top Right"/>
+                                </ComboBox>
+                            </Grid>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Toast duration" FontSize="13" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="ToastDurationCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="125"
+                                          SelectionChanged="ToastDurationCombo_SelectionChanged">
+                                    <ComboBoxItem Content="1.5 seconds" Tag="1.5"/>
+                                    <ComboBoxItem Content="2 seconds" Tag="2"/>
+                                    <ComboBoxItem Content="2.5 seconds" Tag="2.5"/>
+                                    <ComboBoxItem Content="3 seconds" Tag="3"/>
+                                    <ComboBoxItem Content="4 seconds" Tag="4"/>
+                                    <ComboBoxItem Content="5 seconds" Tag="5"/>
+                                </ComboBox>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Behavior" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="AutoPinPreviewsCheck" Content="Auto-pin screenshot previews" FontSize="13"
+                                      Checked="AutoPinPreviewsCheck_Changed" Unchecked="AutoPinPreviewsCheck_Changed"/>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <CheckBox x:Name="ToastFadeOutCheck" Content="Fade out instead of sliding away" FontSize="13"
+                                      Checked="ToastFadeOutCheck_Changed" Unchecked="ToastFadeOutCheck_Changed"/>
+                            <Grid x:Name="ToastFadeDurationRow" Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Fade-out duration" FontSize="13" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="ToastFadeDurationCombo" Grid.Column="1" FontSize="12" Padding="8,5" MinWidth="125"
+                                          SelectionChanged="ToastFadeDurationCombo_SelectionChanged">
+                                    <ComboBoxItem Content="1 second" Tag="1"/>
+                                    <ComboBoxItem Content="2 seconds" Tag="2"/>
+                                    <ComboBoxItem Content="3 seconds" Tag="3"/>
+                                    <ComboBoxItem Content="5 seconds" Tag="5"/>
+                                </ComboBox>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Overlay Buttons" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Drag a button to a slot, another button, or the shelf. Click also works: select one, then click a slot or another button to swap." FontSize="13" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="ToastEditorSelectionText" Text="Selected: Close" Style="{StaticResource InfoText}" Margin="0,4,0,0"/>
+                                </StackPanel>
+                                <Button x:Name="ResetToastButtonsBtn" Grid.Column="1" Content="Reset Layout" FontSize="11" Padding="10,5"
+                                        Margin="8,0,0,0" Click="ResetToastButtonsBtn_Click"/>
+                            </Grid>
+
+                            <Border Margin="0,14,0,0"
+                                    CornerRadius="12"
+                                    BorderBrush="{DynamicResource ThemeInputBorderBrush}"
+                                    BorderThickness="1"
+                                    Background="{DynamicResource ThemeInputBackgroundBrush}"
+                                    Padding="16">
+                                <Grid x:Name="ToastEditorSurfaceRoot">
+                                    <StackPanel x:Name="ToastEditorStack" Width="356" HorizontalAlignment="Center">
+                                    <Border Width="356" Height="256" CornerRadius="18"
+                                            Background="#12000000"
+                                            BorderBrush="{DynamicResource ThemeWindowBorderBrush}"
+                                            BorderThickness="1">
+                                        <Grid x:Name="ToastEditorPreviewSurface">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="4"/>
+                                            </Grid.RowDefinitions>
+
+                                            <Border Grid.Row="0" Margin="12,12,12,0" CornerRadius="14,14,10,10" Background="#D35A93E6">
+                                                <Grid>
+                                                    <Border x:Name="ToastSlotTopLeft"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                            Margin="8,8,0,0"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="TopLeft"/>
+                                                    <Border x:Name="ToastSlotTopInnerLeft"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                            Margin="48,8,0,0"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="TopInnerLeft"/>
+                                                    <Border x:Name="ToastSlotTopInnerRight"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                            Margin="0,8,48,0"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="TopInnerRight"/>
+                                                    <Border x:Name="ToastSlotTopRight"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                            Margin="0,8,8,0"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="TopRight"/>
+                                                    <Border x:Name="ToastSlotBottomLeft"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                            Margin="8,0,0,8"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="BottomLeft"/>
+                                                    <Border x:Name="ToastSlotBottomInnerLeft"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                            Margin="48,0,0,8"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="BottomInnerLeft"/>
+                                                    <Border x:Name="ToastSlotBottomInnerRight"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                            Margin="0,0,48,8"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="BottomInnerRight"/>
+                                                    <Border x:Name="ToastSlotBottomRight"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                            Margin="0,0,8,8"
+                                                            Background="Transparent" BorderBrush="#2DFFFFFF" BorderThickness="1"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorSlot_MouseLeftButtonDown"
+                                                            DragEnter="ToastEditorSlot_DragEnter"
+                                                            DragOver="ToastEditorSlot_DragOver"
+                                                            DragLeave="ToastEditorSlot_DragLeave"
+                                                            Drop="ToastEditorSlot_Drop"
+                                                            Tag="BottomRight"/>
+
+                                                    <Border x:Name="ToastEditorCloseBtn"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            Background="#7A0B0D10" BorderBrush="#30FFFFFF" BorderThickness="1"
+                                                            Cursor="Hand"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorButton_MouseLeftButtonDown"
+                                                            MouseMove="ToastEditorButton_MouseMove"
+                                                            MouseLeftButtonUp="ToastEditorButton_MouseLeftButtonUp"
+                                                            DragEnter="ToastEditorButton_DragEnter"
+                                                            Drop="ToastEditorButton_Drop"
+                                                            Tag="Close">
+                                                        <Canvas Width="9" Height="9" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Line X1="0" Y1="0" X2="9" Y2="9" Stroke="White" StrokeThickness="1.4"/>
+                                                            <Line X1="9" Y1="0" X2="0" Y2="9" Stroke="White" StrokeThickness="1.4"/>
+                                                        </Canvas>
+                                                    </Border>
+                                                    <Border x:Name="ToastEditorPinBtn"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            Background="#7A0B0D10" BorderBrush="#30FFFFFF" BorderThickness="1"
+                                                            Cursor="Hand"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorButton_MouseLeftButtonDown"
+                                                            MouseMove="ToastEditorButton_MouseMove"
+                                                            MouseLeftButtonUp="ToastEditorButton_MouseLeftButtonUp"
+                                                            DragEnter="ToastEditorButton_DragEnter"
+                                                            Drop="ToastEditorButton_Drop"
+                                                            Tag="Pin">
+                                                        <Path Data="M16,12V4h1V2H7V4h1v8l-2,2v2h5.2v6h1.6v-6H18v-2Z"
+                                                              Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <Border x:Name="ToastEditorSaveBtn"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            Background="#7A0B0D10" BorderBrush="#30FFFFFF" BorderThickness="1"
+                                                            Cursor="Hand"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorButton_MouseLeftButtonDown"
+                                                            MouseMove="ToastEditorButton_MouseMove"
+                                                            MouseLeftButtonUp="ToastEditorButton_MouseLeftButtonUp"
+                                                            DragEnter="ToastEditorButton_DragEnter"
+                                                            Drop="ToastEditorButton_Drop"
+                                                            Tag="Save">
+                                                        <Path Data="M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"
+                                                              Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <Border x:Name="ToastEditorDeleteBtn"
+                                                            Width="30" Height="30" CornerRadius="9"
+                                                            Background="#7A0B0D10" BorderBrush="#30FFFFFF" BorderThickness="1"
+                                                            Cursor="Hand"
+                                                            AllowDrop="True"
+                                                            MouseLeftButtonDown="ToastEditorButton_MouseLeftButtonDown"
+                                                            MouseMove="ToastEditorButton_MouseMove"
+                                                            MouseLeftButtonUp="ToastEditorButton_MouseLeftButtonUp"
+                                                            DragEnter="ToastEditorButton_DragEnter"
+                                                            Drop="ToastEditorButton_Drop"
+                                                            Tag="Delete">
+                                                        <Path Data="M9,3h6l1,1h4v2H4V4h4l1-1Zm-2,6h2v8H7V9Zm4,0h2v8h-2V9Zm4,0h2v8h-2V9Z"
+                                                              Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+
+                                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="14,10,14,8">
+                                                <Border Width="30" Height="30" CornerRadius="9" Background="#12FFFFFF" Margin="0,0,12,0"/>
+                                                <StackPanel>
+                                                    <TextBlock Text="Screenshot saved" FontSize="12.5" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource ThemeTextPrimaryBrush}"/>
+                                                    <TextBlock Text="Pinned, saved, or dismissed from the toast." FontSize="11.5" Opacity="0.62"
+                                                               Foreground="{DynamicResource ThemeTextPrimaryBrush}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <Border Grid.Row="2" Margin="12,0,12,12" CornerRadius="2" Background="#65FFFFFF"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Width="356" Margin="0,14,0,0"
+                                            CornerRadius="14"
+                                            Background="#10000000"
+                                            BorderBrush="{DynamicResource ThemeWindowBorderBrush}"
+                                            BorderThickness="1"
+                                            Padding="12">
+                                        <StackPanel>
+                                            <TextBlock Text="Shelf" FontSize="12.5" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource ThemeTextPrimaryBrush}"/>
+                                            <TextBlock Text="Hidden buttons live here. Drag them back out or click one, then click a slot." Style="{StaticResource InfoText}" Margin="0,4,0,10"/>
+
+                                            <Border x:Name="ToastHiddenShelf"
+                                                    CornerRadius="12"
+                                                    Background="#12000000"
+                                                    BorderBrush="{DynamicResource ThemeInputBorderBrush}"
+                                                    BorderThickness="1"
+                                                    Padding="10"
+                                                    MinHeight="68"
+                                                    AllowDrop="True"
+                                                    DragEnter="ToastShelf_DragEnter"
+                                                    DragOver="ToastShelf_DragOver"
+                                                    DragLeave="ToastShelf_DragLeave"
+                                                    Drop="ToastShelf_Drop">
+                                                <Grid>
+                                                    <Border x:Name="ToastHiddenShelfDropCue"
+                                                            CornerRadius="10"
+                                                            Background="#34FFFFFF"
+                                                            BorderBrush="#C8FFFFFF"
+                                                            BorderThickness="1.8"
+                                                            Visibility="Collapsed"
+                                                            Margin="-2">
+                                                        <TextBlock Text="Drop Here To Store"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource ThemeTextPrimaryBrush}"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <TextBlock x:Name="ToastHiddenShelfEmpty"
+                                                               Text="No hidden buttons. Drag one here to store it."
+                                                               Style="{StaticResource InfoText}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                    <WrapPanel x:Name="ToastHiddenButtonsPanel"/>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+                                    </StackPanel>
+
+                                    <Canvas x:Name="ToastDragLayer" IsHitTestVisible="False" Panel.ZIndex="50">
+                                        <Border x:Name="ToastDragGhost"
+                                                Width="30" Height="30" CornerRadius="9"
+                                                Background="#D0202020"
+                                                BorderBrush="#C0FFFFFF"
+                                                BorderThickness="1.6"
+                                                Visibility="Collapsed"
+                                                Opacity="0.92">
+                                            <Viewbox Width="14" Height="14" Stretch="Uniform">
+                                                <Grid x:Name="ToastDragGhostGlyphHost"/>
+                                            </Viewbox>
+                                        </Border>
+                                    </Canvas>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
 

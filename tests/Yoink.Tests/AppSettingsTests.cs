@@ -76,4 +76,27 @@ public sealed class AppSettingsTests
 
         Assert.Equal(CaptureDockSide.Top, settings.CaptureDockSide);
     }
+
+    [Fact]
+    public void OverlayCaptureAllMonitors_DefaultsToEnabled()
+    {
+        var settings = new AppSettings();
+
+        Assert.True(settings.OverlayCaptureAllMonitors);
+    }
+
+    [Fact]
+    public void ToastButtons_DefaultToVisibleCornerLayout()
+    {
+        var settings = new AppSettings();
+
+        Assert.True(settings.ToastButtons.ShowClose);
+        Assert.True(settings.ToastButtons.ShowPin);
+        Assert.True(settings.ToastButtons.ShowSave);
+        Assert.False(settings.ToastButtons.ShowDelete);
+        Assert.Equal(ToastButtonSlot.TopRight, settings.ToastButtons.CloseSlot);
+        Assert.Equal(ToastButtonSlot.TopLeft, settings.ToastButtons.PinSlot);
+        Assert.Equal(ToastButtonSlot.BottomRight, settings.ToastButtons.SaveSlot);
+        Assert.Equal(ToastButtonSlot.BottomLeft, settings.ToastButtons.DeleteSlot);
+    }
 }

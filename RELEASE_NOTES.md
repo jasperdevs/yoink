@@ -1,24 +1,18 @@
-# Yoink v0.8.3.5
+# Yoink v0.8.3.6
 
 ## Added
-- `AI Redirects` upload destination for opening ChatGPT, Claude, Claude Opus, Gemini, or Google Lens in the browser.
-- Optional dedicated AI redirect hotkey in Upload settings.
-- `Google Lens` redirect target with hosted-image handoff.
-- `Filter between free temporary hosts` upload option that rotates through free temporary hosts until one works.
+- New dedicated `Toast` settings tab with a visual button layout editor.
+- Configurable toast action buttons for `Close`, `Pin`, `Save`, and optional `Delete`.
+- Optional multi-monitor overlay capture setting so the region overlay can span all displays.
 
 ## Changed
-- Renamed the old AI upload entry to `✽ AI Redirects`.
-- AI redirect captures now use a pinned preview toast for drag-and-drop or `Ctrl+V` fallback instead of brittle browser auto-paste.
-- Google Lens now uses hosted-image redirect behavior and can use the rotating temporary-host option.
-- Upload settings hide the generic auto-upload toggles while `AI Redirects` is selected.
-- Upload and Lens host lists now keep temporary hosts grouped at the top.
-- `AI Redirects` is pinned to the top of the upload destination list.
+- Moved toast-related settings out of `General` into the new `Toast` section.
+- Toast editor now supports both click placement and drag placement, plus swapping buttons between slots.
+- Hidden toast buttons now live in a shelf instead of separate show/hide toggles.
+- Toast overlay buttons were made larger and their hover behavior was tightened up.
 
 ## Fixed
-- OCR result window now closes with `Esc` or by clicking away.
-- Dragging a preview toast now dismisses it after the drag session ends.
-- Successful Google Lens redirects no longer leave a pinned drag/drop toast behind.
-- Temporary-host fallback reporting now shows the host that actually succeeded.
-- Settings footer actions now use a stable layout instead of the broken wrapped row.
-- Recording and scrolling capture overlays were hardened after the recent UI regressions; scrolling capture was rolled back to a conservative non-sticky path so it cannot trap the desktop.
-- Recording start was adjusted to reduce first-frame UI leakage and startup transition artifacts.
+- Region capture overlay can now use the full virtual desktop instead of stopping at the active monitor when the new setting is enabled.
+- Toast editor layout was cleaned up to avoid clipped drag feedback, mismatched widths, and inconsistent slot availability.
+- Shelf drop feedback is now explicit instead of relying on a subtle border-only state.
+- Tooltip behavior on toast overlay buttons was reduced so it no longer lingers awkwardly while hovering those controls.

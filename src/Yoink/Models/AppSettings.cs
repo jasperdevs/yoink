@@ -17,6 +17,18 @@ public enum ToastPosition
     TopRight
 }
 
+public enum ToastButtonSlot
+{
+    TopLeft,
+    TopInnerLeft,
+    TopInnerRight,
+    TopRight,
+    BottomLeft,
+    BottomInnerLeft,
+    BottomInnerRight,
+    BottomRight
+}
+
 public enum SoundPack
 {
     Default,
@@ -83,6 +95,18 @@ public enum ImageSearchSourceOptions
 
 public sealed class AppSettings
 {
+    public sealed class ToastButtonLayoutSettings
+    {
+        public bool ShowClose { get; set; } = true;
+        public ToastButtonSlot CloseSlot { get; set; } = ToastButtonSlot.TopRight;
+        public bool ShowPin { get; set; } = true;
+        public ToastButtonSlot PinSlot { get; set; } = ToastButtonSlot.TopLeft;
+        public bool ShowSave { get; set; } = true;
+        public ToastButtonSlot SaveSlot { get; set; } = ToastButtonSlot.BottomRight;
+        public bool ShowDelete { get; set; }
+        public ToastButtonSlot DeleteSlot { get; set; } = ToastButtonSlot.BottomLeft;
+    }
+
     public uint HotkeyModifiers { get; set; } = Native.User32.MOD_ALT;
     public uint HotkeyKey { get; set; } = 0xC0; // VK_OEM_3 = backtick/tilde
 
@@ -145,6 +169,7 @@ public sealed class AppSettings
     public bool ShowCrosshairGuides { get; set; } // off by default
     public bool ShowCursor { get; set; }
     public bool ShowCaptureMagnifier { get; set; }
+    public bool OverlayCaptureAllMonitors { get; set; } = true;
     public bool DetectWindows { get; set; } = true;
     public bool CompressHistory { get; set; }
     public int JpegQuality { get; set; } = 85;
@@ -174,6 +199,7 @@ public sealed class AppSettings
     public bool ToastFadeOutEnabled { get; set; }
     public double ToastFadeOutSeconds { get; set; } = 1.0;
     public bool AutoPinPreviews { get; set; }
+    public ToastButtonLayoutSettings ToastButtons { get; set; } = new();
     public SoundPack SoundPack { get; set; } = SoundPack.Default;
 
     // Video recording

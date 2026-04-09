@@ -100,6 +100,13 @@ public partial class SettingsWindow
         _settingsService.Save();
     }
 
+    private void OverlayAllMonitorsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.OverlayCaptureAllMonitors = OverlayAllMonitorsCheck.IsChecked == true;
+        _settingsService.Save();
+    }
+
     private void ShowCursorCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;

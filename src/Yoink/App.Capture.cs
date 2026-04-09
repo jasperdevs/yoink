@@ -263,7 +263,9 @@ public partial class App
             try
             {
                 bool showCursor = _settingsService!.Settings.ShowCursor;
-                var (bmp, bounds) = ScreenCapture.CaptureCurrentScreen(showCursor);
+                var (bmp, bounds) = _settingsService.Settings.OverlayCaptureAllMonitors
+                    ? ScreenCapture.CaptureAllScreens(showCursor)
+                    : ScreenCapture.CaptureCurrentScreen(showCursor);
                 screenshot = bmp;
 
                 var overlay = new RegionOverlayForm(screenshot, bounds, initialMode, _settingsService!.Settings.WindowDetection)

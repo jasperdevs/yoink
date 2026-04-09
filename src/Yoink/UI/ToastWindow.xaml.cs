@@ -28,6 +28,7 @@ public partial class ToastWindow : Window
     private static double _durationSeconds = 2.5;
     private static bool _fadeOutEnabled;
     private static double _fadeOutSeconds = 1.0;
+    private static Models.AppSettings.ToastButtonLayoutSettings _buttonLayout = new();
 
     private bool _isPinned;
     private string? _savedFilePath;
@@ -270,6 +271,7 @@ public partial class ToastWindow : Window
             ApplyPinnedState(true);
 
         HookOverlayButtons();
+        RefreshOverlayButtonLayout();
     }
 
     private void ConfigureImagePreview(ToastSpec spec)
@@ -329,12 +331,7 @@ public partial class ToastWindow : Window
         PreviewImage.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
         PreviewImage.Source = ToBitmapSource(preview);
 
-        if (spec.ShowOverlayButtons)
-        {
-            CloseBtn.Visibility = Visibility.Visible;
-            PinBtn.Visibility = Visibility.Visible;
-            SaveBtn.Visibility = Visibility.Visible;
-        }
+        RefreshOverlayButtonLayout();
     }
 
     private void ConfigureInlinePreviewLayout(Bitmap preview)
@@ -360,6 +357,7 @@ public partial class ToastWindow : Window
         CloseBtn.MouseLeftButtonDown -= CloseBtn_MouseLeftButtonDown;
         PinBtn.MouseLeftButtonDown -= PinBtn_MouseLeftButtonDown;
         SaveBtn.MouseLeftButtonDown -= SaveBtn_MouseLeftButtonDown;
+        DeleteBtn.MouseLeftButtonDown -= DeleteBtn_MouseLeftButtonDown;
 
         if (!_spec.ShowOverlayButtons || _previewBitmap is null)
             return;
@@ -367,6 +365,32 @@ public partial class ToastWindow : Window
         CloseBtn.MouseLeftButtonDown += CloseBtn_MouseLeftButtonDown;
         PinBtn.MouseLeftButtonDown += PinBtn_MouseLeftButtonDown;
         SaveBtn.MouseLeftButtonDown += SaveBtn_MouseLeftButtonDown;
+        DeleteBtn.MouseLeftButtonDown += DeleteBtn_MouseLeftButtonDown;
+    }
+
+    internal void RefreshOverlayButtonLayout()
+    {
+        ApplyOverlayButton(CloseBtn, Helpers.ToastButtonKind.Close);
+        ApplyOverlayButton(PinBtn, Helpers.ToastButtonKind.Pin);
+        ApplyOverlayButton(SaveBtn, Helpers.ToastButtonKind.Save);
+        ApplyOverlayButton(DeleteBtn, Helpers.ToastButtonKind.Delete);
+    }
+
+    private void ApplyOverlayButton(System.Windows.Controls.Border button, Helpers.ToastButtonKind kind)
+    {
+        bool visible = _previewBitmap is not null &&
+                       _spec.ShowOverlayButtons &&
+                       Helpers.ToastButtonLayout.IsVisible(_buttonLayout, kind) &&
+                       (kind != Helpers.ToastButtonKind.Delete || !string.IsNullOrWhiteSpace(_savedFilePath));
+
+        button.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!visible)
+            return;
+
+        var placement = Helpers.ToastButtonLayout.ToPlacement(Helpers.ToastButtonLayout.GetSlot(_buttonLayout, kind));
+        button.HorizontalAlignment = placement.horizontal;
+        button.VerticalAlignment = placement.vertical;
+        button.Margin = placement.margin;
     }
 
     private void CloseBtn_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -409,6 +433,26 @@ public partial class ToastWindow : Window
         Show(ToastSpec.Standard("Saved", Path.GetFileName(dlg.FileName)));
     }
 
+    private void DeleteBtn_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (string.IsNullOrWhiteSpace(_savedFilePath))
+            return;
+
+        var deletePath = _savedFilePath;
+        try
+        {
+            if (File.Exists(deletePath))
+                File.Delete(deletePath);
+            DismissAnimated();
+            Show(ToastSpec.Standard("Deleted", Path.GetFileName(deletePath)));
+        }
+        catch (Exception ex)
+        {
+            Show(ToastSpec.Error("Delete failed", ex.Message));
+        }
+    }
+
     private void ApplyPinnedState(bool pinned)
     {
         _isPinned = pinned;
@@ -437,6 +481,7 @@ public partial class ToastWindow : Window
     {
         CloseBtn.BeginAnimation(OpacityProperty, Motion.To(targetOpacity, 150, Motion.SmoothOut));
         SaveBtn.BeginAnimation(OpacityProperty, Motion.To(targetOpacity, 150, Motion.SmoothOut));
+        DeleteBtn.BeginAnimation(OpacityProperty, Motion.To(targetOpacity, 150, Motion.SmoothOut));
         PinBtn.BeginAnimation(OpacityProperty, Motion.To(targetOpacity == 0 ? pinnedOpacity : targetOpacity, 150, Motion.SmoothOut));
     }
 
@@ -456,7 +501,8 @@ public partial class ToastWindow : Window
     {
         if (IsChildOf(e.OriginalSource as DependencyObject, CloseBtn) ||
             IsChildOf(e.OriginalSource as DependencyObject, PinBtn) ||
-            IsChildOf(e.OriginalSource as DependencyObject, SaveBtn))
+            IsChildOf(e.OriginalSource as DependencyObject, SaveBtn) ||
+            IsChildOf(e.OriginalSource as DependencyObject, DeleteBtn))
         {
             return;
         }

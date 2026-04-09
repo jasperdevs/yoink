@@ -15,6 +15,25 @@ public partial class ToastWindow
 
     public static void SetPosition(Yoink.Models.ToastPosition position) => _position = position;
     public static void SetDuration(double seconds) => _durationSeconds = Math.Clamp(seconds, 1, 10);
+    public static void SetButtonLayout(Models.AppSettings.ToastButtonLayoutSettings? layout)
+    {
+        _buttonLayout = layout is null
+            ? new Models.AppSettings.ToastButtonLayoutSettings()
+            : new Models.AppSettings.ToastButtonLayoutSettings
+            {
+                ShowClose = layout.ShowClose,
+                CloseSlot = layout.CloseSlot,
+                ShowPin = layout.ShowPin,
+                PinSlot = layout.PinSlot,
+                ShowSave = layout.ShowSave,
+                SaveSlot = layout.SaveSlot,
+                ShowDelete = layout.ShowDelete,
+                DeleteSlot = layout.DeleteSlot
+            };
+
+        _current?.RefreshOverlayButtonLayout();
+    }
+
     public static void SetFadeOutBehavior(bool enabled, double seconds)
     {
         _fadeOutEnabled = enabled;
