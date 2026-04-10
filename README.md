@@ -38,7 +38,7 @@
 </p>
 
 <p align="center">
-<img width="947" height="490" alt="image" src="assets/BannerNew2.png" />
+<img width="947" height="490" alt="image" src="assets/3banner.png" />
 </p>
 
 ## Download
