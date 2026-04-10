@@ -4,6 +4,7 @@ using System.Drawing.Text;
 using System.Windows.Forms;
 using Yoink.Helpers;
 using Yoink.Models;
+using Yoink.Services;
 
 namespace Yoink.UI;
 
@@ -87,10 +88,8 @@ public sealed class TrayIcon : IDisposable
             try
             {
                 var h = ((ContextMenuStrip)s!).Handle;
-                int round = Native.Dwm.DWMWCP_ROUND;
-                Native.Dwm.DwmSetWindowAttribute(h, Native.Dwm.DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
-                int dm = dark ? 1 : 0;
-                Native.Dwm.DwmSetWindowAttribute(h, Native.Dwm.DWMWA_USE_IMMERSIVE_DARK_MODE, ref dm, sizeof(int));
+                Native.Dwm.TrySetWindowCornerPreference(h, Native.Dwm.DWMWCP_ROUND);
+                Native.Dwm.TrySetImmersiveDarkMode(h, dark);
             }
             catch { }
         };

@@ -157,7 +157,8 @@ public partial class App
             {
                 bool showCursor = _settingsService!.Settings.ShowCursor;
                 var (bmp, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
-                var form = new ScrollingCaptureForm(bmp, bounds, showCursor);
+                var form = new ScrollingCaptureForm(bmp, bounds, showCursor,
+                    _settingsService!.Settings.ShowCaptureMagnifier);
 
                 form.CaptureCompleted += result =>
                 {
@@ -340,7 +341,7 @@ public partial class App
                                 var prev = decoded.Text.Length > 100 ? decoded.Text[..100] + "..." : decoded.Text;
                                 var preview = BarcodeService.RenderPreview(decoded.Text, decoded.Format);
                                 var title = decoded.Format == ZXing.BarcodeFormat.QR_CODE ? "QR Code copied" : "Barcode copied";
-                                ToastWindow.ShowInlinePreview(preview, title, prev);
+                                ToastWindow.ShowInlinePreview(preview, title, prev, suppressSound: true);
                             }
                             else
                             {
@@ -403,7 +404,7 @@ public partial class App
                         byte g = Convert.ToByte(bare[2..4], 16);
                         byte b = Convert.ToByte(bare[4..6], 16);
                         ToastWindow.ShowWithColor("Color copied", bare,
-                            System.Windows.Media.Color.FromRgb(r, g, b));
+                            System.Windows.Media.Color.FromRgb(r, g, b), suppressSound: true);
 
                         if (_settingsService!.Settings.SaveHistory)
                             EnsureHistoryService().SaveColorEntry(bare);

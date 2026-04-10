@@ -24,35 +24,74 @@ public partial class App
 
     private void ShowSettings()
     {
-        try
+        if (_settingsWindow is { IsVisible: true })
         {
-            if (_settingsWindow is { IsVisible: true })
-            {
-                _settingsWindow.Activate();
-                return;
-            }
+            _settingsWindow.Activate();
+            return;
+        }
 
-            var win = new SettingsWindow(_settingsService!, EnsureHistoryService(), EnsureImageSearchIndexService());
-            Action hotkeyHandler = () => RegisterHotkeys();
-            Action uninstallHandler = BeginUninstall;
-            win.HotkeyChanged += hotkeyHandler;
-            win.UninstallRequested += uninstallHandler;
-            win.Closed += (_, _) =>
-            {
-                win.HotkeyChanged -= hotkeyHandler;
-                win.UninstallRequested -= uninstallHandler;
-                _settingsWindow = null;
-                ScheduleIdleMemoryTrim();
-            };
-            _settingsWindow = win;
-            win.Show();
-        }
-        catch (Exception ex)
+        if (Interlocked.CompareExchange(ref _settingsWindowOpening, 1, 0) != 0)
+            return;
+
+        _ = Task.Run(() =>
         {
+            try
+            {
+                var historyService = EnsureHistoryService();
+                var imageSearchIndexService = EnsureImageSearchIndexService();
+                _ = Dispatcher.BeginInvoke(() =>
+                {
+                    try
+                    {
+                        if (_settingsWindow is { IsVisible: true })
+                        {
+                            _settingsWindow.Activate();
+                            return;
+                        }
+
+                        ShowSettingsWindow(historyService, imageSearchIndexService);
+                    }
+                    catch (Exception ex)
+                    {
+                        _settingsWindow = null;
+                        AppDiagnostics.LogError("lifecycle.show-settings", ex);
+                        try { ToastWindow.ShowError("Settings failed to open", ex.Message); } catch (Exception toastEx) { AppDiagnostics.LogError("lifecycle.show-settings.toast", toastEx); }
+                    }
+                    finally
+                    {
+                        Interlocked.Exchange(ref _settingsWindowOpening, 0);
+                    }
+                }, DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                _ = Dispatcher.BeginInvoke(() =>
+                {
+                    _settingsWindow = null;
+                    AppDiagnostics.LogError("lifecycle.show-settings.init", ex);
+                    try { ToastWindow.ShowError("Settings failed to open", ex.Message); } catch (Exception toastEx) { AppDiagnostics.LogError("lifecycle.show-settings.init.toast", toastEx); }
+                    Interlocked.Exchange(ref _settingsWindowOpening, 0);
+                }, DispatcherPriority.Background);
+            }
+        });
+    }
+
+    private void ShowSettingsWindow(HistoryService historyService, ImageSearchIndexService imageSearchIndexService)
+    {
+        var win = new SettingsWindow(_settingsService!, historyService, imageSearchIndexService);
+        Action hotkeyHandler = RegisterHotkeys;
+        Action uninstallHandler = BeginUninstall;
+        win.HotkeyChanged += hotkeyHandler;
+        win.UninstallRequested += uninstallHandler;
+        win.Closed += (_, _) =>
+        {
+            win.HotkeyChanged -= hotkeyHandler;
+            win.UninstallRequested -= uninstallHandler;
             _settingsWindow = null;
-            AppDiagnostics.LogError("lifecycle.show-settings", ex);
-            try { ToastWindow.ShowError("Settings failed to open", ex.Message); } catch (Exception toastEx) { AppDiagnostics.LogError("lifecycle.show-settings.toast", toastEx); }
-        }
+            ScheduleIdleMemoryTrim();
+        };
+        _settingsWindow = win;
+        win.Show();
     }
 
     private void ShowHistory()

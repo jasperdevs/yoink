@@ -14,8 +14,6 @@ public partial class App
 {
     private void HandleCaptureResult(Bitmap result, bool useAiRedirect = false)
     {
-        SoundService.PlayCaptureSound();
-
         var settings = _settingsService!.Settings;
         var ext = CaptureOutputService.GetExtension(settings.CaptureImageFormat);
         string? requestedPath = null;
@@ -94,8 +92,6 @@ public partial class App
 
     private void HandleStickerResult(Bitmap result, string providerName)
     {
-        SoundService.PlayCaptureSound();
-
         var settings = _settingsService!.Settings;
         string? requestedPath = null;
         if (settings.SaveToFile)

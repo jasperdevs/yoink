@@ -67,7 +67,7 @@ public partial class SettingsWindow
         string ImageSearchMatchText,
         bool IsSelected);
 
-    private async void LoadHistory()
+    private async Task LoadHistoryAsync()
     {
         _historyLoadCts?.Cancel();
         _historyLoadCts?.Dispose();
@@ -193,6 +193,14 @@ public partial class SettingsWindow
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception ex)
+        {
+            AppDiagnostics.LogError("settings.history-load", ex);
+            HistoryStack.Children.Clear();
+            HistoryEmptyText.Visibility = Visibility.Visible;
+            HistoryEmptyLabel.Text = "Failed to load captures";
+            HistoryCountText.Text = "History unavailable";
         }
         finally
         {

@@ -5,6 +5,7 @@ using System.Drawing.Text;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Yoink.Helpers;
 using Yoink.Models;
 
 namespace Yoink.Capture;
@@ -31,14 +32,14 @@ public sealed partial class RegionOverlayForm
 
         bool didWork = false;
 
-        if (_pickerUpdateQueued && _pickerStopwatch.ElapsedMilliseconds >= 16)
+        if (_pickerUpdateQueued && _pickerStopwatch.ElapsedMilliseconds >= UiChrome.FrameIntervalMs)
         {
             _pickerUpdateQueued = false;
             RenderColorPickerFrame(_pendingPickerPoint);
             didWork = true;
         }
 
-        if (_capturePickerUpdateQueued && _capturePickerStopwatch.ElapsedMilliseconds >= 16)
+        if (_capturePickerUpdateQueued && _capturePickerStopwatch.ElapsedMilliseconds >= UiChrome.FrameIntervalMs)
         {
             _capturePickerUpdateQueued = false;
             RenderCaptureMagnifierFrame(_pendingCapturePickerPoint);
@@ -122,9 +123,9 @@ public sealed partial class RegionOverlayForm
         _pendingCapturePickerPoint = overlayPoint;
         _capturePickerUpdateQueued = true;
         bool isSelectingCapture = _isSelecting &&
-            (_mode is CaptureMode.Rectangle or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker);
+            (_mode is CaptureMode.Rectangle or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker or CaptureMode.Freeform);
 
-        if (!_pickerBusy && (!isSelectingCapture || _capturePickerStopwatch.ElapsedMilliseconds >= 16))
+        if (!_pickerBusy && (!isSelectingCapture || _capturePickerStopwatch.ElapsedMilliseconds >= UiChrome.FrameIntervalMs))
         {
             RenderCaptureMagnifierFrame(overlayPoint);
         }

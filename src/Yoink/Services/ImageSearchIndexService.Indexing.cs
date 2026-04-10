@@ -10,11 +10,14 @@ namespace Yoink.Services;
 
 public sealed partial class ImageSearchIndexService
 {
-    private async Task RunSyncLoopSafelyAsync()
+    private async Task RunSyncLoopSafelyAsync(CancellationToken cancellationToken)
     {
         try
         {
-            await EnsureSyncLoopAsync().ConfigureAwait(false);
+            await EnsureSyncLoopAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -46,14 +49,15 @@ public sealed partial class ImageSearchIndexService
             StartSyncLoopIfNeeded();
     }
 
-    private async Task EnsureSyncLoopAsync()
+    private async Task EnsureSyncLoopAsync(CancellationToken cancellationToken)
     {
-        await _syncGate.WaitAsync().ConfigureAwait(false);
+        await _syncGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
             while (!_disposed)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<HistoryEntry> snapshot;
                 string? languageTag;
 
@@ -64,7 +68,7 @@ public sealed partial class ImageSearchIndexService
                     _syncRequested = false;
                 }
 
-                await SyncSnapshotAsync(snapshot, languageTag).ConfigureAwait(false);
+                await SyncSnapshotAsync(snapshot, languageTag, cancellationToken).ConfigureAwait(false);
 
                 lock (_gate)
                 {
@@ -90,11 +94,12 @@ public sealed partial class ImageSearchIndexService
         }
 
         if (shouldStart)
-            _ = Task.Run(RunSyncLoopSafelyAsync);
+            _syncLoopTask = Task.Run(() => RunSyncLoopSafelyAsync(_lifetimeCts.Token), _lifetimeCts.Token);
     }
 
-    private async Task SyncSnapshotAsync(IReadOnlyList<HistoryEntry> entries, string? ocrLanguageTag)
+    private async Task SyncSnapshotAsync(IReadOnlyList<HistoryEntry> entries, string? ocrLanguageTag, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var totalCount = entries.Count;
         List<HistoryEntry> pending;
         lock (_gate)
@@ -111,8 +116,8 @@ public sealed partial class ImageSearchIndexService
 
         await Parallel.ForEachAsync(
             pending,
-            new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentIndexTasks },
-            async (entry, cancellationToken) =>
+            new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentIndexTasks, CancellationToken = cancellationToken },
+            async (entry, itemCancellationToken) =>
             {
                 ImageSearchIndexRecord? existingRecord;
                 lock (_gate)
@@ -120,11 +125,13 @@ public sealed partial class ImageSearchIndexService
 
                 try
                 {
+                    itemCancellationToken.ThrowIfCancellationRequested();
                     var workload = existingRecord is not null &&
                                    existingRecord.OcrState is ImageSearchOcrState.RetryableEmpty or ImageSearchOcrState.RetryableError
                         ? OcrWorkload.Full
                         : OcrWorkload.Fast;
-                    var record = await BuildRecordAsync(entry, ocrLanguageTag, workload).ConfigureAwait(false);
+                    var record = await BuildRecordAsync(entry, ocrLanguageTag, workload, itemCancellationToken).ConfigureAwait(false);
+                    itemCancellationToken.ThrowIfCancellationRequested();
                     record = MergeRetryState(record, existingRecord);
                     lock (_gate)
                     {
@@ -133,6 +140,10 @@ public sealed partial class ImageSearchIndexService
                         InvalidateSearchCaches_NoLock();
                         _version++;
                     }
+                }
+                catch (OperationCanceledException) when (itemCancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -174,8 +185,9 @@ public sealed partial class ImageSearchIndexService
         NotifyChanged();
     }
 
-    private async Task<ImageSearchIndexRecord> BuildRecordAsync(HistoryEntry entry, string? ocrLanguageTag, OcrWorkload workload)
+    private async Task<ImageSearchIndexRecord> BuildRecordAsync(HistoryEntry entry, string? ocrLanguageTag, OcrWorkload workload, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var bitmap = new Bitmap(entry.FilePath);
         string ocrText = "";
         string? ocrError = null;
@@ -185,6 +197,7 @@ public sealed partial class ImageSearchIndexService
         try
         {
             ocrText = await OcrService.RecognizeAsync(bitmap, ocrLanguageTag, workload).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
         }
         catch (Exception ex)
         {
@@ -194,7 +207,8 @@ public sealed partial class ImageSearchIndexService
         var clipResult = new ClipEmbeddingResult(null, null);
         if (_clipRuntime.IsAvailable)
         {
-            clipResult = await _clipRuntime.EmbedImageAsync(entry.FilePath).ConfigureAwait(false);
+            clipResult = await _clipRuntime.EmbedImageAsync(bitmap, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (clipResult.IsSuccess)
                 embedding = clipResult.Embedding;
             else
@@ -306,14 +320,45 @@ public sealed partial class ImageSearchIndexService
         // Search records persist directly into the shared history database.
     }
 
-    private void NotifyChanged() => Changed?.Invoke();
+    private void NotifyChanged()
+    {
+        var handlers = Changed;
+        if (handlers is null)
+            return;
+
+        foreach (Action handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.LogError("image-search.changed", ex);
+            }
+        }
+    }
 
     private void SetStatus(string status)
     {
         lock (_gate)
             _statusText = status;
 
-        StatusChanged?.Invoke(status);
+        var handlers = StatusChanged;
+        if (handlers is null)
+            return;
+
+        foreach (Action<string> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(status);
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.LogError("image-search.status", ex);
+            }
+        }
     }
 
     private static long TryGetFileLength(string filePath)

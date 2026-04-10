@@ -131,19 +131,19 @@
                                Foreground="{DynamicResource ThemeTextPrimaryBrush}"/>
 
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Border Width="30" Height="30" CornerRadius="6" Cursor="Hand" Background="Transparent"
+                        <Border Width="32" Height="32" CornerRadius="6" Cursor="Hand" Background="Transparent"
                                 MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave"
                                 MouseDown="MinimizeBtn_Click" VerticalAlignment="Center">
-                            <Canvas Width="10" Height="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Line X1="0" Y1="0" X2="10" Y2="0" Stroke="{DynamicResource ThemeTextPrimaryBrush}" StrokeThickness="1" Opacity="0.6"/>
+                            <Canvas Width="12" Height="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Line X1="0" Y1="1" X2="12" Y2="1" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
                             </Canvas>
                         </Border>
-                        <Border x:Name="CloseTitleBtn" Width="30" Height="30" CornerRadius="6" Cursor="Hand" Background="Transparent"
+                        <Border x:Name="CloseTitleBtn" Width="32" Height="32" CornerRadius="6" Cursor="Hand" Background="Transparent"
                                 MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave"
                                 MouseDown="CloseBtn_Click" VerticalAlignment="Center" Margin="2,0,0,0">
-                            <Canvas Width="9" Height="9" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Line X1="0" Y1="0" X2="9" Y2="9" Stroke="{DynamicResource ThemeTextPrimaryBrush}" StrokeThickness="1.2" Opacity="0.6"/>
-                                <Line X1="9" Y1="0" X2="0" Y2="9" Stroke="{DynamicResource ThemeTextPrimaryBrush}" StrokeThickness="1.2" Opacity="0.6"/>
+                            <Canvas Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Line X1="0" Y1="0" X2="12" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
+                                <Line X1="12" Y1="0" X2="0" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
                             </Canvas>
                         </Border>
                     </StackPanel>

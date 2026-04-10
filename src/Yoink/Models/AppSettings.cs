@@ -166,9 +166,10 @@ public sealed class AppSettings
     public int CaptureDelaySeconds { get; set; }
     public bool SaveHistory { get; set; } = true;
     public bool MuteSounds { get; set; }
+    public bool DisableAnimations { get; set; }
     public bool ShowCrosshairGuides { get; set; } // off by default
     public bool ShowCursor { get; set; }
-    public bool ShowCaptureMagnifier { get; set; }
+    public bool ShowCaptureMagnifier { get; set; } = true;
     public bool OverlayCaptureAllMonitors { get; set; } = true;
     public bool DetectWindows { get; set; } = true;
     public bool CompressHistory { get; set; }

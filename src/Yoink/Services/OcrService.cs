@@ -56,9 +56,9 @@ public static class OcrService
                 bitmap.Save(ms, ImageFormat.Png);
                 ms.Position = 0;
 
-                var stream = ms.AsRandomAccessStream();
+                using var stream = ms.AsRandomAccessStream();
                 var decoder = await BitmapDecoder.CreateAsync(stream);
-                var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
+                using var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
                     BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
                 var result = await engine.RecognizeAsync(softwareBitmap);

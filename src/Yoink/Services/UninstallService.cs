@@ -133,7 +133,7 @@ public static class UninstallService
     public static void ScheduleInstallFolderRemoval()
     {
         var dir = GetInstallDirectory();
-        if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
+        if (!IsSafeInstallDirectoryForRemoval(dir))
             return;
 
         var cmd = $"timeout /t 2 /nobreak >nul & rmdir /s /q \"{dir}\"";
@@ -182,4 +182,22 @@ public static class UninstallService
     }
 
     private static bool LooksLikeBuildOutputPath(string path) => InstallService.LooksLikeBuildOutputPath(path);
+
+    private static bool IsSafeInstallDirectoryForRemoval(string? dir)
+    {
+        if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
+            return false;
+
+        var fullPath = Path.GetFullPath(dir);
+        if (LooksLikeBuildOutputPath(fullPath))
+            return false;
+
+        var expectedRoot = Path.GetFullPath(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs",
+            "Yoink"));
+
+        return string.Equals(fullPath, expectedRoot, StringComparison.OrdinalIgnoreCase) &&
+               File.Exists(Path.Combine(fullPath, "Yoink.exe"));
+    }
 }

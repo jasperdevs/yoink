@@ -31,7 +31,17 @@ public partial class SettingsWindow
 
     private void LoadToastButtonEditor()
     {
+        LoadToastEditorIcons();
         RefreshToastButtonEditor();
+    }
+
+    private void LoadToastEditorIcons()
+    {
+        var white = System.Drawing.Color.FromArgb(230, 255, 255, 255);
+        ToastEditorCloseIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", white, 20);
+        ToastEditorPinIcon.Source = Helpers.StreamlineIcons.RenderWpf("pin", white, 20);
+        ToastEditorSaveIcon.Source = Helpers.StreamlineIcons.RenderWpf("download", white, 20);
+        ToastEditorDeleteIcon.Source = Helpers.StreamlineIcons.RenderWpf("trash", white, 20);
     }
 
     private void RefreshToastButtonEditor()
@@ -501,44 +511,24 @@ public partial class SettingsWindow
         RefreshToastButtonEditor();
     }
 
-    private Canvas BuildCloseGlyph()
+    private static System.Windows.Controls.Image BuildStreamlineIcon(string id)
     {
-        var canvas = new Canvas { Width = 10, Height = 10 };
-        canvas.Children.Add(new Line { X1 = 0, Y1 = 0, X2 = 10, Y2 = 10, Stroke = System.Windows.Media.Brushes.White, StrokeThickness = 1.4 });
-        canvas.Children.Add(new Line { X1 = 10, Y1 = 0, X2 = 0, Y2 = 10, Stroke = System.Windows.Media.Brushes.White, StrokeThickness = 1.4 });
-        return canvas;
+        var white = System.Drawing.Color.FromArgb(230, 255, 255, 255);
+        var img = new System.Windows.Controls.Image
+        {
+            Source = Helpers.StreamlineIcons.RenderWpf(id, white, 20),
+            Width = 14,
+            Height = 14,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            VerticalAlignment = System.Windows.VerticalAlignment.Center
+        };
+        System.Windows.Media.RenderOptions.SetBitmapScalingMode(img, System.Windows.Media.BitmapScalingMode.HighQuality);
+        return img;
     }
 
-    private Path BuildPinGlyph() => new()
-    {
-        Data = Geometry.Parse("M16,12V4h1V2H7V4h1v8l-2,2v2h5.2v6h1.6v-6H18v-2Z"),
-        Fill = System.Windows.Media.Brushes.White,
-        Stretch = Stretch.Uniform,
-        Width = 14,
-        Height = 14,
-        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-        VerticalAlignment = System.Windows.VerticalAlignment.Center
-    };
-
-    private Path BuildSaveGlyph() => new()
-    {
-        Data = Geometry.Parse("M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"),
-        Fill = System.Windows.Media.Brushes.White,
-        Stretch = Stretch.Uniform,
-        Width = 14,
-        Height = 14,
-        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-        VerticalAlignment = System.Windows.VerticalAlignment.Center
-    };
-
-    private Path BuildDeleteGlyph() => new()
-    {
-        Data = Geometry.Parse("M9,3h6l1,1h4v2H4V4h4l1-1Zm-2,6h2v8H7V9Zm4,0h2v8h-2V9Zm4,0h2v8h-2V9Z"),
-        Fill = System.Windows.Media.Brushes.White,
-        Stretch = Stretch.Uniform,
-        Width = 14,
-        Height = 14,
-        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-        VerticalAlignment = System.Windows.VerticalAlignment.Center
-    };
+    private static System.Windows.Controls.Image BuildCloseGlyph() => BuildStreamlineIcon("close");
+    private static System.Windows.Controls.Image BuildPinGlyph() => BuildStreamlineIcon("pin");
+    private static System.Windows.Controls.Image BuildSaveGlyph() => BuildStreamlineIcon("download");
+    private static System.Windows.Controls.Image BuildDeleteGlyph() => BuildStreamlineIcon("trash");
 }

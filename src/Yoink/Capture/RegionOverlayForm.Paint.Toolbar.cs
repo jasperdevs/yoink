@@ -18,18 +18,34 @@ public sealed partial class RegionOverlayForm
     private void PaintToolbar(Graphics g)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         var r = new Rectangle(_toolbarRect.X, _toolbarRect.Y,
             _toolbarRect.Width, _toolbarRect.Height);
 
         PaintFlyoutPanel(g);
 
-        // Pill background -- solid dark, subtle border and shadow
-        PaintShadow(g, r, UiChrome.ToolbarHeight / 2f, 70, 1.2f);
-        using (var p = RRect(r, UiChrome.ToolbarHeight / 2))
+        float cr = UiChrome.ToolbarCornerRadius;
+
+        // Rounded-rect background with depth
+        PaintShadow(g, r, cr, 55, 1.2f);
+        using (var p = RRect(r, cr))
         {
             using var bg = new SolidBrush(UiChrome.SurfacePill);
-            using var border = new Pen(UiChrome.SurfaceBorder, 1.4f);
             g.FillPath(bg, p);
+
+            // Fluent top-edge gradient highlight (bright at top, fades to invisible at bottom)
+            var highlightRect = new RectangleF(r.X + 1f, r.Y + 0.5f, r.Width - 2f, r.Height - 1f);
+            using var hp = RRect(highlightRect, cr - 0.5f);
+            using var gradBrush = new LinearGradientBrush(
+                new PointF(r.X, r.Y),
+                new PointF(r.X, r.Bottom),
+                Color.FromArgb(UiChrome.IsDark ? 48 : 60, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255));
+            using var highlightPen = new Pen(gradBrush, 1f);
+            g.DrawPath(highlightPen, hp);
+
+            // Outer border
+            using var border = new Pen(UiChrome.SurfaceBorder, 1f);
             g.DrawPath(border, p);
         }
 
@@ -37,16 +53,16 @@ public sealed partial class RegionOverlayForm
         foreach (int idx in _sepAfter)
         {
             if (idx < 0 || idx >= _toolbarButtons.Length - 1) continue;
-            using var sepPen = new Pen(Color.FromArgb(18, UiChrome.SurfaceTextPrimary), 1.2f);
+            using var sepPen = new Pen(UiChrome.SurfaceBorderSubtle, 1f);
             if (IsVerticalDock)
             {
                 int sy = _toolbarButtons[idx].Bottom + (UiChrome.ToolbarButtonSpacing + GroupGap) / 2;
-                g.DrawLine(sepPen, r.X + 11, sy, r.Right - 11, sy);
+                g.DrawLine(sepPen, r.X + 10, sy, r.Right - 10, sy);
             }
             else
             {
                 int sx = _toolbarButtons[idx].Right + (UiChrome.ToolbarButtonSpacing + GroupGap) / 2;
-                g.DrawLine(sepPen, sx, r.Y + 11, sx, r.Bottom - 11);
+                g.DrawLine(sepPen, sx, r.Y + 12, sx, r.Bottom - 12);
             }
         }
 
@@ -57,40 +73,40 @@ public sealed partial class RegionOverlayForm
         {
             var btn = _toolbarButtons[i];
             bool active = _toolbarModes[i] is { } m && _mode == m;
-            if (i == _moreButtonIndex) active = flyoutToolActive; // only highlight if a flyout tool is active, not just open
+            if (i == _moreButtonIndex) active = flyoutToolActive;
             bool hover = _hoveredButton == i;
 
             // Color dot button
             if (_toolbarIcons[i] == "color")
             {
+                if (hover) DrawToolbarButtonBackground(g, btn, 0.5f);
+                else if (active) DrawToolbarButtonBackground(g, btn, 1f);
                 int dotSize = 16;
                 float dx = btn.X + (btn.Width - dotSize) / 2f;
                 float dy = btn.Y + (btn.Height - dotSize) / 2f;
-                int colorAlpha = active ? 255 : hover ? 208 : 154;
+                int colorAlpha = active ? 255 : hover ? 230 : 175;
                 using var cBrush = new SolidBrush(Color.FromArgb(colorAlpha, _toolColor.R, _toolColor.G, _toolColor.B));
                 g.FillEllipse(cBrush, dx, dy, dotSize, dotSize);
                 continue;
             }
 
-            // "More" button: draw three dots instead of icon glyph
+            // "More" button
             if (_toolbarIcons[i] == "more")
             {
-                int dotAlpha = active ? 255 : hover ? 208 : 116;
-                using var dotBrush = new SolidBrush(Color.FromArgb(dotAlpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
-                float cy = btn.Y + btn.Height / 2f - 1.5f;
-                float cx = btn.X + btn.Width / 2f;
-                g.FillEllipse(dotBrush, cx - 8f, cy, 3f, 3f);
-                g.FillEllipse(dotBrush, cx - 1.5f, cy, 3f, 3f);
-                g.FillEllipse(dotBrush, cx + 5f, cy, 3f, 3f);
+                if (active) DrawToolbarButtonBackground(g, btn, 1f);
+                else if (hover) DrawToolbarButtonBackground(g, btn, 0.5f);
+                int dotAlpha = active ? 255 : hover ? 240 : 200;
+                var moreColor = Color.FromArgb(dotAlpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B);
+                DrawIcon(g, "more", btn, moreColor, active);
                 continue;
             }
 
             if (active)
-                DrawToolbarIconHalo(g, btn, 1f);
+                DrawToolbarButtonBackground(g, btn, 1f);
             else if (hover)
-                DrawToolbarIconHalo(g, btn, 0.4f);
+                DrawToolbarButtonBackground(g, btn, 0.5f);
 
-            int ia = active ? 255 : hover ? 202 : i >= BtnCount - 1 ? 106 : 120;
+            int ia = active ? 255 : hover ? 240 : i >= BtnCount - 1 ? 130 : 200;
             var iconColor = UiChrome.SurfaceTextPrimary;
             DrawIcon(g, _toolbarIcons[i], btn, Color.FromArgb(ia, iconColor.R, iconColor.G, iconColor.B), active);
         }
@@ -127,18 +143,18 @@ public sealed partial class RegionOverlayForm
         if (tipText != null)
         {
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            var tipFont = UiChrome.ChromeFont(8.25f, FontStyle.Regular);
+            var tipFont = UiChrome.ChromeFont(8.5f, FontStyle.Regular);
             var sz = g.MeasureString(tipText, tipFont);
             float tipW = sz.Width + 20;
-            var tipOrigin = GetTooltipOrigin(tipAnchor, new SizeF(tipW, sz.Height + 8));
+            var tipOrigin = GetTooltipOrigin(tipAnchor, new SizeF(tipW, sz.Height + 10));
             float tx = tipOrigin.X + 10;
-            float ty = tipOrigin.Y + 4;
-            var tipRect = new RectangleF(tx - 10, ty - 4, tipW, sz.Height + 8);
-            PaintShadow(g, tipRect, tipRect.Height / 2f, 52, 1f);
-            using (var tipPath = RRect(tipRect, tipRect.Height / 2f))
+            float ty = tipOrigin.Y + 5;
+            var tipRect = new RectangleF(tx - 10, ty - 5, tipW, sz.Height + 10);
+            PaintShadow(g, tipRect, 6f, 40, 1.5f);
+            using (var tipPath = RRect(tipRect, 6f))
             {
                 using var tipBg = new SolidBrush(UiChrome.SurfaceTooltip);
-                using var tipBorder = new Pen(UiChrome.SurfaceBorderSubtle, 1.4f);
+                using var tipBorder = new Pen(UiChrome.SurfaceBorderSubtle, 1f);
                 g.FillPath(tipBg, tipPath);
                 g.DrawPath(tipBorder, tipPath);
             }
@@ -148,6 +164,7 @@ public sealed partial class RegionOverlayForm
         }
 
         g.SmoothingMode = SmoothingMode.Default;
+        g.PixelOffsetMode = PixelOffsetMode.Default;
     }
 
     private void PaintFlyoutPanel(Graphics g)
@@ -158,6 +175,11 @@ public sealed partial class RegionOverlayForm
         float anim = Math.Clamp(_flyoutAnim, 0f, 1f);
         if (!_flyoutOpen && anim <= 0.02f)
             return;
+
+        float cr = UiChrome.ToolbarCornerRadius;
+
+        // Scale-in effect: flyout grows from a slightly smaller size
+        float scale = 0.92f + 0.08f * anim;
 
         Rectangle hiddenRect;
         if (IsVerticalDock)
@@ -182,11 +204,24 @@ public sealed partial class RegionOverlayForm
             hiddenRect.Y + (int)Math.Round((_flyoutRect.Y - hiddenRect.Y) * anim),
             _flyoutRect.Width,
             _flyoutRect.Height);
-        PaintShadow(g, fr, UiChrome.ToolbarHeight / 2f, 70, 1.2f);
-        using (var fp = RRect(fr, UiChrome.ToolbarHeight / 2))
+
+        // Apply scale around the center of the flyout
+        int scaledW = (int)Math.Round(fr.Width * scale);
+        int scaledH = (int)Math.Round(fr.Height * scale);
+        var scaledFr = new Rectangle(
+            fr.X + (fr.Width - scaledW) / 2,
+            fr.Y + (fr.Height - scaledH) / 2,
+            scaledW, scaledH);
+
+        // Fade-in opacity for shadow and panel
+        int shadowAlpha = (int)Math.Round(55 * anim);
+        PaintShadow(g, scaledFr, cr, shadowAlpha, 1.2f);
+        using (var fp = RRect(scaledFr, cr))
         {
-            using var flyBg = new SolidBrush(UiChrome.SurfacePill);
-            using var flyBorder = new Pen(UiChrome.SurfaceBorder, 1.4f);
+            var elevatedColor = UiChrome.SurfaceElevated;
+            int pillAlpha = (int)Math.Round(elevatedColor.A * anim);
+            using var flyBg = new SolidBrush(Color.FromArgb(Math.Clamp(pillAlpha, 1, 255), elevatedColor.R, elevatedColor.G, elevatedColor.B));
+            using var flyBorder = new Pen(Color.FromArgb((int)Math.Round(UiChrome.SurfaceBorder.A * anim), UiChrome.SurfaceBorder.R, UiChrome.SurfaceBorder.G, UiChrome.SurfaceBorder.B), 1f);
             g.FillPath(flyBg, fp);
             g.DrawPath(flyBorder, fp);
         }
@@ -214,11 +249,12 @@ public sealed partial class RegionOverlayForm
             bool fHover = _hoveredFlyoutButton == i;
 
             if (fActive)
-                DrawToolbarIconHalo(g, fb, 1f);
+                DrawToolbarButtonBackground(g, fb, 1f);
             else if (fHover)
-                DrawToolbarIconHalo(g, fb, 0.4f);
+                DrawToolbarButtonBackground(g, fb, 0.5f);
 
-            int fia = fActive ? 255 : fHover ? 202 : 120;
+            int baseAlpha = fActive ? 255 : fHover ? 240 : 200;
+            int fia = (int)Math.Round(baseAlpha * anim);
             var fic = UiChrome.SurfaceTextPrimary;
             DrawIcon(g, _flyoutTools[i].Id, fb, Color.FromArgb(fia, fic.R, fic.G, fic.B), fActive);
         }
@@ -230,21 +266,22 @@ public sealed partial class RegionOverlayForm
         return Color.FromArgb((int)Math.Round(color.A * factor), color.R, color.G, color.B);
     }
 
-    private static void DrawToolbarIconHalo(Graphics g, Rectangle bounds, float intensity)
+    private static void DrawToolbarButtonBackground(Graphics g, Rectangle bounds, float intensity)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         intensity = Math.Clamp(intensity, 0f, 1f);
-        var inset = 2.6f - (0.9f * intensity);
-        var haloRect = new RectangleF(
+        float inset = 2f;
+        var bgRect = new RectangleF(
             bounds.X + inset,
             bounds.Y + inset,
             bounds.Width - (inset * 2f),
             bounds.Height - (inset * 2f));
-        var baseColor = UiChrome.SurfaceTextPrimary;
-        var alpha = 9f + (13f * intensity);
-        using var haloBrush = new SolidBrush(Color.FromArgb((int)Math.Round(alpha), baseColor.R, baseColor.G, baseColor.B));
-        g.FillEllipse(haloBrush, haloRect);
-        g.SmoothingMode = SmoothingMode.Default;
+        // Fluent: hover=15 alpha, active/selected=20 alpha
+        int alpha = intensity >= 0.9f ? 20 : 15;
+        using var bgBrush = new SolidBrush(Color.FromArgb(alpha, 255, 255, 255));
+        float radius = 5f;
+        using var bgPath = RRect(bgRect, radius);
+        g.FillPath(bgBrush, bgPath);
     }
 
     /// <summary>
@@ -254,6 +291,7 @@ public sealed partial class RegionOverlayForm
     public void PaintToolbarTo(Graphics g, Rectangle clip, Point unused)
     {
         ApplyUiGraphics(g);
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         var state = g.Save();
         PaintToolbar(g);
         if (_colorPickerOpen) PaintColorPicker(g);
@@ -265,38 +303,44 @@ public sealed partial class RegionOverlayForm
     private void PaintColorPicker(Graphics g)
     {
         // Small popup grid of color swatches
-        int cols = 6, rows = 1, swatchSize = 28, pad = 4;
-        int pw = cols * (swatchSize + pad) + pad;
-        int ph = rows * (swatchSize + pad) + pad;
+        int pw = ColorPickerColumns * (ColorPickerSwatchSize + ColorPickerPadding) + ColorPickerPadding;
+        int ph = ColorPickerRows * (ColorPickerSwatchSize + ColorPickerPadding) + ColorPickerPadding;
 
         // Position below the color button
-        int colorBtnIdx = BtnCount - 3;
-        var colorBtn = _toolbarButtons[colorBtnIdx];
+        var colorBtn = _toolbarButtons[ColorButtonIndex];
         _colorPickerRect = PositionPopupFromAnchor(colorBtn, pw, ph);
-        int px = _colorPickerRect.X;
-        int py = _colorPickerRect.Y;
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        PaintShadow(g, _colorPickerRect, 8f, 58, 1f);
+        PaintShadow(g, _colorPickerRect, 8f, 55, 1.2f);
         using (var bgPath = RRect(_colorPickerRect, 8))
         {
             using var bg = new SolidBrush(UiChrome.SurfaceElevated);
             g.FillPath(bg, bgPath);
-            using var border = new Pen(UiChrome.SurfaceBorderSubtle);
+
+            // Fluent gradient highlight
+            var cpHlRect = new RectangleF(_colorPickerRect.X + 1f, _colorPickerRect.Y + 0.5f, _colorPickerRect.Width - 2f, _colorPickerRect.Height - 1f);
+            using var cpHlPath = RRect(cpHlRect, 7.5f);
+            using var cpGrad = new LinearGradientBrush(
+                new PointF(_colorPickerRect.X, _colorPickerRect.Y),
+                new PointF(_colorPickerRect.X, _colorPickerRect.Bottom),
+                Color.FromArgb(UiChrome.IsDark ? 48 : 60, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255));
+            using var cpHlPen = new Pen(cpGrad, 1f);
+            g.DrawPath(cpHlPen, cpHlPath);
+
+            using var border = new Pen(UiChrome.SurfaceBorder);
             g.DrawPath(border, bgPath);
         }
 
-        for (int i = 0; i < ToolColors.Length && i < cols * rows; i++)
+        for (int i = 0; i < ToolColors.Length && i < ColorPickerColumns * ColorPickerRows; i++)
         {
-            int col = i % cols, row = i / cols;
-            int sx = px + pad + col * (swatchSize + pad);
-            int sy = py + pad + row * (swatchSize + pad);
+            var swatchRect = GetColorPickerSwatchRect(i);
             using var brush = new SolidBrush(ToolColors[i]);
-            g.FillEllipse(brush, sx, sy, swatchSize, swatchSize);
+            g.FillEllipse(brush, swatchRect);
             if (ToolColors[i] == _toolColor)
             {
                 using var selPen = new Pen(UiChrome.SurfaceTextPrimary, 2f);
-                g.DrawEllipse(selPen, sx, sy, swatchSize, swatchSize);
+                g.DrawEllipse(selPen, swatchRect);
             }
         }
         g.SmoothingMode = SmoothingMode.Default;
@@ -336,41 +380,16 @@ public sealed partial class RegionOverlayForm
     private static void DrawIcon(Graphics g, string icon, Rectangle b, Color c, bool active = false)
     {
         if (icon == "color") return;
-        if (icon == "rect")
-        {
-            DrawRectangleSelectIcon(g, b, c, active);
-            return;
-        }
-        if (icon == "free")
-        {
-            DrawFreeformSelectIcon(g, b, c, active);
-            return;
-        }
-        if (icon == "sticker")
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            var body = new RectangleF(b.X + 9.5f, b.Y + 8.5f, b.Width - 19f, b.Height - 19f);
-            using var pen = new Pen(c, active ? 2.05f : 1.8f)
-            {
-                LineJoin = LineJoin.Round,
-                StartCap = LineCap.Round,
-                EndCap = LineCap.Round
-            };
-            using var path = new GraphicsPath();
-            path.AddArc(body.X, body.Y, 6, 6, 180, 90);
-            path.AddLine(body.X + 6, body.Y, body.Right - 7, body.Y);
-            path.AddLine(body.Right - 7, body.Y, body.Right, body.Y + 7);
-            path.AddLine(body.Right, body.Y + 7, body.Right, body.Bottom - 6);
-            path.AddArc(body.Right - 6, body.Bottom - 6, 6, 6, 0, 90);
-            path.AddArc(body.X, body.Bottom - 6, 6, 6, 90, 90);
-            path.CloseFigure();
-            g.DrawPath(pen, path);
 
-            g.DrawLine(pen, body.Right - 7, body.Y, body.Right - 7, body.Y + 7);
-            g.DrawLine(pen, body.Right - 7, body.Y + 7, body.Right, body.Y + 7);
-            g.SmoothingMode = SmoothingMode.Default;
+        // Try Streamline icon first (line=inactive, solid=active)
+        if (StreamlineIcons.HasIcon(icon))
+        {
+            float inset = active ? 6f : 7f;
+            StreamlineIcons.DrawIcon(g, icon, b, c, inset, active);
             return;
         }
+
+        // Fallback to font glyph
         if (!GetIconGlyphMap().TryGetValue(icon, out char glyph)) return;
 
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
@@ -384,70 +403,5 @@ public sealed partial class RegionOverlayForm
             b.Height - 3.8f);
         g.DrawString(glyph.ToString(), font, brush, rect, _iconFmt);
         g.TextRenderingHint = TextRenderingHint.SystemDefault;
-    }
-
-    private static void DrawRectangleSelectIcon(Graphics g, Rectangle b, Color c, bool active = false)
-    {
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(c, active ? 2.2f : 1.95f)
-        {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round,
-            LineJoin = LineJoin.Round
-        };
-
-        var centerX = b.X + (b.Width / 2f);
-        var centerY = b.Y + (b.Height / 2f) - 0.65f;
-        var size = active ? 15.8f : 15.1f;
-        var half = size / 2f;
-        float left = centerX - half;
-        float top = centerY - half;
-        float right = centerX + half;
-        float bottom = centerY + half;
-        float arm = size * 0.36f;
-
-        g.DrawLine(pen, left, top + arm, left, top);
-        g.DrawLine(pen, left, top, left + arm, top);
-
-        g.DrawLine(pen, right - arm, top, right, top);
-        g.DrawLine(pen, right, top, right, top + arm);
-
-        g.DrawLine(pen, left, bottom - arm, left, bottom);
-        g.DrawLine(pen, left, bottom, left + arm, bottom);
-
-        g.DrawLine(pen, right - arm, bottom, right, bottom);
-        g.DrawLine(pen, right, bottom - arm, right, bottom);
-        g.SmoothingMode = SmoothingMode.Default;
-    }
-
-    private static void DrawFreeformSelectIcon(Graphics g, Rectangle b, Color c, bool active = false)
-    {
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(c, active ? 2.15f : 1.9f)
-        {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round,
-            LineJoin = LineJoin.Round,
-            DashPattern = new[] { 1.8f, 2.1f }
-        };
-
-        var points = new[]
-        {
-            new PointF(b.X + 8.4f,  b.Y + 18.2f),
-            new PointF(b.X + 10.2f, b.Y + 11.6f),
-            new PointF(b.X + 16.0f, b.Y + 8.3f),
-            new PointF(b.X + 22.6f, b.Y + 10.1f),
-            new PointF(b.X + 26.0f, b.Y + 15.9f),
-            new PointF(b.X + 23.7f, b.Y + 22.1f),
-            new PointF(b.X + 17.2f, b.Y + 24.5f),
-            new PointF(b.X + 11.0f, b.Y + 22.2f),
-            new PointF(b.X + 8.4f,  b.Y + 18.2f)
-        };
-        g.DrawCurve(pen, points, 0.45f);
-
-        using var dotBrush = new SolidBrush(c);
-        float dotSize = 3.0f;
-        g.FillEllipse(dotBrush, points[0].X - dotSize / 2f, points[0].Y - dotSize / 2f, dotSize, dotSize);
-        g.SmoothingMode = SmoothingMode.Default;
     }
 }

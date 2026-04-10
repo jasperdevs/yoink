@@ -18,6 +18,7 @@ public sealed partial class RecordingForm
 
     private void StartRecording()
     {
+        _magHelper?.Close();
         _recordRegion = _selection;
 
         // Convert selection from form coords to screen coords

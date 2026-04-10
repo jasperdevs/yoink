@@ -46,10 +46,21 @@ public partial class ToastWindow
 
     internal static void Show(ToastSpec spec)
     {
-        if (spec.PlayErrorSound)
-            Services.SoundService.PlayErrorSound();
-        else if (spec.PlayCaptureSound)
-            Services.SoundService.PlayCaptureSound();
+        // Guard: skip completely empty toasts (no text, no image, no color)
+        if (string.IsNullOrWhiteSpace(spec.Title)
+            && string.IsNullOrWhiteSpace(spec.Body)
+            && spec.PreviewBitmap is null
+            && spec.InlinePreviewBitmap is null
+            && !spec.SwatchColor.HasValue)
+            return;
+
+        if (!spec.SuppressSound)
+        {
+            if (spec.PlayErrorSound)
+                Services.SoundService.PlayErrorSound();
+            else
+                Services.SoundService.PlayCaptureSound();
+        }
 
         if (_current?.TryUpdateInPlace(spec) == true)
             return;
@@ -63,11 +74,11 @@ public partial class ToastWindow
     public static void ShowSticker(Bitmap sticker)
         => Show(ToastSpec.Sticker(sticker));
 
-    public static void ShowWithColor(string title, string body, Color color)
-        => Show(ToastSpec.WithColor(title, body, color));
+    public static void ShowWithColor(string title, string body, Color color, bool suppressSound = false)
+        => Show(ToastSpec.WithColor(title, body, color) with { SuppressSound = suppressSound });
 
-    public static void ShowInlinePreview(Bitmap preview, string title, string body, string? filePath = null)
-        => Show(ToastSpec.InlinePreview(preview, title, body, filePath));
+    public static void ShowInlinePreview(Bitmap preview, string title, string body, string? filePath = null, bool suppressSound = false)
+        => Show(ToastSpec.InlinePreview(preview, title, body, filePath) with { SuppressSound = suppressSound });
 
     public static void ShowError(string title, string body = "", string? filePath = null)
         => Show(ToastSpec.Error(title, body, filePath));

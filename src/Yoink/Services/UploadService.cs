@@ -331,6 +331,20 @@ public static partial class UploadService
         _ => true,
     };
 
+    private static string? ValidateTransportSecurity(UploadDestination dest, UploadSettings settings)
+    {
+        if (dest == UploadDestination.WebDav)
+        {
+            if (!Uri.TryCreate(settings.WebDavUrl, UriKind.Absolute, out var webDavUri) ||
+                webDavUri.Scheme != Uri.UriSchemeHttps)
+            {
+                return "WebDAV uploads require an HTTPS URL.";
+            }
+        }
+
+        return null;
+    }
+
     private static async Task<UploadResult> UploadTemporaryHostsAsync(string filePath, UploadSettings settings)
     {
         var errors = new List<string>();
@@ -375,6 +389,10 @@ public static partial class UploadService
 
             if (IsAiChatDestination(dest))
                 return new UploadResult { Error = "AI Redirects uses browser redirects instead of host upload." };
+
+            var transportSecurityError = ValidateTransportSecurity(dest, settings);
+            if (!string.IsNullOrWhiteSpace(transportSecurityError))
+                return new UploadResult { Error = transportSecurityError };
 
             var result = dest switch
             {

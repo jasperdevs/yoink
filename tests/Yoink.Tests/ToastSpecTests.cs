@@ -16,7 +16,7 @@ public sealed class ToastSpecTests
         Assert.Equal("Saved", spec.Title);
         Assert.Equal("done", spec.Body);
         Assert.Equal("C:\\temp\\x.png", spec.FilePath);
-        Assert.True(spec.PlayCaptureSound);
+        Assert.False(spec.PlayCaptureSound);
         Assert.False(spec.IsError);
         Assert.Null(spec.PreviewBitmap);
     }

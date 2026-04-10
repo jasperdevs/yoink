@@ -36,6 +36,7 @@ public static class BackgroundRuntimeJobService
         public string Status { get; set; } = "";
         public bool? LastSucceeded { get; set; }
         public string? LastError { get; set; }
+        public CancellationTokenSource? Cancellation { get; set; }
     }
 
     private sealed class PersistedJobState
@@ -69,12 +70,14 @@ public static class BackgroundRuntimeJobService
         BackgroundRuntimeJobOptions options,
         Func<IProgress<string>, CancellationToken, Task> work)
     {
+        CancellationTokenSource cancellation;
         lock (Gate)
         {
             EnsureInitialized_NoLock();
             if (Jobs.TryGetValue(options.Key, out var existing) && existing.IsRunning)
                 return false;
 
+            cancellation = new CancellationTokenSource();
             Jobs[options.Key] = new JobState
             {
                 Key = options.Key,
@@ -82,7 +85,8 @@ public static class BackgroundRuntimeJobService
                 IsRunning = true,
                 Status = options.StartingStatus,
                 LastSucceeded = null,
-                LastError = null
+                LastError = null,
+                Cancellation = cancellation
             };
             Persist_NoLock();
         }
@@ -99,8 +103,12 @@ public static class BackgroundRuntimeJobService
 
             try
             {
-                await work(progress, CancellationToken.None).ConfigureAwait(false);
+                await work(progress, cancellation.Token).ConfigureAwait(false);
                 Complete(options, success: true, error: null);
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+                Complete(options, success: false, error: new OperationCanceledException("Cancelled."));
             }
             catch (Exception ex)
             {
@@ -162,6 +170,8 @@ public static class BackgroundRuntimeJobService
             state.Status = success
                 ? (options.SuccessStatus ?? "Ready")
                 : $"Failed: {errorMessage}";
+            state.Cancellation?.Dispose();
+            state.Cancellation = null;
             Persist_NoLock();
         }
 
@@ -303,6 +313,17 @@ public static class BackgroundRuntimeJobService
         catch (Exception ex)
         {
             AppDiagnostics.LogError("runtime-jobs.changed", ex);
+        }
+    }
+
+    public static void CancelAllRunningJobs()
+    {
+        lock (Gate)
+        {
+            foreach (var state in Jobs.Values)
+            {
+                try { state.Cancellation?.Cancel(); } catch { }
+            }
         }
     }
 }

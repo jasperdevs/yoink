@@ -19,7 +19,6 @@ public sealed partial class RegionOverlayForm
             if (fb >= 0 && _flyoutTools[fb].Mode.HasValue)
             {
                 SetMode(_flyoutTools[fb].Mode!.Value);
-                RefreshToolbar();
                 return;
             }
         }
@@ -136,8 +135,15 @@ public sealed partial class RegionOverlayForm
             var textBox = GetActiveTextRect();
             if (textBox.Contains(e.Location))
             {
-                _textDragging = true;
-                _textDragOffset = new Point(e.Location.X - _textPos.X, e.Location.Y - _textPos.Y);
+                _textSelecting = true;
+                _textSelectionAnchor = GetTextCharIndexAt(e.Location);
+                if (_textBox != null)
+                {
+                    _textBox.Focus();
+                    _textBox.SelectionStart = _textSelectionAnchor;
+                    _textBox.SelectionLength = 0;
+                }
+                ClearCrosshairGuides();
                 Invalidate();
                 return;
             }
@@ -167,6 +173,7 @@ public sealed partial class RegionOverlayForm
                 _textFontFamily = ta.FontFamily;
                 InvalidateActiveTextLayout();
                 ShowTextBox();
+                RefreshOverlayUiChrome();
                 Invalidate();
                 return;
             }
@@ -183,6 +190,7 @@ public sealed partial class RegionOverlayForm
                 _selectResizeHandle = handle;
                 _selectDragStart = e.Location;
                 _selectHandleBounds = GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]);
+                ClearCrosshairGuides();
                 Invalidate();
                 return;
             }
@@ -192,7 +200,10 @@ public sealed partial class RegionOverlayForm
             {
                 _selectedAnnotationIndex = hit;
                 _isSelectDragging = true;
+                var bounds = GetAnnotationBounds(_undoStack[hit]);
                 _selectDragStart = e.Location;
+                _selectDragOffset = new Point(e.Location.X - bounds.X, e.Location.Y - bounds.Y);
+                ClearCrosshairGuides();
                 Invalidate();
             }
             else
@@ -246,6 +257,7 @@ public sealed partial class RegionOverlayForm
                 _textBuffer = "";
                 InvalidateActiveTextLayout();
                 ShowTextBox();
+                RefreshOverlayUiChrome();
                 Invalidate(InflateForRepaint(Rectangle.Round(MeasureTextRect(_textPos, "", _textFontSize, _textFontFamily, _textBold, _textItalic))));
                 break;
             case CaptureMode.Highlight:

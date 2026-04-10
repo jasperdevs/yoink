@@ -49,19 +49,30 @@ public sealed partial class ScrollingCaptureForm : Form
     private CaptureControlBar? _controlBar;
     private System.Windows.Forms.Timer? _captureTimer;
 
+    // Magnifier
+    private readonly bool _showMagnifier;
+    private readonly CaptureMagnifierHelper? _magHelper;
+
     // Cached GDI objects for selection overlay
-    private readonly Pen _selPen = new(Color.FromArgb(220, 100, 149, 237), 2f) { DashStyle = DashStyle.Dash };
+    private readonly Pen _selPen = new(Color.FromArgb(255, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
     private readonly Font _labelFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
     private readonly Font _hintFont = UiChrome.ChromeFont(UiChrome.ChromeHintSize);
     private readonly SolidBrush _hintBrush = new(UiChrome.SurfaceTextMuted);
-    private readonly SolidBrush _bgLabelBrush = new(Color.FromArgb(220, 24, 24, 24));
-    private readonly SolidBrush _textLabelBrush = new(Color.FromArgb(220, 100, 149, 237));
+    private readonly SolidBrush _bgLabelBrush = new(UiChrome.SurfacePill);
+    private readonly SolidBrush _textLabelBrush = new(UiChrome.SurfaceTextPrimary);
 
-    public ScrollingCaptureForm(Bitmap screenshot, Rectangle virtualBounds, bool showCursor = false)
+    public ScrollingCaptureForm(Bitmap screenshot, Rectangle virtualBounds, bool showCursor = false,
+                                bool showMagnifier = false)
     {
         _screenshot = screenshot;
         _virtualBounds = virtualBounds;
         _showCursor = showCursor;
+        _showMagnifier = showMagnifier;
+        if (_showMagnifier)
+        {
+            _magHelper = new CaptureMagnifierHelper();
+            _magHelper.CachePixelData(screenshot);
+        }
 
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
@@ -120,10 +131,14 @@ public sealed partial class ScrollingCaptureForm : Form
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        if (_state == State.Selecting && _isDragging)
+        if (_state == State.Selecting)
         {
-            _selection = NormRect(_dragStart, e.Location);
-            Invalidate();
+            if (_isDragging)
+            {
+                _selection = NormRect(_dragStart, e.Location);
+                Invalidate();
+            }
+            _magHelper?.Update(e.Location, this, _virtualBounds);
         }
     }
 
@@ -146,6 +161,7 @@ public sealed partial class ScrollingCaptureForm : Form
 
     private void ShowControlBar()
     {
+        _magHelper?.Close();
         _screenRegion = new Rectangle(
             _selection.X + _virtualBounds.X,
             _selection.Y + _virtualBounds.Y,
@@ -238,7 +254,6 @@ public sealed partial class ScrollingCaptureForm : Form
             var frame = _frames[0];
             _frames.RemoveAt(0);
             DisposeFrames();
-            SoundService.PlayCaptureSound();
             CaptureCompleted?.Invoke(frame);
             _state = State.Done;
             Close();
@@ -250,7 +265,6 @@ public sealed partial class ScrollingCaptureForm : Form
 
         if (stitched != null)
         {
-            SoundService.PlayCaptureSound();
             CaptureCompleted?.Invoke(stitched);
         }
         else
@@ -333,9 +347,8 @@ public sealed partial class ScrollingCaptureForm : Form
         if (_selection.Width > 2 && _selection.Height > 2)
         {
             g.DrawImage(_screenshot, _selection, _selection, GraphicsUnit.Pixel);
-            g.DrawRectangle(_selPen, _selection);
-
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.DrawRectangle(_selPen, _selection);
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             string label = $"Scroll  {_selection.Width} x {_selection.Height}";
             var sz = g.MeasureString(label, _labelFont);
@@ -355,6 +368,7 @@ public sealed partial class ScrollingCaptureForm : Form
             g.DrawString(hint, _hintFont, _hintBrush,
                 Width / 2f - hintSz.Width / 2f, Height / 2f - hintSz.Height / 2f);
         }
+
     }
 
     private static GraphicsPath RRect(RectangleF r, float radius)
@@ -392,6 +406,7 @@ public sealed partial class ScrollingCaptureForm : Form
     {
         if (disposing)
         {
+            _magHelper?.Dispose();
             _captureTimer?.Stop();
             _captureTimer?.Dispose();
             _controlBar?.Dispose();
@@ -422,7 +437,7 @@ public sealed partial class ScrollingCaptureForm : Form
 
         private const int BarWidth = 320;
         private const int BarHeight = 48;
-        private const int CornerR = 14;
+        private const int CornerR = 8;
 
         private int _frameCount;
         private string _status = "Scroll now";
@@ -489,27 +504,39 @@ public sealed partial class ScrollingCaptureForm : Form
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-            // Shadow (dark rect behind, offset)
-            var shadowPasses = new (float dx, float dy, int a)[]
-            {
-                (0f, 3f, 24),
-                (0f, 1.5f, 36),
-            };
-            foreach (var (dx, dy, a) in shadowPasses)
-            {
-                using var shadowPath = CreateRoundedPath(new RectangleF(2 + dx, 4 + dy, Width - 4, Height - 2), CornerR);
-                using var shadowBrush = new SolidBrush(Color.FromArgb(a, 0, 0, 0));
-                g.FillPath(shadowBrush, shadowPath);
-            }
+            // Fluent 2-layer shadow: ambient + directional
+            var barRect = new RectangleF(0, 0, Width, Height);
+            var ambientRect = barRect;
+            ambientRect.Inflate(8f, 8f);
+            ambientRect.Offset(0, 2.2f);
+            using (var sp = CreateRoundedPath(ambientRect, CornerR + 8f))
+            using (var sb = new SolidBrush(Color.FromArgb(6, 0, 0, 0)))
+                g.FillPath(sb, sp);
+            var dirRect = barRect;
+            dirRect.Inflate(3f, 3f);
+            dirRect.Offset(0, 5.2f);
+            using (var sp = CreateRoundedPath(dirRect, CornerR + 3f))
+            using (var sb = new SolidBrush(Color.FromArgb(12, 0, 0, 0)))
+                g.FillPath(sb, sp);
 
             // Background
             using (var bgBrush = new SolidBrush(UiChrome.SurfacePill))
             {
-                using var bgPath = CreateRoundedPath(new RectangleF(0, 0, Width, Height), CornerR);
+                using var bgPath = CreateRoundedPath(barRect, CornerR);
                 g.FillPath(bgBrush, bgPath);
             }
 
-            // Subtle white border
+            // Fluent gradient highlight
+            var hlRect = new RectangleF(1f, 0.5f, Width - 2f, Height - 1f);
+            using (var hlPath = CreateRoundedPath(hlRect, CornerR - 0.5f))
+            using (var gradBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                new PointF(0, 0), new PointF(0, Height),
+                Color.FromArgb(UiChrome.IsDark ? 48 : 60, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255)))
+            using (var hlPen = new Pen(gradBrush, 1f))
+                g.DrawPath(hlPen, hlPath);
+
+            // Border
             using (var borderPen = new Pen(UiChrome.SurfaceBorder, 1f))
             {
                 using var borderPath = CreateRoundedPath(new RectangleF(0.5f, 0.5f, Width - 1, Height - 1), CornerR);
@@ -525,7 +552,7 @@ public sealed partial class ScrollingCaptureForm : Form
 
             // Draw buttons — always Stop + Discard (starts instantly like recording)
             DrawBtn(g, _actionBtnRect, "Stop",
-                Color.FromArgb(239, 68, 68), UiChrome.SurfaceTextPrimary, _hoveredBtn == _actionBtnRect);
+                Color.FromArgb(50, 239, 68, 68), Color.FromArgb(255, 239, 68, 68), _hoveredBtn == _actionBtnRect);
             DrawBtn(g, _cancelBtnRect, "Discard",
                 UiChrome.SurfaceHover, UiChrome.SurfaceTextPrimary, _hoveredBtn == _cancelBtnRect);
         }
@@ -535,7 +562,7 @@ public sealed partial class ScrollingCaptureForm : Form
             int alpha = hovered ? (int)(bg.A * 2.5) : bg.A;
             alpha = Math.Min(255, alpha);
             using var brush = new SolidBrush(Color.FromArgb(alpha, bg.R, bg.G, bg.B));
-            using var path = CreateRoundedPath(new RectangleF(r.X, r.Y, r.Width, r.Height), 8);
+            using var path = CreateRoundedPath(new RectangleF(r.X, r.Y, r.Width, r.Height), 5);
             g.FillPath(brush, path);
 
             if (hovered)

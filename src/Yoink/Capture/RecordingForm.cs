@@ -51,6 +51,7 @@ public sealed partial class RecordingForm : Form
     private readonly bool _recordDesktop;
     private readonly string? _desktopDeviceId;
     private readonly bool _showMagnifier;
+    private readonly CaptureMagnifierHelper? _magHelper;
     private System.Windows.Forms.Timer? _tickTimer;
     private readonly string _savePath;
 
@@ -62,19 +63,18 @@ public sealed partial class RecordingForm : Form
     private Rectangle _stopBtn;
     private Rectangle _discardBtn;
     private int _hoveredBtn = -1; // 0=stop, 1=discard
-    private Rectangle _lastMagnifierRect;
 
     // TransparencyKey color - any color that won't appear in UI
     private static readonly Color TransKey = Color.FromArgb(1, 2, 3);
 
     // Cached GDI objects for paint
-    private readonly Pen _selPen = new(Color.FromArgb(220, 239, 68, 68), 2f) { DashStyle = DashStyle.Dash };
+    private readonly Pen _selPen = new(Color.FromArgb(255, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
     private readonly Font _labelFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
     private readonly Font _hintFont = UiChrome.ChromeFont(UiChrome.ChromeHintSize);
     private readonly SolidBrush _hintBrush = new(UiChrome.SurfaceTextMuted);
     private readonly SolidBrush _bgLabelBrush = new(UiChrome.SurfacePill);
     private readonly SolidBrush _textLabelBrush = new(UiChrome.SurfaceTextPrimary);
-    private readonly Pen _borderPen = new(Color.FromArgb(200, 239, 68, 68), 2f) { DashStyle = DashStyle.Dash };
+    private readonly Pen _borderPen = new(Color.FromArgb(200, 239, 68, 68), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
     private readonly SolidBrush _cornerBrush = new(Color.FromArgb(220, 239, 68, 68));
     private readonly SolidBrush _shadowBrush = new(Color.FromArgb(60, 0, 0, 0));
     private readonly SolidBrush _toolbarBgBrush = new(UiChrome.SurfacePill);
@@ -85,7 +85,7 @@ public sealed partial class RecordingForm : Form
     private readonly SolidBrush _timeBrush = new(UiChrome.SurfaceTextPrimary);
     private readonly Font _btnFont = UiChrome.ChromeFont(9.5f, FontStyle.Bold);
     private readonly Font _encFont = UiChrome.ChromeFont(10f, FontStyle.Bold);
-    private readonly SolidBrush _encTextBrush = new(Color.FromArgb(200, 255, 255, 255));
+    private readonly SolidBrush _encTextBrush = new(UiChrome.SurfaceTextSecondary);
     private readonly SolidBrush _spinBrush = new(Color.FromArgb(200, 239, 68, 68));
     private readonly SolidBrush _encBgBrush = new(UiChrome.SurfacePill);
     private readonly Pen _encBorderPen = new(UiChrome.SurfaceBorderSubtle, 1f);
@@ -110,6 +110,11 @@ public sealed partial class RecordingForm : Form
         _recordDesktop = recordDesktop;
         _desktopDeviceId = desktopDeviceId;
         _showMagnifier = showMagnifier;
+        if (_showMagnifier)
+        {
+            _magHelper = new CaptureMagnifierHelper();
+            _magHelper.CachePixelData(screenshot);
+        }
 
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
@@ -178,14 +183,17 @@ public sealed partial class RecordingForm : Form
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        if (_state == State.Selecting && _isDragging)
+        if (_state == State.Selecting)
         {
-            _selection = NormRect(_dragStart, e.Location);
-            if (_showMagnifier)
-                _lastMagnifierRect = InflateForRepaint(GetMagnifierBounds(e.Location), 12);
-            Invalidate();
+            if (_isDragging)
+            {
+                _selection = NormRect(_dragStart, e.Location);
+                Invalidate();
+            }
+            _magHelper?.Update(e.Location, this, _virtualBounds);
+            return;
         }
-        else if (_state == State.Recording)
+        if (_state == State.Recording)
         {
             int prev = _hoveredBtn;
             _hoveredBtn = _stopBtn.Contains(e.Location) ? 0
@@ -206,7 +214,6 @@ public sealed partial class RecordingForm : Form
                 StartRecording();
             else
             {
-                _lastMagnifierRect = Rectangle.Empty;
                 Invalidate();
             }
         }
@@ -242,9 +249,8 @@ public sealed partial class RecordingForm : Form
         if (_selection.Width > 2 && _selection.Height > 2)
         {
             g.DrawImage(screenshot, _selection, _selection, GraphicsUnit.Pixel);
-            g.DrawRectangle(_selPen, _selection);
-
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.DrawRectangle(_selPen, _selection);
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             string label = $"GIF  {_selection.Width} x {_selection.Height}";
             var sz = g.MeasureString(label, _labelFont);
@@ -265,8 +271,6 @@ public sealed partial class RecordingForm : Form
                 Width / 2f - hintSz.Width / 2f, Height / 2f - hintSz.Height / 2f);
         }
 
-        if (_showMagnifier && _isDragging)
-            PaintMagnifier(g, PointToClient(Cursor.Position));
     }
 
     private void PaintRecordingPhase(Graphics g)
@@ -278,6 +282,7 @@ public sealed partial class RecordingForm : Form
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
 
         var borderRect = Rectangle.Inflate(_recordRegion, 2, 2);
         g.DrawRectangle(_borderPen, borderRect);
@@ -288,22 +293,36 @@ public sealed partial class RecordingForm : Form
         g.FillRectangle(_cornerBrush, borderRect.X - cm / 2, borderRect.Bottom - cm / 2, cm, cm);
         g.FillRectangle(_cornerBrush, borderRect.Right - cm / 2, borderRect.Bottom - cm / 2, cm, cm);
 
-        var shadowRect = RectangleF.Inflate(new RectangleF(_toolbarRect.X, _toolbarRect.Y, _toolbarRect.Width, _toolbarRect.Height), 3, 3);
-        shadowRect.Offset(0, 2);
-        var shadowPasses = new (float dx, float dy, int a)[]
-        {
-            (0f, 3f, 24),
-            (0f, 1.5f, 36),
-        };
-        foreach (var (dx, dy, a) in shadowPasses)
-        {
-            using var shadowPath = RRect(new RectangleF(shadowRect.X + dx, shadowRect.Y + dy, shadowRect.Width, shadowRect.Height), 16);
-            using var shadowBrush = new SolidBrush(Color.FromArgb(a, 0, 0, 0));
+        // Fluent 2-layer shadow: ambient + directional
+        var tbRectF = new RectangleF(_toolbarRect.X, _toolbarRect.Y, _toolbarRect.Width, _toolbarRect.Height);
+        var ambient = tbRectF;
+        ambient.Inflate(8f, 8f);
+        ambient.Offset(0, 2.2f);
+        using (var shadowPath = RRect(ambient, 8f + 8f))
+        using (var shadowBrush = new SolidBrush(Color.FromArgb(6, 0, 0, 0)))
             g.FillPath(shadowBrush, shadowPath);
-        }
-        using (var tbPath = RRect(_toolbarRect, 14))
+        var directional = tbRectF;
+        directional.Inflate(3f, 3f);
+        directional.Offset(0, 5.2f);
+        using (var shadowPath = RRect(directional, 8f + 3f))
+        using (var shadowBrush = new SolidBrush(Color.FromArgb(12, 0, 0, 0)))
+            g.FillPath(shadowBrush, shadowPath);
+
+        using (var tbPath = RRect(_toolbarRect, 8f))
         {
             g.FillPath(_toolbarBgBrush, tbPath);
+
+            // Fluent gradient highlight
+            var hlRect = new RectangleF(_toolbarRect.X + 1f, _toolbarRect.Y + 0.5f, _toolbarRect.Width - 2f, _toolbarRect.Height - 1f);
+            using var hlPath = RRect(hlRect, 7.5f);
+            using var gradBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                new PointF(_toolbarRect.X, _toolbarRect.Y),
+                new PointF(_toolbarRect.X, _toolbarRect.Bottom),
+                Color.FromArgb(UiChrome.IsDark ? 48 : 60, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255));
+            using var hlPen = new Pen(gradBrush, 1f);
+            g.DrawPath(hlPen, hlPath);
+
             g.DrawPath(_toolbarBorderPen, tbPath);
         }
 
@@ -326,7 +345,7 @@ public sealed partial class RecordingForm : Form
 
         if (_state == State.Encoding)
         {
-            using var encPath = RRect(_toolbarRect, 12);
+            using var encPath = RRect(_toolbarRect, 8);
             g.FillPath(_encBgBrush, encPath);
             g.DrawPath(_encBorderPen, encPath);
 
@@ -339,86 +358,10 @@ public sealed partial class RecordingForm : Form
         }
     }
 
-    private void PaintMagnifier(Graphics g, Point cursor)
-    {
-        if (_screenshot is null || cursor == Point.Empty)
-            return;
-
-        int srcSize = 40;
-        int sx = Math.Clamp(cursor.X - srcSize / 2, 0, Math.Max(0, _screenshot.Width - srcSize));
-        int sy = Math.Clamp(cursor.Y - srcSize / 2, 0, Math.Max(0, _screenshot.Height - srcSize));
-        int zoom = 3;
-        int dstSize = srcSize * zoom;
-
-        int px = cursor.X + 20;
-        int py = cursor.Y + 20;
-        int margin = 12;
-        if (px + dstSize + 6 > Width - margin) px = cursor.X - 20 - dstSize;
-        if (py + dstSize + 6 > Height - margin) py = cursor.Y - 20 - dstSize;
-        px = Math.Clamp(px, margin, Math.Max(margin, Width - dstSize - margin));
-        py = Math.Clamp(py, margin, Math.Max(margin, Height - dstSize - margin));
-
-        var dstRect = new Rectangle(px, py, dstSize, dstSize);
-        var srcRect = new Rectangle(sx, sy, srcSize, srcSize);
-
-        using var bgBrush = new SolidBrush(Color.FromArgb(210, UiChrome.SurfaceElevated.R, UiChrome.SurfaceElevated.G, UiChrome.SurfaceElevated.B));
-        using var borderPen = new Pen(Color.FromArgb(70, UiChrome.SurfaceBorderStrong.R, UiChrome.SurfaceBorderStrong.G, UiChrome.SurfaceBorderStrong.B), 1f);
-        using var crossPen = new Pen(Color.FromArgb(180, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), 1f);
-
-        using var bgPath = RRect(new RectangleF(px - 2, py - 2, dstSize + 4, dstSize + 4), 8);
-        g.FillPath(bgBrush, bgPath);
-        var state = g.Save();
-        try
-        {
-            using var clip = RRect(dstRect, 6);
-            g.SetClip(clip);
-            g.InterpolationMode = InterpolationMode.NearestNeighbor;
-            g.PixelOffsetMode = PixelOffsetMode.Half;
-            g.DrawImage(_screenshot, dstRect, srcRect, GraphicsUnit.Pixel);
-            int ccx = px + dstSize / 2, ccy = py + dstSize / 2;
-            g.DrawLine(crossPen, ccx - 8, ccy, ccx + 8, ccy);
-            g.DrawLine(crossPen, ccx, ccy - 8, ccx, ccy + 8);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.DrawPath(borderPen, clip);
-        }
-        finally
-        {
-            g.Restore(state);
-        }
-    }
-
-    private Rectangle GetMagnifierBounds(Point cursor)
-    {
-        if (_screenshot is null || cursor == Point.Empty)
-            return Rectangle.Empty;
-
-        int srcSize = 40;
-        int zoom = 3;
-        int dstSize = srcSize * zoom;
-
-        int px = cursor.X + 20;
-        int py = cursor.Y + 20;
-        int margin = 12;
-        if (px + dstSize + 6 > Width - margin) px = cursor.X - 20 - dstSize;
-        if (py + dstSize + 6 > Height - margin) py = cursor.Y - 20 - dstSize;
-        px = Math.Clamp(px, margin, Math.Max(margin, Width - dstSize - margin));
-        py = Math.Clamp(py, margin, Math.Max(margin, Height - dstSize - margin));
-
-        return new Rectangle(px - 2, py - 2, dstSize + 4, dstSize + 4);
-    }
-
-    private static Rectangle InflateForRepaint(Rectangle rect, int pad = 8)
-    {
-        if (rect.Width <= 0 || rect.Height <= 0)
-            return Rectangle.Empty;
-        rect.Inflate(pad, pad);
-        return rect;
-    }
-
     private void DrawBtn(Graphics g, Rectangle rect, string text, bool hovered,
         Color textColor, Color bgColor)
     {
-        using var path = RRect(rect, 8);
+        using var path = RRect(rect, 5);
         int alpha = hovered ? Math.Clamp((int)(bgColor.A * 2.5), 0, 255) : bgColor.A;
         using var bg = new SolidBrush(Color.FromArgb(alpha, bgColor.R, bgColor.G, bgColor.B));
         g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -459,6 +402,7 @@ public sealed partial class RecordingForm : Form
             _tickTimer?.Dispose();
             _recorder?.Dispose();
             _videoRecorder?.Dispose();
+            _magHelper?.Dispose();
             _screenshot?.Dispose();
             _screenshot = null;
             _selPen.Dispose(); _labelFont.Dispose();

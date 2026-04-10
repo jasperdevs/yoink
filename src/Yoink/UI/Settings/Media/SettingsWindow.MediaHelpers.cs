@@ -21,164 +21,19 @@ public partial class SettingsWindow
     private static readonly Lazy<BitmapSource> ImagePlaceholder = new(CreateImagePlaceholder);
     private const int HistoryThumbDecodePixelWidth = 336;
 
-    private static bool TryGetThumbFromCache(string path, out BitmapSource? image)
-    {
-        lock (ThumbCache)
-        {
-            if (!ThumbCache.TryGetValue(path, out var cached))
-            {
-                image = null;
-                return false;
-            }
+    private static bool TryGetThumbFromCache(string path, out BitmapSource? image) => SettingsMediaCache.TryGetThumb(path, out image);
 
-            TouchThumbCache(path);
-            image = cached;
-            return true;
-        }
-    }
+    private static void StoreThumbInCache(string path, BitmapSource image) => SettingsMediaCache.StoreThumb(path, image);
 
-    private static void StoreThumbInCache(string path, BitmapSource image)
-    {
-        lock (ThumbCache)
-        {
-            ThumbCache[path] = image;
-            TouchThumbCache(path);
+    internal static void ClearThumbCache() => SettingsMediaCache.Clear();
 
-            while (ThumbCacheOrder.Count > MaxThumbCacheEntries)
-            {
-                var oldest = ThumbCacheOrder.Last;
-                if (oldest is null)
-                    break;
+    internal static void TrimThumbCache(int keepCount) => SettingsMediaCache.Trim(keepCount);
 
-                ThumbCacheOrder.RemoveLast();
-                ThumbCacheNodes.Remove(oldest.Value);
-                ThumbCache.Remove(oldest.Value);
-            }
-        }
-    }
+    internal static void WarmRecentHistoryThumbs(IEnumerable<HistoryEntry> entries, int maxCount = 24) => SettingsMediaCache.WarmRecentHistoryThumbs(entries, (cacheKey, thumbPath, kind) => PrimeThumbLoad(cacheKey, thumbPath, kind), maxCount);
 
-    private static void TouchThumbCache(string path)
-    {
-        if (ThumbCacheNodes.TryGetValue(path, out var existing))
-            ThumbCacheOrder.Remove(existing);
+    internal static void WarmHistoryThumbsInBackground(IEnumerable<HistoryEntry> entries, int maxCount = 192, int immediateCount = 48, int batchSize = 24) => SettingsMediaCache.WarmHistoryThumbsInBackground(entries, (cacheKey, thumbPath, kind) => PrimeThumbLoad(cacheKey, thumbPath, kind), maxCount, immediateCount, batchSize);
 
-        ThumbCacheNodes[path] = ThumbCacheOrder.AddFirst(path);
-    }
-
-    internal static void ClearThumbCache()
-    {
-        lock (ThumbCache)
-        {
-            ThumbCache.Clear();
-            ThumbCacheOrder.Clear();
-            ThumbCacheNodes.Clear();
-        }
-        lock (ThumbWaiters)
-            ThumbWaiters.Clear();
-        LogoCache.Clear();
-    }
-
-    internal static void TrimThumbCache(int keepCount)
-    {
-        if (keepCount <= 0)
-        {
-            ClearThumbCache();
-            return;
-        }
-
-        lock (ThumbCache)
-        {
-            while (ThumbCacheOrder.Count > keepCount)
-            {
-                var oldest = ThumbCacheOrder.Last;
-                if (oldest is null)
-                    break;
-
-                ThumbCacheOrder.RemoveLast();
-                ThumbCacheNodes.Remove(oldest.Value);
-                ThumbCache.Remove(oldest.Value);
-            }
-        }
-    }
-
-    internal static void WarmRecentHistoryThumbs(IEnumerable<HistoryEntry> entries, int maxCount = 24)
-    {
-        foreach (var entry in entries
-                     .OrderByDescending(entry => entry.CapturedAt)
-                     .Where(entry => !string.IsNullOrWhiteSpace(entry.FilePath))
-                     .Take(maxCount))
-        {
-            var thumbPath = entry.FilePath;
-            PrimeThumbLoad(thumbPath, thumbPath, entry.Kind);
-        }
-    }
-
-    internal static void WarmHistoryThumbsInBackground(IEnumerable<HistoryEntry> entries, int maxCount = 192, int immediateCount = 48, int batchSize = 24)
-    {
-        var targets = entries
-            .OrderByDescending(entry => entry.CapturedAt)
-            .Where(entry => !string.IsNullOrWhiteSpace(entry.FilePath))
-            .Take(maxCount)
-            .ToList();
-
-        if (targets.Count == 0)
-            return;
-
-        WarmRecentHistoryThumbs(targets, Math.Min(immediateCount, targets.Count));
-
-        CancellationTokenSource cts;
-        lock (ThumbWarmGate)
-        {
-            ThumbWarmCts?.Cancel();
-            ThumbWarmCts?.Dispose();
-            ThumbWarmCts = new CancellationTokenSource();
-            cts = ThumbWarmCts;
-        }
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                foreach (var batch in targets.Skip(immediateCount).Chunk(batchSize))
-                {
-                    cts.Token.ThrowIfCancellationRequested();
-                    WarmRecentHistoryThumbs(batch, batch.Length);
-                    await Task.Delay(180, cts.Token);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }, cts.Token);
-    }
-
-    private static BitmapImage? LoadPackImage(string relativePath)
-    {
-        if (string.IsNullOrWhiteSpace(relativePath)) return null;
-
-        lock (LogoCache)
-        {
-            if (LogoCache.TryGetValue(relativePath, out var cached))
-                return cached;
-        }
-
-        try
-        {
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.UriSource = new Uri($"pack://application:,,,/{relativePath}", UriKind.Absolute);
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.EndInit();
-            bmp.Freeze();
-
-            lock (LogoCache) LogoCache[relativePath] = bmp;
-            return bmp;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static BitmapImage? LoadPackImage(string relativePath) => SettingsMediaCache.LoadPackImage(relativePath);
 
     private static BitmapSource? LoadThumbSource(string path)
     {

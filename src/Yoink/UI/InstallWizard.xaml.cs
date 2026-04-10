@@ -228,29 +228,22 @@ public partial class InstallWizard : Window
         InstallingContent.Children.Insert(1, tintOverlay);
 
         // Logo explodes to 500x with a smoother ramp
-        var growDuration = new Duration(TimeSpan.FromMilliseconds(340));
         var ease = new QuinticEase { EasingMode = EasingMode.EaseIn };
 
         LogoScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(1, 500, growDuration) { EasingFunction = ease });
+            Motion.FromTo(1, 500, 340, ease));
         LogoScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(1, 500, growDuration) { EasingFunction = ease });
+            Motion.FromTo(1, 500, 340, ease));
 
         // Tint overlay on the logo fades in as it grows
-        tintOverlay.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(280)))
-            {
-                EasingFunction = Motion.SmoothOut,
-                BeginTime = TimeSpan.FromMilliseconds(100)
-            });
+        var tintAnim = Motion.FromTo(0, 1, 280, Motion.SmoothOut);
+        tintAnim.BeginTime = Motion.Disabled ? TimeSpan.Zero : TimeSpan.FromMilliseconds(100);
+        tintOverlay.BeginAnimation(OpacityProperty, tintAnim);
 
         // Window bg overlay catches the end
-        CompletionOverlay.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(180)))
-            {
-                EasingFunction = Motion.SmoothOut,
-                BeginTime = TimeSpan.FromMilliseconds(180)
-            });
+        var overlayAnim = Motion.FromTo(0, 1, 180, Motion.SmoothOut);
+        overlayAnim.BeginTime = Motion.Disabled ? TimeSpan.Zero : TimeSpan.FromMilliseconds(180);
+        CompletionOverlay.BeginAnimation(OpacityProperty, overlayAnim);
 
         await Task.Delay(1100);
 

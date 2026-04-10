@@ -320,89 +320,33 @@ public sealed partial class HistoryService
 
         Directory.CreateDirectory(HistoryDir);
         Directory.CreateDirectory(StickerDir);
-        using var connection = OpenConnection();
-        using var transaction = connection.BeginTransaction();
+        var result = HistoryStore.Flush(DatabasePath, new HistoryFlushRequest(
+            _entries,
+            _ocrEntries,
+            _colorEntries,
+            _entriesRewritePending,
+            _pendingEntryUpserts,
+            _pendingEntryDeletes,
+            _ocrDirty,
+            _colorDirty));
 
-        if (_entriesRewritePending)
+        if (result.EntriesRewriteCommitted)
         {
-            using var clearEntries = connection.CreateCommand();
-            clearEntries.Transaction = transaction;
-            clearEntries.CommandText = "DELETE FROM history_entries;";
-            clearEntries.ExecuteNonQuery();
-
-            foreach (var entry in _entries)
-            {
-                UpsertEntry_NoLock(connection, transaction, entry);
-            }
             _entriesRewritePending = false;
             _pendingEntryUpserts.Clear();
             _pendingEntryDeletes.Clear();
         }
-        else
+        else if (result.EntryDeltaCommitted)
         {
-            foreach (var filePath in _pendingEntryDeletes)
-            {
-                using var deleteEntry = connection.CreateCommand();
-                deleteEntry.Transaction = transaction;
-                deleteEntry.CommandText = "DELETE FROM history_entries WHERE file_path = $filePath;";
-                deleteEntry.Parameters.AddWithValue("$filePath", filePath);
-                deleteEntry.ExecuteNonQuery();
-            }
-
-            foreach (var entry in _pendingEntryUpserts.Values)
-            {
-                UpsertEntry_NoLock(connection, transaction, entry);
-            }
-
             _pendingEntryDeletes.Clear();
             _pendingEntryUpserts.Clear();
         }
 
-        if (_ocrDirty)
-        {
-            using var clearOcr = connection.CreateCommand();
-            clearOcr.Transaction = transaction;
-            clearOcr.CommandText = "DELETE FROM ocr_entries;";
-            clearOcr.ExecuteNonQuery();
-
-            foreach (var entry in _ocrEntries)
-            {
-                using var insertOcr = connection.CreateCommand();
-                insertOcr.Transaction = transaction;
-                insertOcr.CommandText = """
-                    INSERT INTO ocr_entries(text, captured_at_ticks)
-                    VALUES($text, $capturedAtTicks);
-                    """;
-                insertOcr.Parameters.AddWithValue("$text", entry.Text);
-                insertOcr.Parameters.AddWithValue("$capturedAtTicks", entry.CapturedAt.ToBinary());
-                insertOcr.ExecuteNonQuery();
-            }
+        if (result.OcrCommitted)
             _ocrDirty = false;
-        }
 
-        if (_colorDirty)
-        {
-            using var clearColor = connection.CreateCommand();
-            clearColor.Transaction = transaction;
-            clearColor.CommandText = "DELETE FROM color_entries;";
-            clearColor.ExecuteNonQuery();
-
-            foreach (var entry in _colorEntries)
-            {
-                using var insertColor = connection.CreateCommand();
-                insertColor.Transaction = transaction;
-                insertColor.CommandText = """
-                    INSERT INTO color_entries(hex, captured_at_ticks)
-                    VALUES($hex, $capturedAtTicks);
-                    """;
-                insertColor.Parameters.AddWithValue("$hex", entry.Hex);
-                insertColor.Parameters.AddWithValue("$capturedAtTicks", entry.CapturedAt.ToBinary());
-                insertColor.ExecuteNonQuery();
-            }
+        if (result.ColorCommitted)
             _colorDirty = false;
-        }
-
-        transaction.Commit();
     }
 
     private void ScheduleFlush_NoLock()
@@ -478,127 +422,21 @@ public sealed partial class HistoryService
 
     private void EnsureDatabase_NoLock()
     {
-        using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS history_entries (
-                file_path TEXT PRIMARY KEY,
-                file_name TEXT NOT NULL,
-                captured_at_ticks INTEGER NOT NULL,
-                width INTEGER NOT NULL,
-                height INTEGER NOT NULL,
-                file_size_bytes INTEGER NOT NULL,
-                kind INTEGER NOT NULL,
-                upload_url TEXT NULL,
-                upload_provider TEXT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_history_entries_kind_captured_at
-                ON history_entries(kind, captured_at_ticks DESC);
-            CREATE INDEX IF NOT EXISTS idx_history_entries_upload_provider
-                ON history_entries(upload_provider);
-
-            CREATE TABLE IF NOT EXISTS ocr_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                text TEXT NOT NULL,
-                captured_at_ticks INTEGER NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_ocr_entries_captured_at
-                ON ocr_entries(captured_at_ticks DESC);
-
-            CREATE TABLE IF NOT EXISTS color_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                hex TEXT NOT NULL,
-                captured_at_ticks INTEGER NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_color_entries_captured_at
-                ON color_entries(captured_at_ticks DESC);
-            """;
-        command.ExecuteNonQuery();
+        HistoryStore.EnsureDatabase(DatabasePath);
     }
 
     private void LoadFromDatabase_NoLock()
     {
-        _entries = new List<HistoryEntry>();
-        _ocrEntries = new List<OcrHistoryEntry>();
-        _colorEntries = new List<ColorHistoryEntry>();
+        var loadResult = HistoryStore.Load(DatabasePath);
+        _entries = loadResult.Entries;
+        _ocrEntries = loadResult.OcrEntries;
+        _colorEntries = loadResult.ColorEntries;
 
-        using var connection = OpenConnection();
+        foreach (var filePath in loadResult.PendingDeletes)
+            QueueEntryDelete_NoLock(filePath);
 
-        using (var entriesCommand = connection.CreateCommand())
-        {
-            entriesCommand.CommandText = """
-                SELECT file_name, file_path, captured_at_ticks, width, height, file_size_bytes, kind, upload_url, upload_provider
-                FROM history_entries
-                ORDER BY captured_at_ticks DESC;
-                """;
-            using var reader = entriesCommand.ExecuteReader();
-            while (reader.Read())
-            {
-                var entry = new HistoryEntry
-                {
-                    FileName = reader.GetString(0),
-                    FilePath = reader.GetString(1),
-                    CapturedAt = DateTime.FromBinary(reader.GetInt64(2)),
-                    Width = reader.GetInt32(3),
-                    Height = reader.GetInt32(4),
-                    FileSizeBytes = reader.GetInt64(5),
-                    Kind = (HistoryKind)reader.GetInt32(6),
-                    UploadUrl = reader.IsDBNull(7) ? null : reader.GetString(7),
-                    UploadProvider = reader.IsDBNull(8) ? null : reader.GetString(8)
-                };
-
-                if (!File.Exists(entry.FilePath))
-                {
-                    QueueEntryDelete_NoLock(entry.FilePath);
-                    continue;
-                }
-
-                var desiredKind = GetKindForPath(entry.FilePath, entry.Kind);
-                if (entry.Kind != desiredKind)
-                {
-                    entry.Kind = desiredKind;
-                    QueueEntryUpsert_NoLock(entry);
-                }
-
-                _entries.Add(entry);
-            }
-        }
-
-        using (var ocrCommand = connection.CreateCommand())
-        {
-            ocrCommand.CommandText = """
-                SELECT text, captured_at_ticks
-                FROM ocr_entries
-                ORDER BY captured_at_ticks DESC;
-                """;
-            using var reader = ocrCommand.ExecuteReader();
-            while (reader.Read())
-            {
-                _ocrEntries.Add(new OcrHistoryEntry
-                {
-                    Text = reader.GetString(0),
-                    CapturedAt = DateTime.FromBinary(reader.GetInt64(1))
-                });
-            }
-        }
-
-        using (var colorCommand = connection.CreateCommand())
-        {
-            colorCommand.CommandText = """
-                SELECT hex, captured_at_ticks
-                FROM color_entries
-                ORDER BY captured_at_ticks DESC;
-                """;
-            using var reader = colorCommand.ExecuteReader();
-            while (reader.Read())
-            {
-                _colorEntries.Add(new ColorHistoryEntry
-                {
-                    Hex = reader.GetString(0),
-                    CapturedAt = DateTime.FromBinary(reader.GetInt64(1))
-                });
-            }
-        }
+        foreach (var entry in loadResult.PendingUpserts)
+            QueueEntryUpsert_NoLock(entry);
 
         InvalidateFilteredCache();
     }
@@ -679,43 +517,4 @@ public sealed partial class HistoryService
             ScheduleFlush_NoLock();
     }
 
-    private static SqliteConnection OpenConnection()
-    {
-        SQLitePCL.Batteries_V2.Init();
-        var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=True;Cache=Shared");
-        connection.Open();
-        using var pragma = connection.CreateCommand();
-        pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;";
-        pragma.ExecuteNonQuery();
-        return connection;
-    }
-
-    private static void UpsertEntry_NoLock(SqliteConnection connection, SqliteTransaction transaction, HistoryEntry entry)
-    {
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = """
-            INSERT INTO history_entries(file_path, file_name, captured_at_ticks, width, height, file_size_bytes, kind, upload_url, upload_provider)
-            VALUES($filePath, $fileName, $capturedAtTicks, $width, $height, $fileSizeBytes, $kind, $uploadUrl, $uploadProvider)
-            ON CONFLICT(file_path) DO UPDATE SET
-                file_name = excluded.file_name,
-                captured_at_ticks = excluded.captured_at_ticks,
-                width = excluded.width,
-                height = excluded.height,
-                file_size_bytes = excluded.file_size_bytes,
-                kind = excluded.kind,
-                upload_url = excluded.upload_url,
-                upload_provider = excluded.upload_provider;
-            """;
-        command.Parameters.AddWithValue("$filePath", entry.FilePath);
-        command.Parameters.AddWithValue("$fileName", entry.FileName);
-        command.Parameters.AddWithValue("$capturedAtTicks", entry.CapturedAt.ToBinary());
-        command.Parameters.AddWithValue("$width", entry.Width);
-        command.Parameters.AddWithValue("$height", entry.Height);
-        command.Parameters.AddWithValue("$fileSizeBytes", entry.FileSizeBytes);
-        command.Parameters.AddWithValue("$kind", (int)entry.Kind);
-        command.Parameters.AddWithValue("$uploadUrl", (object?)entry.UploadUrl ?? DBNull.Value);
-        command.Parameters.AddWithValue("$uploadProvider", (object?)entry.UploadProvider ?? DBNull.Value);
-        command.ExecuteNonQuery();
-    }
 }

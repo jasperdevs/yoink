@@ -22,12 +22,13 @@ public static class SoundService
     public static void SetPack(SoundPack pack) { _currentPack = pack; ClearCache(); }
     public static SoundPack CurrentPack => _currentPack;
 
-    // Pack parameters: (pitch multiplier, decay multiplier, volume)
-    private static (double pitch, double decay, double vol) PackParams => _currentPack switch
+    // Pack parameters: (pitch multiplier, character, volume)
+    // character: 0 = warm/round, 0.5 = balanced, 1 = bright/crisp
+    private static (double pitch, double character, double vol) PackParams => _currentPack switch
     {
-        SoundPack.Soft => (0.8, 0.7, 0.3),   // lower pitched, slower decay, quieter
-        SoundPack.Retro => (1.3, 1.5, 0.5),   // higher pitched, snappier, chiptune feel
-        _ => (1.0, 1.0, 0.4),                  // default
+        SoundPack.Soft => (0.82, 0.15, 0.20),
+        SoundPack.Retro => (1.15, 0.85, 0.35),
+        _ => (1.0, 0.45, 0.28),
     };
 
     private static void ClearCache()
@@ -62,264 +63,317 @@ public static class SoundService
         thread.Start();
     }
 
-    /// <summary>Capture: crisp camera-shutter click (short noise burst + resonant tap)</summary>
+    // ── Helpers ───────────────────────────────────────────────────────────
+    private static double SoftClip(double x)
+        => Math.Tanh(x * 1.2) / Math.Tanh(1.2);
+
+    private static double Env(double t, double attackMs, double decayRate)
+    {
+        double a = attackMs / 1000.0;
+        double atk = t < a ? Math.Sin(Math.PI * 0.5 * t / a) : 1.0;
+        return atk * Math.Exp(-t * decayRate);
+    }
+
+    // ── Capture: soft, warm tap ──────────────────────────────────────────
     private static byte[] GenerateCaptureWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 80;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 90;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
         var rng = new Random(42);
-        for (int i = 0; i < numSamples; i++)
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
-            double noise = (rng.NextDouble() * 2 - 1) * Math.Exp(-t * 200 * d) * 0.25;
-            double tone = Math.Sin(2 * Math.PI * 1200 * p * t) * Math.Exp(-t * 100 * d) * 0.4;
-            double sub = Math.Sin(2 * Math.PI * 300 * p * t) * Math.Exp(-t * 60 * d) * 0.2;
-            double sample = Math.Clamp(noise + tone + sub, -1.0, 1.0) * v / 0.4;
+            double t = (double)i / sr;
+
+            // Gentle noise transient — very quiet, just adds a tiny "tick"
+            double noise = (rng.NextDouble() * 2 - 1) * Math.Exp(-t * 400) * 0.06;
+
+            // Warm fundamental with slow chirp settling
+            double f0 = (720 + 20 * Math.Exp(-t * 80)) * p;
+            double fund = Math.Sin(2 * Math.PI * f0 * t) * Env(t, 4, 32) * 0.30;
+
+            // Soft harmonic
+            double h2 = Math.Sin(2 * Math.PI * f0 * 2 * t) * Env(t, 4, 55) * (0.08 + c * 0.06);
+
+            // Sub body
+            double sub = Math.Sin(2 * Math.PI * 260 * p * t) * Env(t, 6, 25) * 0.12;
+
+            double sample = SoftClip(noise + fund + h2 + sub) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
-    /// <summary>Color pick: gentle two-note pip (ascending, glassy)</summary>
+    // ── Color pick: gentle bell dyad ─────────────────────────────────────
     private static byte[] GenerateColorWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 140;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 120;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
-        double dur = durationMs / 1000.0;
-        for (int i = 0; i < numSamples; i++)
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
-            // Two notes: E6 then A6 with soft crossfade
-            double split = dur * 0.4;
-            double freq = t < split ? 1319 * p : 1760 * p;
-            double env = t < split
-                ? Math.Exp(-(t) * 20 * d)
-                : Math.Exp(-(t - split) * 25 * d);
-            // Pure sine + soft harmonic for glassy quality
-            double sample = (Math.Sin(2 * Math.PI * freq * t) * 0.6
-                           + Math.Sin(2 * Math.PI * freq * 2 * t) * 0.15) * env * v;
+            double t = (double)i / sr;
+
+            // Perfect fifth: gentle, pure
+            double f1 = 1050 * p;
+            double f2 = f1 * 1.5;
+
+            double tone1 = Math.Sin(2 * Math.PI * f1 * t) * Env(t, 3, 28) * 0.30;
+            double tone2 = Math.Sin(2 * Math.PI * f2 * t) * Env(t, 3, 35) * (0.16 + c * 0.04);
+            // Faint bell overtone
+            double bell = Math.Sin(2 * Math.PI * f1 * 3 * t) * Env(t, 2, 65) * 0.04;
+
+            double sample = SoftClip(tone1 + tone2 + bell) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
-    /// <summary>Text/OCR copy: soft descending chime</summary>
+    // ── Text/OCR copy: quick soft chord ──────────────────────────────────
     private static byte[] GenerateTextWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 110;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 90;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
-        double dur = durationMs / 1000.0;
-        for (int i = 0; i < numSamples; i++)
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
-            double env = Math.Exp(-t * 35 * d);
-            // Gentle descending sweep (B5 to G5)
-            double freq = (988 - (396 * t / dur)) * p;
-            double sample = (Math.Sin(2 * Math.PI * freq * t) * 0.55
-                           + Math.Sin(2 * Math.PI * freq * 1.5 * t) * 0.2) * env * v;
+            double t = (double)i / sr;
+
+            double f1 = 680 * p;
+            double f2 = 880 * p;
+
+            double tone1 = Math.Sin(2 * Math.PI * f1 * t) * Env(t, 3, 34) * 0.28;
+            double tone2 = Math.Sin(2 * Math.PI * f2 * t) * Env(t, 3, 38) * (0.14 + c * 0.04);
+
+            double sample = SoftClip(tone1 + tone2) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
-    /// <summary>QR/Barcode scan: quick triple-beep like a barcode scanner</summary>
+    // ── QR/Barcode scan: gentle ascending triple pip ─────────────────────
     private static byte[] GenerateScanWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 180;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 170;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
         double dur = durationMs / 1000.0;
-        double beepLen = dur / 4.0;
-        for (int i = 0; i < numSamples; i++)
+        double pipLen = dur / 4.5;
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
-            // Three short beeps at ascending pitches
+            double t = (double)i / sr;
             double sample = 0;
             for (int b = 0; b < 3; b++)
             {
-                double start = b * beepLen * 1.2;
+                double start = b * pipLen * 1.25;
                 double local = t - start;
-                if (local >= 0 && local < beepLen)
+                if (local >= 0 && local < pipLen)
                 {
-                    double freq = (1400 + b * 200) * p;
-                    double env = Math.Sin(Math.PI * local / beepLen); // smooth on/off
-                    sample += Math.Sin(2 * Math.PI * freq * local) * env * v * 0.75;
+                    double freq = (820 + b * 110) * p;
+                    double env = Math.Sin(Math.PI * local / pipLen);
+                    double tone = Math.Sin(2 * Math.PI * freq * local) * 0.30;
+                    double h = Math.Sin(2 * Math.PI * freq * 2 * local) * (0.04 + c * 0.03);
+                    sample += (tone + h) * env;
                 }
             }
+            sample = SoftClip(sample) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
-    /// <summary>Record start: quick ascending double-beep (low to high)</summary>
+    // ── Record start: gentle ascending two-note ──────────────────────────
     private static byte[] GenerateRecordStartWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 200;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 160;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
         double dur = durationMs / 1000.0;
-        double beepLen = dur / 3.0;
-        for (int i = 0; i < numSamples; i++)
+        double pipLen = dur / 3.0;
+        double[] freqs = [480 * p, 600 * p]; // major third up
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
+            double t = (double)i / sr;
             double sample = 0;
-            // Two ascending beeps: C5 then E5
-            double[] freqs = [523 * p, 659 * p];
             for (int b = 0; b < 2; b++)
             {
-                double start = b * beepLen * 1.3;
+                double start = b * pipLen * 1.2;
                 double local = t - start;
-                if (local >= 0 && local < beepLen)
+                if (local >= 0 && local < pipLen)
                 {
-                    double env = Math.Sin(Math.PI * local / beepLen);
-                    sample += Math.Sin(2 * Math.PI * freqs[b] * local) * env * v * 0.875;
+                    double env = Math.Sin(Math.PI * local / pipLen);
+                    double tone = Math.Sin(2 * Math.PI * freqs[b] * local) * 0.28;
+                    double h = Math.Sin(2 * Math.PI * freqs[b] * 2 * local) * (0.06 + c * 0.03);
+                    sample += (tone + h) * env;
                 }
             }
+            sample = SoftClip(sample) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
-    /// <summary>Record stop: quick descending double-beep (high to low)</summary>
+    // ── Record stop: gentle descending two-note ──────────────────────────
     private static byte[] GenerateRecordStopWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 200;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 160;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
         double dur = durationMs / 1000.0;
-        double beepLen = dur / 3.0;
-        for (int i = 0; i < numSamples; i++)
+        double pipLen = dur / 3.0;
+        double[] freqs = [600 * p, 480 * p]; // major third down
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
+            double t = (double)i / sr;
             double sample = 0;
-            // Two descending beeps: E5 then C5
-            double[] freqs = [659 * p, 523 * p];
             for (int b = 0; b < 2; b++)
             {
-                double start = b * beepLen * 1.3;
+                double start = b * pipLen * 1.2;
                 double local = t - start;
-                if (local >= 0 && local < beepLen)
+                if (local >= 0 && local < pipLen)
                 {
-                    double env = Math.Sin(Math.PI * local / beepLen);
-                    sample += Math.Sin(2 * Math.PI * freqs[b] * local) * env * v * 0.875;
+                    double env = Math.Sin(Math.PI * local / pipLen);
+                    double tone = Math.Sin(2 * Math.PI * freqs[b] * local) * 0.28;
+                    double h = Math.Sin(2 * Math.PI * freqs[b] * 2 * local) * (0.06 + c * 0.03);
+                    sample += (tone + h) * env;
                 }
             }
+            sample = SoftClip(sample) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
+    // ── Upload start: soft anticipatory tone ─────────────────────────────
     private static byte[] GenerateUploadStartWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 90;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 80;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
-        for (int i = 0; i < numSamples; i++)
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
-            double env = Math.Exp(-t * 26 * d);
-            double sample = (Math.Sin(2 * Math.PI * 820 * p * t) * 0.42
-                           + Math.Sin(2 * Math.PI * 1120 * p * t) * 0.18) * env * v / 0.4;
+            double t = (double)i / sr;
+            double f = (680 + 100 * Math.Exp(-t * 60)) * p; // gentle upward chirp
+            double tone = Math.Sin(2 * Math.PI * f * t) * Env(t, 3, 28) * 0.28;
+            double h = Math.Sin(2 * Math.PI * f * 1.5 * t) * Env(t, 3, 40) * (0.08 + c * 0.04);
+
+            double sample = SoftClip(tone + h) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
+    // ── Upload done: resolved two-note chord ─────────────────────────────
     private static byte[] GenerateUploadDoneWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 170;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 140;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
-        double[] freqs = [740 * p, 988 * p];
-        double beepLen = durationMs / 1000.0 / 2.5;
-        for (int i = 0; i < numSamples; i++)
+        double dur = durationMs / 1000.0;
+        double pipLen = dur / 2.5;
+        double[] freqs = [680 * p, 900 * p]; // ascending
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
+            double t = (double)i / sr;
             double sample = 0;
             for (int b = 0; b < 2; b++)
             {
-                double start = b * beepLen * 1.1;
+                double start = b * pipLen * 1.1;
                 double local = t - start;
-                if (local >= 0 && local < beepLen)
+                if (local >= 0 && local < pipLen)
                 {
-                    double env = Math.Sin(Math.PI * local / beepLen);
-                    sample += Math.Sin(2 * Math.PI * freqs[b] * local) * env * v * 0.85;
+                    double env = Math.Sin(Math.PI * local / pipLen);
+                    double tone = Math.Sin(2 * Math.PI * freqs[b] * local) * 0.26;
+                    double h = Math.Sin(2 * Math.PI * freqs[b] * 2 * local) * (0.05 + c * 0.03);
+                    sample += (tone + h) * env;
                 }
             }
+            sample = SoftClip(sample) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();
     }
 
-    /// <summary>Error: short descending alert tone</summary>
+    // ── Error: gentle descending minor interval ──────────────────────────
     private static byte[] GenerateErrorWav()
     {
-        var (p, d, v) = PackParams;
-        const int sampleRate = 44100;
-        const int durationMs = 170;
-        int numSamples = sampleRate * durationMs / 1000;
+        var (p, c, v) = PackParams;
+        const int sr = 44100;
+        const int durationMs = 180;
+        int n = sr * durationMs / 1000;
 
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        WriteWavHeader(bw, numSamples, sampleRate);
+        WriteWavHeader(bw, n, sr);
 
-        for (int i = 0; i < numSamples; i++)
+        double dur = durationMs / 1000.0;
+        double pipLen = dur / 2.6;
+        double[] freqs = [560 * p, 420 * p]; // descending minor third
+        for (int i = 0; i < n; i++)
         {
-            double t = (double)i / sampleRate;
-            double env = Math.Exp(-t * 18 * d);
-            double freq = (780 - (260 * t / (durationMs / 1000.0))) * p;
-            double sample = Math.Sin(2 * Math.PI * freq * t) * env * v * 1.125;
+            double t = (double)i / sr;
+            double sample = 0;
+            for (int b = 0; b < 2; b++)
+            {
+                double start = b * pipLen * 1.15;
+                double local = t - start;
+                if (local >= 0 && local < pipLen)
+                {
+                    double env = Math.Sin(Math.PI * local / pipLen) * Math.Exp(-local * 10);
+                    double tone = Math.Sin(2 * Math.PI * freqs[b] * local) * 0.30;
+                    double h = Math.Sin(2 * Math.PI * freqs[b] * 1.5 * local) * Env(local, 3, 30) * 0.06;
+                    sample += (tone + h) * env;
+                }
+            }
+            sample = SoftClip(sample) * v;
             bw.Write((short)(Math.Clamp(sample, -1.0, 1.0) * short.MaxValue));
         }
         return ms.ToArray();

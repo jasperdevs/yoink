@@ -49,17 +49,11 @@ public static partial class UploadService
         if (string.IsNullOrWhiteSpace(s.ImgBBApiKey))
             return new UploadResult { Error = "ImgBB API key not configured. Get one free at api.imgbb.com" };
 
-        var fileBytes = await File.ReadAllBytesAsync(filePath);
-        var base64 = Convert.ToBase64String(fileBytes);
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(Path.GetFileNameWithoutExtension(filePath)), "name");
+        content.Add(CreateFileStreamContent(filePath), "image", Path.GetFileName(filePath));
 
-        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["key"] = s.ImgBBApiKey,
-            ["image"] = base64,
-            ["name"] = Path.GetFileNameWithoutExtension(filePath)
-        });
-
-        var resp = await Http.PostAsync("https://api.imgbb.com/1/upload", content);
+        var resp = await Http.PostAsync($"https://api.imgbb.com/1/upload?key={Uri.EscapeDataString(s.ImgBBApiKey)}", content);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 

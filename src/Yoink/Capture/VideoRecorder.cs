@@ -211,9 +211,15 @@ public sealed class VideoRecorder : IDisposable
             try
             {
                 _desktopWavPath = Path.Combine(dir, Path.GetFileNameWithoutExtension(outputPath) + "_desktop.wav");
-                _desktopCapture = string.IsNullOrEmpty(_desktopDeviceId)
-                    ? new WasapiLoopbackCapture()
-                    : new WasapiLoopbackCapture(new MMDeviceEnumerator().GetDevice(_desktopDeviceId));
+                if (string.IsNullOrEmpty(_desktopDeviceId))
+                {
+                    _desktopCapture = new WasapiLoopbackCapture();
+                }
+                else
+                {
+                    using var enumerator = new MMDeviceEnumerator();
+                    _desktopCapture = new WasapiLoopbackCapture(enumerator.GetDevice(_desktopDeviceId));
+                }
                 _desktopWriter = new WaveFileWriter(_desktopWavPath, _desktopCapture.WaveFormat);
                 _desktopCapture.DataAvailable += (s, e) =>
                 {
@@ -413,7 +419,7 @@ public sealed class VideoRecorder : IDisposable
                        $"-c:v copy -c:a {audioCodec} -map 0:v -map \"[a]\" -shortest \"{tempOut}\"";
             }
 
-            var proc = new Process
+            using var proc = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {

@@ -32,6 +32,7 @@ public sealed partial class RegionOverlayForm : Form
     private ToolDef[] _mainBarTools = Array.Empty<ToolDef>();
     private ToolDef[] _flyoutTools = Array.Empty<ToolDef>();
     private int BtnCount => _mainBarTools.Length + (_flyoutTools.Length > 0 ? 1 : 0) + 2; // +more +color +close
+    private int ColorButtonIndex => BtnCount - 2;
     private int _moreButtonIndex = -1; // index of "..." button in _toolbarButtons
     private Rectangle[] _toolbarButtons = Array.Empty<Rectangle>();
     private string[] _toolbarIcons = Array.Empty<string>();
@@ -51,6 +52,7 @@ public sealed partial class RegionOverlayForm : Form
     private bool _showToolNumberBadges = true;
     private Rectangle _toolbarRect;
     private Rectangle _toolbarAnchorArea;
+    private Rectangle _lastOverlayUiBounds;
     private float _toolbarAnim;
     private Point _lastCursorPos;
     private Point _prevCursorPos; // crosshair ghosting fix
@@ -61,7 +63,7 @@ public sealed partial class RegionOverlayForm : Form
     private readonly System.Windows.Forms.Timer _animTimer;
     private readonly System.Windows.Forms.Timer _autoDetectTimer;
     private DateTime _showTime;
-    private const float FlyoutAnimDurationMs = 135f;
+    private const float FlyoutAnimDurationMs = 80f;
     private ToolbarForm? _toolbarForm;
     private bool _allowDeactivation;
     private Point _pendingAutoDetectPoint = Point.Empty;
@@ -146,9 +148,10 @@ public sealed partial class RegionOverlayForm : Form
     private bool _isSelectResizing;
     private int _selectResizeHandle = -1; // 0=TL,1=TR,2=BL,3=BR
     private Point _selectDragStart;
+    private Point _selectDragOffset;
     private Rectangle _selectHandleBounds; // cached bounds for handle hit-testing
-    private const int SelectHandleSize = 8;
-    private const int SelectHandleHitSize = 14; // larger hit area for easier clicking
+    private const int SelectHandleSize = 10;
+    private const int SelectHandleHitSize = 18; // larger hit area for easier clicking
 
     // Smart eraser state
     private Point _eraserStart;
@@ -178,11 +181,15 @@ public sealed partial class RegionOverlayForm : Form
     private bool _textResizing;
     private Point _textResizeStart;
     private bool _textDragging;
-    private Point _textDragOffset;
+    private bool _textSelecting;
+    private int _textSelectionAnchor;
     private RectangleF _activeTextRectCache;
     private float _activeTextMeasureWidth;
     private readonly RectangleF[] _activeTextHandleCache = new RectangleF[4];
     private bool _activeTextLayoutDirty = true;
+    private const int TextHandleHitSize = 18;
+    private bool _snapGuideXVisible;
+    private bool _snapGuideYVisible;
 
     // Font picker popup
     private bool _fontPickerOpen;
@@ -308,6 +315,11 @@ public sealed partial class RegionOverlayForm : Form
         Color.FromArgb(0, 200, 0), Color.FromArgb(0, 136, 255), Color.White
     };
     private int _toolColorIndex = 0;
+    private const int ColorPickerColumns = 6;
+    private const int ColorPickerRows = 1;
+    private const int ColorPickerSwatchSize = 28;
+    private const int ColorPickerPadding = 4;
+    private const int GlobalCenterSnapThreshold = 8;
 
     // (typed _undoStack is defined above with annotation state)
 
@@ -343,25 +355,35 @@ public sealed partial class RegionOverlayForm : Form
         SetupForm();
         CalcToolbar();
 
-        _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
+        _animTimer = new System.Windows.Forms.Timer { Interval = UiChrome.FrameIntervalMs };
         _animTimer.Tick += (_, _) =>
         {
-            float elapsed = (float)(DateTime.UtcNow - _showTime).TotalMilliseconds;
-            _toolbarAnim = EaseOutCubic(Math.Min(1f, elapsed / 180f));
-            if (Math.Abs(_flyoutAnim - _flyoutAnimTarget) > 0.01f)
+            if (UI.Motion.Disabled)
             {
-                float flyoutElapsed = (float)(DateTime.UtcNow - _flyoutAnimStartedAt).TotalMilliseconds;
-                float t = Math.Clamp(flyoutElapsed / FlyoutAnimDurationMs, 0f, 1f);
-                float eased = EaseInOutQuint(t);
-                _flyoutAnim = _flyoutAnimStart + ((_flyoutAnimTarget - _flyoutAnimStart) * eased);
+                _toolbarAnim = 1f;
+                _flyoutAnim = _flyoutAnimTarget;
+                if (_flyoutAnimTarget <= 0f)
+                    _hoveredFlyoutButton = -1;
             }
             else
             {
-                _flyoutAnim = _flyoutAnimTarget;
-                if (_flyoutAnimTarget <= 0f)
+                float elapsed = (float)(DateTime.UtcNow - _showTime).TotalMilliseconds;
+                _toolbarAnim = EaseOutCubic(Math.Min(1f, elapsed / 180f));
+                if (Math.Abs(_flyoutAnim - _flyoutAnimTarget) > 0.01f)
                 {
-                    _flyoutAnim = 0f;
-                    _hoveredFlyoutButton = -1;
+                    float flyoutElapsed = (float)(DateTime.UtcNow - _flyoutAnimStartedAt).TotalMilliseconds;
+                    float t = Math.Clamp(flyoutElapsed / FlyoutAnimDurationMs, 0f, 1f);
+                    float eased = EaseInOutQuint(t);
+                    _flyoutAnim = _flyoutAnimStart + ((_flyoutAnimTarget - _flyoutAnimStart) * eased);
+                }
+                else
+                {
+                    _flyoutAnim = _flyoutAnimTarget;
+                    if (_flyoutAnimTarget <= 0f)
+                    {
+                        _flyoutAnim = 0f;
+                        _hoveredFlyoutButton = -1;
+                    }
                 }
             }
             UpdateToolbarSurfaceOnly();
@@ -377,11 +399,11 @@ public sealed partial class RegionOverlayForm : Form
             }
         };
 
-        _pickerTimer = new System.Windows.Forms.Timer { Interval = 16 };
+        _pickerTimer = new System.Windows.Forms.Timer { Interval = UiChrome.FrameIntervalMs };
         _pickerTimer.Tick += OnPickerTick;
         if (_mode == CaptureMode.ColorPicker) _pickerTimer.Start();
 
-        _autoDetectTimer = new System.Windows.Forms.Timer { Interval = 16 };
+        _autoDetectTimer = new System.Windows.Forms.Timer { Interval = UiChrome.FrameIntervalMs };
         _autoDetectTimer.Tick += (_, _) =>
         {
             _autoDetectTimer.Stop();

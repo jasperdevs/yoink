@@ -12,19 +12,10 @@ namespace Yoink.UI;
 
 public partial class SettingsWindow : Window
 {
-    private const int MaxThumbCacheEntries = 384;
     private const string SemanticRuntimeJobKey = "runtime:semantic-search";
     private const string OpenSourceLocalTranslationJobKey = "runtime:translation-open-source-local";
     private const string ArgosTranslationJobKey = "runtime:translation-argos";
-    private static readonly Dictionary<string, BitmapSource> ThumbCache = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly LinkedList<string> ThumbCacheOrder = new();
-    private static readonly Dictionary<string, LinkedListNode<string>> ThumbCacheNodes = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly Dictionary<string, List<WeakReference<System.Windows.Controls.Image>>> ThumbWaiters = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly Dictionary<string, BitmapImage> LogoCache = new();
     private static readonly SemaphoreSlim ThumbDecodeGate = new(4);
-    private static readonly HashSet<string> ThumbInflight = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly object ThumbWarmGate = new();
-    private static CancellationTokenSource? ThumbWarmCts;
     private readonly System.Windows.Threading.DispatcherTimer _historyMonitorTimer = new()
     {
         Interval = TimeSpan.FromSeconds(2.5)

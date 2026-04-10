@@ -105,7 +105,7 @@ public sealed partial class RegionOverlayForm
         }
 
         Add(InflateIfNeeded(_toolbarRect, 12));
-        Add(InflateForRepaint(Rectangle.Round(_textToolbarRect)));
+        Add(InflateForRepaint(Rectangle.Round(GetTextToolbarBounds())));
         Add(InflateForRepaint(Rectangle.Round(GetActiveTextRect())));
         Add(InflateIfNeeded(GetColorPickerBounds(), 12));
         Add(InflateIfNeeded(GetFontPickerBounds(), 12));
@@ -345,9 +345,9 @@ public sealed partial class RegionOverlayForm
         var selRect = Rectangle.Inflate(bounds, 4, 4);
         var corners = new[] {
             new Point(selRect.X, selRect.Y),
-            new Point(selRect.Right, selRect.Y),
-            new Point(selRect.X, selRect.Bottom),
-            new Point(selRect.Right, selRect.Bottom),
+            new Point(selRect.Right - 1, selRect.Y),
+            new Point(selRect.X, selRect.Bottom - 1),
+            new Point(selRect.Right - 1, selRect.Bottom - 1),
         };
         for (int i = 0; i < 4; i++)
         {

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -82,7 +83,7 @@ public partial class SettingsWindow
     private void LoadSettings()
     {
         var s = _settingsService.Settings;
-        try { LoadOcrLanguageOptions(); } catch { }
+        TryLoadSettingsSection("settings.load-ocr-languages", LoadOcrLanguageOptions);
 
         DefaultCaptureModeCombo.SelectedIndex = s.DefaultCaptureMode == Yoink.Models.CaptureMode.Freeform ? 1 : 0;
         var afterCapture = Enum.IsDefined(typeof(AfterCaptureAction), s.AfterCapture)
@@ -122,6 +123,7 @@ public partial class SettingsWindow
         ShowImageSearchDiagnosticsCheck.IsChecked = s.ShowImageSearchDiagnostics;
         AutoIndexImagesCheck.IsChecked = s.AutoIndexImages;
         MuteSoundsCheck.IsChecked = s.MuteSounds;
+        DisableAnimationsCheck.IsChecked = s.DisableAnimations;
         CrosshairGuidesCheck.IsChecked = s.ShowCrosshairGuides;
         ShowCaptureMagnifierCheck.IsChecked = s.ShowCaptureMagnifier;
         OverlayAllMonitorsCheck.IsChecked = s.OverlayCaptureAllMonitors;
@@ -141,7 +143,7 @@ public partial class SettingsWindow
         RecordingFpsCombo.SelectedIndex = s.RecordingFps switch { 15 => 0, 24 => 1, 30 => 2, 60 => 3, _ => 2 };
         RecordMicCheck.IsChecked = s.RecordMicrophone;
         RecordDesktopAudioCheck.IsChecked = s.RecordDesktopAudio;
-        try { PopulateAudioDevices(); } catch { }
+        TryLoadSettingsSection("settings.populate-audio-devices", PopulateAudioDevices);
 
         double dur = s.ToastDurationSeconds;
         int durIdx = dur switch { 1.5 => 0, 2.0 => 1, 2.5 => 2, 3.0 => 3, 4.0 => 4, 5.0 => 5, _ => 2 };
@@ -157,20 +159,32 @@ public partial class SettingsWindow
         AutoUploadScreenshotsCheck.IsChecked = s.AutoUploadScreenshots;
         AutoUploadGifsCheck.IsChecked = s.AutoUploadGifs;
         AutoUploadVideosCheck.IsChecked = s.AutoUploadVideos;
-        try { LoadUploadSettingsIntoUi(s.ImageUploadSettings); } catch { }
-        try { LoadStickerSettingsIntoUi(s.StickerUploadSettings); } catch { }
+        TryLoadSettingsSection("settings.load-upload-settings", () => LoadUploadSettingsIntoUi(s.ImageUploadSettings));
+        TryLoadSettingsSection("settings.load-sticker-settings", () => LoadStickerSettingsIntoUi(s.StickerUploadSettings));
         UpdateUploadSettingsVisibility();
         UpdateUploadTabVisibility();
         VersionText.Text = $"Yoink {UpdateService.GetCurrentVersionLabel()}";
         _ = RefreshSemanticRuntimeStatusAsync();
 
-        try { PopulateToolToggles(); } catch { }
-        try { UpdateCaptureFormatControls(); } catch { }
-        try { UpdateRecordingFormatVisibility(); } catch { }
+        TryLoadSettingsSection("settings.populate-tool-toggles", PopulateToolToggles);
+        TryLoadSettingsSection("settings.update-capture-format-controls", UpdateCaptureFormatControls);
+        TryLoadSettingsSection("settings.update-recording-format-visibility", UpdateRecordingFormatVisibility);
 
         if (HistoryTab.IsChecked == true)
         {
-            try { ScheduleHistoryTabLoad(); } catch { }
+            TryLoadSettingsSection("settings.schedule-history-tab-load", () => ScheduleHistoryTabLoad());
+        }
+    }
+
+    private static void TryLoadSettingsSection(string logKey, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            AppDiagnostics.LogError(logKey, ex);
         }
     }
 
@@ -272,7 +286,7 @@ public partial class SettingsWindow
                 if (CanReuseLoadedImageHistory())
                     ApplyImageSearchFilter();
                 else
-                    LoadHistory();
+                    _ = LoadHistoryAsync();
                 break;
             case 1: TextPanel.Visibility = Visibility.Visible; LoadOcrHistory(); break;
             case 2: GifsPanel.Visibility = Visibility.Visible; LoadMediaHistory(); break;

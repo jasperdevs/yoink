@@ -150,6 +150,31 @@ public sealed class UploadServiceTests
         }
     }
 
+    [Fact]
+    public async Task UploadAsync_WebDavRejectsNonHttpsUrlBeforeNetworkCall()
+    {
+        var filePath = Path.Combine(Path.GetTempPath(), "yoink-webdav-test-" + Guid.NewGuid().ToString("N") + ".txt");
+        try
+        {
+            await File.WriteAllTextAsync(filePath, "yoink");
+            var settings = new UploadSettings
+            {
+                WebDavUrl = "http://example.test/uploads",
+                WebDavUsername = "user",
+                WebDavPassword = "pass"
+            };
+
+            var result = await UploadService.UploadAsync(filePath, UploadDestination.WebDav, settings);
+
+            Assert.False(result.Success);
+            Assert.Contains("HTTPS", result.Error, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try { File.Delete(filePath); } catch { }
+        }
+    }
+
     [Theory]
     [InlineData("http://tmpfiles.org/123/name.png", "https://tmpfiles.org/dl/123/name.png")]
     [InlineData("https://tmpfiles.org/dl/123/name.png", "https://tmpfiles.org/dl/123/name.png")]

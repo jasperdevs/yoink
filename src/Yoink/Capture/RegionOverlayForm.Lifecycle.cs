@@ -99,15 +99,20 @@ public sealed partial class RegionOverlayForm
     internal void PositionToolbarForm()
     {
         if (_toolbarForm is null) return;
-        int marginX = IsVerticalDock ? 72 : 220;
-        int marginY = IsVerticalDock ? 56 : 32;
-        int popupW = IsVerticalDock ? 340 : 220;
-        int popupH = IsVerticalDock ? 220 : 340;
+        var uiBounds = GetOverlayUiBounds();
+        if (uiBounds.IsEmpty)
+            uiBounds = InflateForRepaint(_toolbarRect, 24);
+
+        int marginX = IsVerticalDock ? 120 : 260;
+        int marginY = IsVerticalDock ? 120 : 140;
+        uiBounds.Inflate(marginX, marginY);
+        uiBounds.Intersect(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
+
         var bounds = new Rectangle(
-            _toolbarRect.X - marginX - popupW + _virtualBounds.X,
-            _toolbarRect.Y - marginY - popupH + _virtualBounds.Y,
-            _toolbarRect.Width + (marginX * 2) + (popupW * 2),
-            _toolbarRect.Height + (marginY * 2) + (popupH * 2));
+            _virtualBounds.X + uiBounds.X,
+            _virtualBounds.Y + uiBounds.Y,
+            Math.Max(1, uiBounds.Width),
+            Math.Max(1, uiBounds.Height));
         _toolbarForm.Bounds = bounds;
     }
 
@@ -155,6 +160,7 @@ public sealed partial class RegionOverlayForm
                     e.SuppressKeyPress = true;
                     _textBuffer = "";
                     _isTyping = false;
+                    SetSnapGuides(false, false);
                     HideTextBox();
                     InvalidateActiveTextLayout();
                     Invalidate();
@@ -163,18 +169,30 @@ public sealed partial class RegionOverlayForm
             _textBox.TextChanged += (_, _) =>
             {
                 if (_textBox == null) return;
+                var oldRect = Rectangle.Round(GetActiveTextRect());
+                var oldToolbarRect = Rectangle.Round(GetTextToolbarBounds());
                 _textBuffer = _textBox.Text;
                 InvalidateActiveTextLayout();
-                Invalidate();
+                SyncTextBoxSize();
+                var newRect = Rectangle.Round(GetActiveTextRect());
+                var newToolbarRect = Rectangle.Round(GetTextToolbarBounds());
+                var dirty = Rectangle.Union(
+                    Rectangle.Union(InflateForRepaint(oldRect, 16), InflateForRepaint(newRect, 16)),
+                    Rectangle.Union(InflateForRepaint(oldToolbarRect, 16), InflateForRepaint(newToolbarRect, 16)));
+                RefreshOverlayUiChrome();
+                Invalidate(dirty);
             };
             Controls.Add(_textBox);
         }
         _textBox.Text = _textBuffer;
-        // Place off-screen so it's invisible but still receives keyboard input
-        _textBox.Location = new Point(-100, -100);
+        UpdateTextBoxStyle();
+        SyncTextBoxSize();
+        RefreshOverlayUiChrome();
         _textBox.Visible = true;
         _textBox.Focus();
-        if (_textBuffer.Length > 0) _textBox.SelectAll();
+        _textBox.SelectionStart = _textBox.TextLength;
+        _textBox.SelectionLength = 0;
+        _textSelectionAnchor = _textBox.SelectionStart;
     }
 
     private void HideTextBox()
@@ -182,12 +200,31 @@ public sealed partial class RegionOverlayForm
         if (_textBox != null)
         {
             _textBox.Visible = false;
+            RefreshOverlayUiChrome();
             Focus();
         }
     }
 
-    private void UpdateTextBoxStyle() { }
-    private void SyncTextBoxSize() { }
+    private void UpdateTextBoxStyle()
+    {
+        if (_textBox == null)
+            return;
+
+        var fontStyle = FontStyle.Regular;
+        if (_textBold) fontStyle |= FontStyle.Bold;
+        if (_textItalic) fontStyle |= FontStyle.Italic;
+
+        _textBox.Font = GetAnnotationFont(_textFontFamily, _textFontSize, fontStyle);
+    }
+
+    private void SyncTextBoxSize()
+    {
+        if (_textBox == null)
+            return;
+
+        _textBox.Size = new Size(1, 1);
+        _textBox.Location = new Point(-10000, -10000);
+    }
 
     private void InvalidateActiveTextLayout()
     {
@@ -301,14 +338,36 @@ public sealed partial class RegionOverlayForm
 
     internal void RefreshToolbar()
     {
+        var oldUiBounds = _lastOverlayUiBounds;
         CalcToolbar();
         PositionToolbarForm();
         _toolbarForm?.UpdateSurface();
+        var newUiBounds = GetOverlayUiBounds();
+        _lastOverlayUiBounds = newUiBounds;
+        if (!oldUiBounds.IsEmpty && !newUiBounds.IsEmpty)
+            Invalidate(Rectangle.Union(InflateForRepaint(oldUiBounds, 20), InflateForRepaint(newUiBounds, 20)));
+        else if (!newUiBounds.IsEmpty)
+            Invalidate(InflateForRepaint(newUiBounds, 20));
     }
 
     internal void UpdateToolbarSurfaceOnly()
     {
         _toolbarForm?.UpdateSurface();
+    }
+
+    private void RefreshOverlayUiChrome()
+    {
+        var oldUiBounds = _lastOverlayUiBounds;
+        PositionToolbarForm();
+        _toolbarForm?.UpdateSurface();
+        var newUiBounds = GetOverlayUiBounds();
+        _lastOverlayUiBounds = newUiBounds;
+        if (!oldUiBounds.IsEmpty && !newUiBounds.IsEmpty)
+            Invalidate(Rectangle.Union(InflateForRepaint(oldUiBounds, 20), InflateForRepaint(newUiBounds, 20)));
+        else if (!newUiBounds.IsEmpty)
+            Invalidate(InflateForRepaint(newUiBounds, 20));
+        else if (!oldUiBounds.IsEmpty)
+            Invalidate(InflateForRepaint(oldUiBounds, 20));
     }
 
     private void SetFlyoutOpen(bool open)

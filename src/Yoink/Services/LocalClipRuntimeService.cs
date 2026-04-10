@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
-using System.Net.Http;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
@@ -11,35 +11,12 @@ namespace Yoink.Services;
 public sealed class LocalClipRuntimeService : IDisposable
 {
     private const int TargetImageSize = 224;
-    private static readonly TimeSpan RuntimeProbeCacheTtl = TimeSpan.FromMinutes(10);
-    private static readonly object SetupStateGate = new();
-    private static readonly HttpClient Http = CreateHttpClient();
-    private static readonly string CacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Yoink", "clip");
-    private static readonly string VocabPath = Path.Combine(CacheDir, "vocab.json");
-    private static readonly string MergesPath = Path.Combine(CacheDir, "merges.txt");
-    private static readonly string TextModelPath = Path.Combine(CacheDir, "text_model_quantized.onnx");
-    private static readonly string VisionModelPath = Path.Combine(CacheDir, "vision_model_quantized.onnx");
-    private static readonly string RuntimeVersionPath = Path.Combine(CacheDir, "runtime.version");
-    private static readonly string BundledRuntimeDir = Path.Combine(AppContext.BaseDirectory, "Assets", "Clip");
-    private static readonly string RuntimeVersion = "xenova-clip-vit-base-patch32-quantized-v1";
-    private static readonly IReadOnlyList<(string Url, string TargetPath)> RuntimeAssets =
-    [
-        ("https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/vocab.json?download=1", VocabPath),
-        ("https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/merges.txt?download=1", MergesPath),
-        ("https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/text_model_quantized.onnx?download=1", TextModelPath),
-        ("https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model_quantized.onnx?download=1", VisionModelPath)
-    ];
     private static readonly float[] Mean = [0.48145466f, 0.4578275f, 0.40821073f];
     private static readonly float[] Std = [0.26862954f, 0.26130258f, 0.27577711f];
 
-    private static bool? _cachedRuntimeReady;
-    private static string _cachedRuntimeStatus = "Unknown";
-    private static DateTime _cachedRuntimeCheckedUtc;
-
-    public static string CacheDirectory => CacheDir;
+    public static string CacheDirectory => LocalClipRuntimeAssets.CacheDirectory;
     public static string SetupHelpText => "Semantic search is prepared automatically during install and app startup.";
-    public static string IdleStatusText => "Preparing local semantic search";
+    public static string IdleStatusText => LocalClipRuntimeAssets.IdleStatusText;
 
     private readonly object _gate = new();
     private readonly SemaphoreSlim _startGate = new(1, 1);
@@ -54,52 +31,19 @@ public sealed class LocalClipRuntimeService : IDisposable
 
     public bool IsAvailable { get { lock (_gate) return _isAvailable; } }
     public string StatusText { get { lock (_gate) return _statusText; } }
-    public string ModelKey => RuntimeVersion;
+    public string ModelKey => LocalClipRuntimeAssets.RuntimeVersion;
 
     public static async Task EnsureInstalledAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
-    {
-        if (await IsRuntimeReadyAsync(cancellationToken).ConfigureAwait(false))
-            return;
-
-        AppDiagnostics.LogInfo("semantic.install", "Preparing local semantic runtime.");
-        Directory.CreateDirectory(CacheDir);
-        if (TryCopyBundledRuntimeAssets(progress))
-        {
-            await File.WriteAllTextAsync(RuntimeVersionPath, RuntimeVersion, cancellationToken).ConfigureAwait(false);
-            UpdateRuntimeProbeCache(true, "Installed");
-            return;
-        }
-
-        foreach (var (url, targetPath) in RuntimeAssets)
-        {
-            progress?.Report($"Downloading {Path.GetFileName(targetPath)}...");
-            await DownloadFileAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
-        }
-
-        await File.WriteAllTextAsync(RuntimeVersionPath, RuntimeVersion, cancellationToken).ConfigureAwait(false);
-        UpdateRuntimeProbeCache(true, "Installed");
-    }
+        => await LocalClipRuntimeAssets.EnsureInstalledAsync(progress, cancellationToken).ConfigureAwait(false);
 
     public static Task<bool> IsRuntimeReadyAsync(CancellationToken cancellationToken = default)
-    {
-        if (TryGetCachedRuntimeProbe(out var cachedReady, out _))
-            return Task.FromResult(cachedReady);
-
-        var ready = HasRuntimeFiles();
-        UpdateRuntimeProbeCache(ready, ready ? "Installed" : IdleStatusText);
-        return Task.FromResult(ready);
-    }
+        => LocalClipRuntimeAssets.IsRuntimeReadyAsync(cancellationToken);
 
     public static Task<string> GetRuntimeStatusAsync(CancellationToken cancellationToken = default)
-    {
-        if (TryGetCachedRuntimeProbe(out _, out var cachedStatus))
-            return Task.FromResult(cachedStatus);
-
-        return Task.FromResult(IdleStatusText);
-    }
+        => LocalClipRuntimeAssets.GetRuntimeStatusAsync(cancellationToken);
 
     public static bool TryGetCachedStatus(out bool isReady, out string status)
-        => TryGetCachedRuntimeProbe(out isReady, out status);
+        => LocalClipRuntimeAssets.TryGetCachedStatus(out isReady, out status);
 
     public async Task<ClipEmbeddingResult> EmbedTextAsync(string text, CancellationToken cancellationToken = default)
     {
@@ -161,8 +105,38 @@ public sealed class LocalClipRuntimeService : IDisposable
         }
     }
 
+    public async Task<ClipEmbeddingResult> EmbedImageAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
+    {
+        if (bitmap is null)
+            return new ClipEmbeddingResult(null, "Image was null.");
+
+        if (!await EnsureSessionsAsync(cancellationToken).ConfigureAwait(false))
+            return new ClipEmbeddingResult(null, StatusText);
+
+        try
+        {
+            var pixels = PrepareImageTensor(bitmap);
+            var inputName = _visionSession!.InputMetadata.Keys.First();
+            using var results = _visionSession.Run([
+                NamedOnnxValue.CreateFromTensor(inputName, new DenseTensor<float>(pixels, [1, 3, TargetImageSize, TargetImageSize]))
+            ]);
+            var vector = ExtractEmbedding(results);
+            return vector is null
+                ? new ClipEmbeddingResult(null, "Image embedding failed.")
+                : new ClipEmbeddingResult(vector, null);
+        }
+        catch (Exception ex)
+        {
+            MarkUnavailable($"Image embedding failed: {ex.Message}");
+            return new ClipEmbeddingResult(null, StatusText);
+        }
+    }
+
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
         _disposed = true;
         lock (_gate)
         {
@@ -173,6 +147,7 @@ public sealed class LocalClipRuntimeService : IDisposable
             _tokenizer = null;
             _isAvailable = false;
         }
+        _startGate.Dispose();
     }
 
     private async Task<bool> EnsureSessionsAsync(CancellationToken cancellationToken)
@@ -219,12 +194,19 @@ public sealed class LocalClipRuntimeService : IDisposable
                 GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL
             };
 
-            var tokenizer = ClipOnnxTokenizer.Load(VocabPath, MergesPath);
-            var textSession = new InferenceSession(TextModelPath, options);
-            var visionSession = new InferenceSession(VisionModelPath, options);
+            var tokenizer = ClipOnnxTokenizer.Load(LocalClipRuntimeAssets.VocabPath, LocalClipRuntimeAssets.MergesPath);
+            var textSession = new InferenceSession(LocalClipRuntimeAssets.TextModelPath, options);
+            var visionSession = new InferenceSession(LocalClipRuntimeAssets.VisionModelPath, options);
 
             lock (_gate)
             {
+                if (_disposed)
+                {
+                    textSession.Dispose();
+                    visionSession.Dispose();
+                    return false;
+                }
+
                 _tokenizer = tokenizer;
                 _textSession = textSession;
                 _visionSession = visionSession;
@@ -232,7 +214,7 @@ public sealed class LocalClipRuntimeService : IDisposable
                 _statusText = "Ready";
             }
 
-            StatusChanged?.Invoke(StatusText);
+            NotifyStatusChanged(StatusText);
             return true;
         }
         finally
@@ -246,7 +228,7 @@ public sealed class LocalClipRuntimeService : IDisposable
         lock (_gate)
         {
             _isAvailable = false;
-            _statusText = NormalizeRuntimeStatus(status);
+            _statusText = LocalClipRuntimeAssets.NormalizeStatus(status);
             _textSession?.Dispose();
             _textSession = null;
             _visionSession?.Dispose();
@@ -255,83 +237,46 @@ public sealed class LocalClipRuntimeService : IDisposable
         }
 
         AppDiagnostics.LogWarning("semantic.runtime", _statusText);
-        UpdateRuntimeProbeCache(false, _statusText);
-        StatusChanged?.Invoke(StatusText);
+        LocalClipRuntimeAssets.MarkUnavailable(_statusText);
+        NotifyStatusChanged(StatusText);
     }
 
     private void SetStatus(string status)
     {
         lock (_gate)
-            _statusText = NormalizeRuntimeStatus(status);
+            _statusText = LocalClipRuntimeAssets.NormalizeStatus(status);
 
-        StatusChanged?.Invoke(StatusText);
+        NotifyStatusChanged(StatusText);
     }
 
-    private static HttpClient CreateHttpClient()
+    private void NotifyStatusChanged(string status)
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromMinutes(20) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("Yoink/semantic-runtime");
-        return client;
-    }
+        var handlers = StatusChanged;
+        if (handlers is null)
+            return;
 
-    private static bool TryCopyBundledRuntimeAssets(IProgress<string>? progress)
-    {
-        if (!Directory.Exists(BundledRuntimeDir))
-            return false;
-
-        var bundledVersionPath = Path.Combine(BundledRuntimeDir, "runtime.version");
-        if (!File.Exists(bundledVersionPath))
-            return false;
-
-        var bundledVersion = SafeReadAllText(bundledVersionPath);
-        if (!string.Equals(bundledVersion, RuntimeVersion, StringComparison.Ordinal))
-            return false;
-
-        foreach (var targetPath in new[] { VocabPath, MergesPath, TextModelPath, VisionModelPath })
+        foreach (Action<string> handler in handlers.GetInvocationList())
         {
-            var fileName = Path.GetFileName(targetPath);
-            var bundledPath = Path.Combine(BundledRuntimeDir, fileName);
-            if (!File.Exists(bundledPath))
-                return false;
-
-            progress?.Report($"Preparing {fileName}...");
-            File.Copy(bundledPath, targetPath, overwrite: true);
+            try
+            {
+                handler(status);
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.LogError("semantic.status", ex);
+            }
         }
-
-        return true;
-    }
-
-    private static string SafeReadAllText(string path)
-    {
-        try
-        {
-            return File.ReadAllText(path).Trim();
-        }
-        catch
-        {
-            return "";
-        }
-    }
-
-    private static async Task DownloadFileAsync(string url, string targetPath, CancellationToken cancellationToken)
-    {
-        var tempPath = targetPath + ".tmp";
-        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-
-        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        await using var output = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-        output.Close();
-
-        File.Move(tempPath, targetPath, overwrite: true);
     }
 
     private static float[] PrepareImageTensor(string imagePath)
     {
         using var source = new Bitmap(imagePath);
-        using var prepared = new Bitmap(TargetImageSize, TargetImageSize);
+        return PrepareImageTensor(source);
+    }
+
+    private static float[] PrepareImageTensor(Bitmap source)
+    {
+        using var prepared = new Bitmap(TargetImageSize, TargetImageSize, PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(prepared))
         {
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
@@ -344,16 +289,32 @@ public sealed class LocalClipRuntimeService : IDisposable
         }
 
         var tensor = new float[3 * TargetImageSize * TargetImageSize];
-        for (int y = 0; y < TargetImageSize; y++)
+        var data = prepared.LockBits(new Rectangle(0, 0, TargetImageSize, TargetImageSize), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        try
         {
-            for (int x = 0; x < TargetImageSize; x++)
+            unsafe
             {
-                var pixel = prepared.GetPixel(x, y);
-                var index = y * TargetImageSize + x;
-                tensor[index] = ((pixel.R / 255f) - Mean[0]) / Std[0];
-                tensor[TargetImageSize * TargetImageSize + index] = ((pixel.G / 255f) - Mean[1]) / Std[1];
-                tensor[2 * TargetImageSize * TargetImageSize + index] = ((pixel.B / 255f) - Mean[2]) / Std[2];
+                var scan0 = (byte*)data.Scan0;
+                for (int y = 0; y < TargetImageSize; y++)
+                {
+                    var row = scan0 + (y * data.Stride);
+                    for (int x = 0; x < TargetImageSize; x++)
+                    {
+                        var pixel = row + (x * 4);
+                        var b = pixel[0] / 255f;
+                        var g = pixel[1] / 255f;
+                        var r = pixel[2] / 255f;
+                        var index = y * TargetImageSize + x;
+                        tensor[index] = (r - Mean[0]) / Std[0];
+                        tensor[TargetImageSize * TargetImageSize + index] = (g - Mean[1]) / Std[1];
+                        tensor[2 * TargetImageSize * TargetImageSize + index] = (b - Mean[2]) / Std[2];
+                    }
+                }
             }
+        }
+        finally
+        {
+            prepared.UnlockBits(data);
         }
 
         return tensor;
@@ -399,69 +360,6 @@ public sealed class LocalClipRuntimeService : IDisposable
             values[i] = (float)(values[i] / norm);
     }
 
-    private static bool TryGetCachedRuntimeProbe(out bool isReady, out string status)
-    {
-        lock (SetupStateGate)
-        {
-            if (_cachedRuntimeReady.HasValue && DateTime.UtcNow - _cachedRuntimeCheckedUtc <= RuntimeProbeCacheTtl)
-            {
-                isReady = _cachedRuntimeReady.Value;
-                status = _cachedRuntimeStatus;
-                return true;
-            }
-        }
-
-        if (HasRuntimeFiles())
-        {
-            UpdateRuntimeProbeCache(true, "Installed");
-            isReady = true;
-            status = "Installed";
-            return true;
-        }
-
-        isReady = false;
-        status = "";
-        return false;
-    }
-
-    private static bool HasRuntimeFiles()
-    {
-        try
-        {
-            return File.Exists(VocabPath) &&
-                   File.Exists(MergesPath) &&
-                   File.Exists(TextModelPath) &&
-                   File.Exists(VisionModelPath) &&
-                   File.Exists(RuntimeVersionPath) &&
-                   string.Equals(File.ReadAllText(RuntimeVersionPath).Trim(), RuntimeVersion, StringComparison.Ordinal);
-        }
-        catch (Exception ex)
-        {
-            AppDiagnostics.LogWarning("semantic.runtime-check", ex.Message, ex);
-            return false;
-        }
-    }
-
-    private static void UpdateRuntimeProbeCache(bool isReady, string status)
-    {
-        lock (SetupStateGate)
-        {
-            _cachedRuntimeReady = isReady;
-            _cachedRuntimeStatus = NormalizeRuntimeStatus(status);
-            _cachedRuntimeCheckedUtc = DateTime.UtcNow;
-        }
-    }
-
-    private static string NormalizeRuntimeStatus(string? status)
-    {
-        if (string.IsNullOrWhiteSpace(status))
-            return "Not installed";
-
-        var text = status.Trim().Replace(Environment.NewLine, " ").Replace('\n', ' ').Replace('\r', ' ');
-        while (text.Contains("  ", StringComparison.Ordinal))
-            text = text.Replace("  ", " ", StringComparison.Ordinal);
-        return text.Length <= 140 ? text : text[..137] + "...";
-    }
 }
 
 public sealed record ClipEmbeddingResult(float[]? Embedding, string? Error)

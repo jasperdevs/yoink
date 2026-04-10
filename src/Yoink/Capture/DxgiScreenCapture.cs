@@ -30,32 +30,35 @@ internal static class DxgiScreenCapture
         var deviceBundle = GetOrCreateDeviceBundle();
         try
         {
-            var result = new Bitmap(region.Width, region.Height, PixelFormat.Format32bppArgb);
-
-            using var graphics = Graphics.FromImage(result);
-            graphics.Clear(Color.Transparent);
-
-            foreach (var output in EnumerateOutputs(deviceBundle.Adapter))
+            lock (deviceBundle.CaptureSyncRoot)
             {
-                var outputBounds = ToRectangle(output.Description.DesktopCoordinates);
-                var overlap = Rectangle.Intersect(region, outputBounds);
-                if (overlap.Width <= 0 || overlap.Height <= 0)
-                    continue;
+                var result = new Bitmap(region.Width, region.Height, PixelFormat.Format32bppArgb);
 
-                using var duplication = output.Output.DuplicateOutput(deviceBundle.Device);
-                using var frame = AcquireFrame(duplication);
-                using var desktopTexture = frame.Resource.QueryInterface<ID3D11Texture2D>();
-                var staging = deviceBundle.GetOrCreateStagingTexture(outputBounds.Width, outputBounds.Height);
+                using var graphics = Graphics.FromImage(result);
+                graphics.Clear(Color.Transparent);
 
-                int sourceX = overlap.Left - outputBounds.Left;
-                int sourceY = overlap.Top - outputBounds.Top;
-                deviceBundle.Context.CopyResource(staging, desktopTexture);
+                foreach (var output in EnumerateOutputs(deviceBundle.Adapter))
+                {
+                    var outputBounds = ToRectangle(output.Description.DesktopCoordinates);
+                    var overlap = Rectangle.Intersect(region, outputBounds);
+                    if (overlap.Width <= 0 || overlap.Height <= 0)
+                        continue;
 
-                var target = new Rectangle(overlap.Left - region.Left, overlap.Top - region.Top, overlap.Width, overlap.Height);
-                CopyTextureToBitmap(deviceBundle.Context, staging, result, target, sourceX, sourceY);
+                    using var duplication = output.Output.DuplicateOutput(deviceBundle.Device);
+                    using var frame = AcquireFrame(duplication);
+                    using var desktopTexture = frame.Resource.QueryInterface<ID3D11Texture2D>();
+                    var staging = deviceBundle.GetOrCreateStagingTexture(outputBounds.Width, outputBounds.Height);
+
+                    int sourceX = overlap.Left - outputBounds.Left;
+                    int sourceY = overlap.Top - outputBounds.Top;
+                    deviceBundle.Context.CopyResource(staging, desktopTexture);
+
+                    var target = new Rectangle(overlap.Left - region.Left, overlap.Top - region.Top, overlap.Width, overlap.Height);
+                    CopyTextureToBitmap(deviceBundle.Context, staging, result, target, sourceX, sourceY);
+                }
+
+                return result;
             }
-
-            return result;
         }
         catch
         {
@@ -67,26 +70,29 @@ internal static class DxgiScreenCapture
     public static void WarmUp()
     {
         var deviceBundle = GetOrCreateDeviceBundle();
-        foreach (var output in EnumerateOutputs(deviceBundle.Adapter))
+        lock (deviceBundle.CaptureSyncRoot)
         {
-            try
+            foreach (var output in EnumerateOutputs(deviceBundle.Adapter))
             {
-                var outputBounds = ToRectangle(output.Description.DesktopCoordinates);
-                if (outputBounds.Width <= 0 || outputBounds.Height <= 0)
-                    continue;
+                try
+                {
+                    var outputBounds = ToRectangle(output.Description.DesktopCoordinates);
+                    if (outputBounds.Width <= 0 || outputBounds.Height <= 0)
+                        continue;
 
-                using var duplication = output.Output.DuplicateOutput(deviceBundle.Device);
-                using var frame = AcquireFrame(duplication);
-                using var desktopTexture = frame.Resource.QueryInterface<ID3D11Texture2D>();
-                _ = deviceBundle.GetOrCreateStagingTexture(outputBounds.Width, outputBounds.Height);
-            }
-            catch
-            {
-                // Best-effort warmup only. A failure here should not block first capture.
-            }
-            finally
-            {
-                output.Dispose();
+                    using var duplication = output.Output.DuplicateOutput(deviceBundle.Device);
+                    using var frame = AcquireFrame(duplication);
+                    using var desktopTexture = frame.Resource.QueryInterface<ID3D11Texture2D>();
+                    _ = deviceBundle.GetOrCreateStagingTexture(outputBounds.Width, outputBounds.Height);
+                }
+                catch
+                {
+                    // Best-effort warmup only. A failure here should not block first capture.
+                }
+                finally
+                {
+                    output.Dispose();
+                }
             }
         }
     }
@@ -213,6 +219,7 @@ internal static class DxgiScreenCapture
 
     private sealed record DeviceBundle(ID3D11Device Device, ID3D11DeviceContext Context, IDXGIAdapter Adapter) : IDisposable
     {
+        public object CaptureSyncRoot { get; } = new();
         private readonly Dictionary<Size, ID3D11Texture2D> _stagingTextures = new();
 
         public ID3D11Texture2D GetOrCreateStagingTexture(int width, int height)

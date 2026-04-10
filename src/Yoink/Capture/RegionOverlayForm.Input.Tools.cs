@@ -37,7 +37,8 @@ public sealed partial class RegionOverlayForm
     {
         if (_mode == CaptureMode.Freeform && _isSelecting)
         {
-            CloseCaptureMagnifier();
+            if (ShowCaptureMagnifier)
+                UpdateCaptureMagnifier(e.Location);
             ClearCrosshairGuides();
 
             if (_freeformPoints.Count == 0)
@@ -65,18 +66,24 @@ public sealed partial class RegionOverlayForm
         if (UpdateToolbarAnchorForClientPoint(e.Location))
             toolbarDirty = true;
 
-        // Text move drag
-        if (_textDragging && _isTyping)
+        if (_textSelecting && _isTyping && _textBox != null)
         {
-            _textPos = new Point(e.Location.X - _textDragOffset.X, e.Location.Y - _textDragOffset.Y);
-            InvalidateActiveTextLayout();
-            Invalidate();
+            int idx = GetTextCharIndexAt(e.Location);
+            int start = Math.Min(_textSelectionAnchor, idx);
+            int end = Math.Max(_textSelectionAnchor, idx);
+            _textBox.SelectionStart = start;
+            _textBox.SelectionLength = end - start;
+            Invalidate(InflateForRepaint(Rectangle.Round(GetActiveTextRect()), 16));
             return;
         }
 
         // Text resize drag - each handle pulls in its own direction
         if (_textResizing && _isTyping)
         {
+            ClearCrosshairGuides();
+            SetSnapGuides(false, false);
+            var oldRect = Rectangle.Round(GetActiveTextRect());
+            var oldToolbarRect = Rectangle.Round(GetTextToolbarBounds());
             float dx = e.Location.X - _textResizeStart.X;
             float dy = e.Location.Y - _textResizeStart.Y;
             // Scale factor depends on which corner: outward = bigger, inward = smaller
@@ -91,7 +98,12 @@ public sealed partial class RegionOverlayForm
             _textFontSize = Math.Clamp(_textFontSize + delta, 10f, 120f);
             _textResizeStart = e.Location;
             InvalidateActiveTextLayout();
-            Invalidate();
+            var newRect = Rectangle.Round(GetActiveTextRect());
+            var newToolbarRect = Rectangle.Round(GetTextToolbarBounds());
+            RefreshOverlayUiChrome();
+            Invalidate(Rectangle.Union(
+                Rectangle.Union(InflateForRepaint(oldRect, 16), InflateForRepaint(newRect, 16)),
+                Rectangle.Union(InflateForRepaint(oldToolbarRect, 16), InflateForRepaint(newToolbarRect, 16))));
             return;
         }
 
@@ -141,6 +153,9 @@ public sealed partial class RegionOverlayForm
         // Select tool resize
         if (_isSelectResizing && _selectedAnnotationIndex >= 0 && _selectedAnnotationIndex < _undoStack.Count)
         {
+            ClearCrosshairGuides();
+            SetSnapGuides(false, false);
+            var oldBounds = GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]);
             int dx = e.Location.X - _selectDragStart.X;
             int dy = e.Location.Y - _selectDragStart.Y;
             var ob = _selectHandleBounds;
@@ -159,7 +174,8 @@ public sealed partial class RegionOverlayForm
                 _selectHandleBounds = nb;
                 _selectDragStart = e.Location;
                 MarkCommittedAnnotationsDirty();
-                Invalidate();
+                var newBounds = GetAnnotationBounds(scaled);
+                Invalidate(Rectangle.Union(InflateForRepaint(oldBounds, 18), InflateForRepaint(newBounds, 18)));
             }
             return;
         }
@@ -167,22 +183,53 @@ public sealed partial class RegionOverlayForm
         // Select tool move drag
         if (_isSelectDragging && _selectedAnnotationIndex >= 0 && _selectedAnnotationIndex < _undoStack.Count)
         {
-            int dx = e.Location.X - _selectDragStart.X;
-            int dy = e.Location.Y - _selectDragStart.Y;
-            if (Math.Abs(dx) > 1 || Math.Abs(dy) > 1)
+            ClearCrosshairGuides();
+            var currentBounds = GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]);
+            var desiredTopLeft = new Point(e.Location.X - _selectDragOffset.X, e.Location.Y - _selectDragOffset.Y);
+            var snappedTopLeft = SnapPointToGlobalCenter(
+                new Rectangle(desiredTopLeft, currentBounds.Size),
+                desiredTopLeft);
+            int dx = snappedTopLeft.X - currentBounds.X;
+            int dy = snappedTopLeft.Y - currentBounds.Y;
+            if (Math.Abs(dx) > 0 || Math.Abs(dy) > 0)
             {
                 var moved = MoveAnnotation(_undoStack[_selectedAnnotationIndex], dx, dy);
                 _undoStack[_selectedAnnotationIndex] = moved;
                 MarkCommittedAnnotationsDirty();
-                _selectDragStart = e.Location;
-                Invalidate();
+                Invalidate(Rectangle.Union(InflateForRepaint(currentBounds, 18), InflateForRepaint(GetAnnotationBounds(moved), 18)));
             }
+            else
+                SetSnapGuides(false, false);
             return;
         }
 
         // Cursor: show appropriate cursor for context
         System.Windows.Forms.Cursor target;
-        if (_isTyping && _hoveredTextBtn >= 0)
+        if (_fontPickerOpen && _fontPickerRect.Contains(e.Location))
+        {
+            if (IsPointInFontPickerSearch(e.Location))
+                target = Cursors.IBeam;
+            else if (IsPointInFontPickerScrollbar(e.Location) || IsPointInFontPickerList(e.Location))
+                target = Cursors.Hand;
+            else
+                target = Cursors.Default;
+        }
+        else if (_emojiPickerOpen && _emojiPickerRect.Contains(e.Location))
+        {
+            if (IsPointInEmojiPickerSearch(e.Location))
+                target = Cursors.IBeam;
+            else if (IsPointInEmojiPickerItem(e.Location))
+                target = Cursors.Hand;
+            else
+                target = Cursors.Default;
+        }
+        else if (_colorPickerOpen && _colorPickerRect.Contains(e.Location))
+            target = IsPointInColorPickerSwatch(e.Location) ? Cursors.Hand : Cursors.Default;
+        else if (_flyoutOpen && _flyoutRect.Contains(e.Location))
+            target = GetFlyoutButtonAt(e.Location) >= 0 ? Cursors.Hand : Cursors.Default;
+        else if (_toolbarRect.Contains(e.Location))
+            target = btn >= 0 ? Cursors.Hand : Cursors.Default;
+        else if (_isTyping && _hoveredTextBtn >= 0)
             target = Cursors.Hand;
         else if (_isTyping && _textToolbarRect.Contains(e.Location))
             target = Cursors.Default;
@@ -190,22 +237,9 @@ public sealed partial class RegionOverlayForm
         {
             int h = GetTextHandle(e.Location);
             if (h >= 0) target = h is 0 or 3 ? Cursors.SizeNWSE : Cursors.SizeNESW;
-            else if (GetActiveTextRect().Contains(e.Location)) target = Cursors.SizeAll;
-            else target = Cursors.Cross;
+            else if (GetActiveTextRect().Contains(e.Location)) target = Cursors.IBeam;
+            else target = Cursors.Default;
         }
-        else if (_emojiPickerOpen && _emojiPickerRect.Contains(e.Location))
-        {
-            int searchBottom = _emojiPickerRect.Y + 6 + 28 + 6;
-            target = e.Location.Y < searchBottom ? Cursors.IBeam : (_emojiHovered >= 0 ? Cursors.Hand : Cursors.Default);
-        }
-        else if (_fontPickerOpen && _fontPickerRect.Contains(e.Location))
-        {
-            int searchBarH = 28, pad = 6;
-            int searchBottom = _fontPickerRect.Y + pad + searchBarH;
-            target = e.Location.Y < searchBottom ? Cursors.IBeam : (_fontPickerHovered >= 0 ? Cursors.Hand : Cursors.Default);
-        }
-        else if (_colorPickerOpen && _colorPickerRect.Contains(e.Location))
-            target = Cursors.Hand;
         else if (_mode == CaptureMode.Select)
         {
             int sh = GetSelectHandle(e.Location);
@@ -220,10 +254,6 @@ public sealed partial class RegionOverlayForm
         }
         else if (_mode == CaptureMode.Text && !_isTyping)
             target = Cursors.IBeam;
-        else if (btn >= 0)
-            target = Cursors.Hand;
-        else if (_flyoutOpen && GetFlyoutButtonAt(e.Location) >= 0)
-            target = Cursors.Hand;
         else
             target = Cursors.Cross;
 
@@ -240,14 +270,9 @@ public sealed partial class RegionOverlayForm
             return;
         }
 
-        bool isSelectingCapture = _isSelecting &&
-            (_mode is CaptureMode.Rectangle or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker);
-
         if (ShowCaptureMagnifier && ToolDef.IsCaptureTool(_mode) && ShouldShowCaptureMagnifierAt(e.Location))
             UpdateCaptureMagnifier(e.Location);
-        else if (_captureMagnifierForm != null && (!ShowCaptureMagnifier || !ToolDef.IsCaptureTool(_mode)))
-            CloseCaptureMagnifier();
-        else if (isSelectingCapture || IsPointInOverlayUi(e.Location))
+        else if (_captureMagnifierForm != null && (!ShowCaptureMagnifier || !ToolDef.IsCaptureTool(_mode) || IsPointInOverlayUi(e.Location)))
             CloseCaptureMagnifier();
 
         switch (_mode)
@@ -347,7 +372,7 @@ public sealed partial class RegionOverlayForm
         // Font picker hover
         if (_fontPickerOpen)
         {
-            int itemH = 28, pad = 6, searchBarH = 28;
+            int itemH = 30, pad = 8, searchBarH = 32;
             int listY = _fontPickerRect.Y + pad + searchBarH + pad;
             int relY = e.Location.Y - listY;
             int idx = _fontPickerScroll + relY / itemH;
@@ -371,7 +396,10 @@ public sealed partial class RegionOverlayForm
             if (newHover != _emojiHovered) { _emojiHovered = newHover; toolbarDirty = true; }
         }
 
-        UpdateCrosshairGuides(_lastCursorPos);
+        if (_textSelecting || _textDragging || _textResizing || _isSelectDragging || _isSelectResizing)
+            ClearCrosshairGuides();
+        else
+            UpdateCrosshairGuides(_lastCursorPos);
 
         if (needsRepaint)
             Invalidate();
@@ -383,11 +411,13 @@ public sealed partial class RegionOverlayForm
     protected override void OnMouseUp(MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left) return;
+        SetSnapGuides(false, false);
 
         // End select drag/resize
         if (_isSelectResizing) { _isSelectResizing = false; _selectResizeHandle = -1; Invalidate(); return; }
         if (_isSelectDragging) { _isSelectDragging = false; Invalidate(); return; }
         // End text move/resize
+        if (_textSelecting) { _textSelecting = false; return; }
         if (_textDragging) { _textDragging = false; return; }
         if (_textResizing) { _textResizing = false; _textResizeHandle = -1; return; }
         switch (_mode)

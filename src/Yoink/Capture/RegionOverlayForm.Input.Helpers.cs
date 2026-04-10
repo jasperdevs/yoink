@@ -61,6 +61,9 @@ public sealed partial class RegionOverlayForm
     private void SetMode(CaptureMode m)
     {
         if (_isTyping) CommitText();
+        bool wasEmoji = _mode == CaptureMode.Emoji && _emojiPickerOpen;
+        if (_flyoutOpen)
+            SetFlyoutOpen(false);
         _colorPickerOpen = false;
         _fontPickerOpen = false;
         HideFontSearchBox();
@@ -96,9 +99,19 @@ public sealed partial class RegionOverlayForm
             CloseMagWindow();
         }
 
-        // Emoji mode: always open picker
+        // Emoji mode: toggle picker if already in emoji mode
         if (m == CaptureMode.Emoji)
         {
+            if (wasEmoji)
+            {
+                _emojiPickerOpen = false;
+                _isPlacingEmoji = false;
+                _emojiWarmupPending = false;
+                _emojiWarmupIndex = 0;
+                HideEmojiSearchBox();
+                RefreshToolbar();
+                return;
+            }
             _emojiPickerOpen = true;
             _isPlacingEmoji = false;
             _selectedEmoji = null;
@@ -108,7 +121,8 @@ public sealed partial class RegionOverlayForm
             int searchBarH = 28;
             int pw = cols * (emojiSize + pad) + pad;
             int ph = searchBarH + pad + visibleRows * (emojiSize + pad) + pad;
-            _emojiPickerRect = PositionPopupFromAnchor(_toolbarRect, pw, ph);
+            var emojiAnchor = _flyoutOpen ? Rectangle.Union(_toolbarRect, _flyoutRect) : _toolbarRect;
+            _emojiPickerRect = PositionPopupFromAnchor(emojiAnchor, pw, ph);
             ShowEmojiSearchBox();
             _emojiWarmupIndex = 0;
             _emojiWarmupPending = true;
@@ -181,14 +195,89 @@ public sealed partial class RegionOverlayForm
         return new Rectangle(x - 8, y - 8, size + 16, size + 16);
     }
 
+    private Rectangle GetGlobalSnapGuideBounds()
+    {
+        if (!_snapGuideXVisible && !_snapGuideYVisible)
+            return Rectangle.Empty;
+
+        var bounds = Rectangle.Empty;
+        int cx = ClientSize.Width / 2;
+        int cy = ClientSize.Height / 2;
+
+        if (_snapGuideXVisible)
+            bounds = Rectangle.Union(bounds, new Rectangle(cx - 3, 0, 6, ClientSize.Height));
+        if (_snapGuideYVisible)
+            bounds = Rectangle.Union(bounds, new Rectangle(0, cy - 3, ClientSize.Width, 6));
+
+        return InflateForRepaint(bounds, 6);
+    }
+
+    private void SetSnapGuides(bool showVertical, bool showHorizontal)
+    {
+        if (_snapGuideXVisible == showVertical && _snapGuideYVisible == showHorizontal)
+            return;
+
+        var oldBounds = GetGlobalSnapGuideBounds();
+        _snapGuideXVisible = showVertical;
+        _snapGuideYVisible = showHorizontal;
+        var newBounds = GetGlobalSnapGuideBounds();
+
+        if (!oldBounds.IsEmpty && !newBounds.IsEmpty)
+            Invalidate(Rectangle.Union(oldBounds, newBounds));
+        else if (!oldBounds.IsEmpty)
+            Invalidate(oldBounds);
+        else if (!newBounds.IsEmpty)
+            Invalidate(newBounds);
+    }
+
+    private Point SnapPointToGlobalCenter(Rectangle boundsAtDesiredPosition, Point desiredPoint)
+    {
+        int centerX = ClientSize.Width / 2;
+        int centerY = ClientSize.Height / 2;
+        int boundsCenterX = boundsAtDesiredPosition.Left + boundsAtDesiredPosition.Width / 2;
+        int boundsCenterY = boundsAtDesiredPosition.Top + boundsAtDesiredPosition.Height / 2;
+        int snapX = centerX - boundsCenterX;
+        int snapY = centerY - boundsCenterY;
+
+        bool snappedX = Math.Abs(snapX) <= GlobalCenterSnapThreshold;
+        bool snappedY = Math.Abs(snapY) <= GlobalCenterSnapThreshold;
+        SetSnapGuides(snappedX, snappedY);
+
+        return new Point(
+            desiredPoint.X + (snappedX ? snapX : 0),
+            desiredPoint.Y + (snappedY ? snapY : 0));
+    }
+
+    private Point SnapTextPositionToGlobalCenter(Point desiredTextPos)
+    {
+        var snappedBounds = Rectangle.Round(MeasureTextRect(desiredTextPos, _textBuffer, _textFontSize, _textFontFamily, _textBold, _textItalic));
+        return SnapPointToGlobalCenter(snappedBounds, desiredTextPos);
+    }
+
+    private Point SnapAnnotationDeltaToGlobalCenter(Rectangle originalBounds, Point desiredDelta)
+    {
+        var movedBounds = OffsetRect(originalBounds, desiredDelta.X, desiredDelta.Y);
+        return SnapPointToGlobalCenter(movedBounds, desiredDelta);
+    }
+
     private Rectangle GetColorPickerBounds()
     {
-        int cols = 6, rows = 1, swatchSize = 28, pad = 4;
-        int pw = cols * (swatchSize + pad) + pad;
-        int ph = rows * (swatchSize + pad) + pad;
-        int colorBtnIdx = BtnCount - 3;
-        var colorBtn = _toolbarButtons.Length > colorBtnIdx ? _toolbarButtons[colorBtnIdx] : Rectangle.Empty;
+        int pw = ColorPickerColumns * (ColorPickerSwatchSize + ColorPickerPadding) + ColorPickerPadding;
+        int ph = ColorPickerRows * (ColorPickerSwatchSize + ColorPickerPadding) + ColorPickerPadding;
+        var colorBtn = _toolbarButtons.Length > ColorButtonIndex ? _toolbarButtons[ColorButtonIndex] : Rectangle.Empty;
         return PositionPopupFromAnchor(colorBtn, pw, ph);
+    }
+
+    private Rectangle GetColorPickerSwatchRect(int index)
+    {
+        if (_colorPickerRect.IsEmpty || index < 0 || index >= ToolColors.Length)
+            return Rectangle.Empty;
+
+        int col = index % ColorPickerColumns;
+        int row = index / ColorPickerColumns;
+        int x = _colorPickerRect.X + ColorPickerPadding + col * (ColorPickerSwatchSize + ColorPickerPadding);
+        int y = _colorPickerRect.Y + ColorPickerPadding + row * (ColorPickerSwatchSize + ColorPickerPadding);
+        return new Rectangle(x, y, ColorPickerSwatchSize, ColorPickerSwatchSize);
     }
 
     private Rectangle GetEmojiPickerBounds()

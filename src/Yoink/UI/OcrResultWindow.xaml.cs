@@ -168,7 +168,7 @@ public partial class OcrResultWindow : Window
         {
             ClipboardService.CopyTextToClipboard(text);
             SoundService.PlayTextSound();
-            ToastWindow.Show("Copied", text.Length > 80 ? text[..80] + "..." : text);
+            ToastWindow.Show(ToastSpec.Standard("Copied", text.Length > 80 ? text[..80] + "..." : text) with { SuppressSound = true });
         }
     }
 
@@ -179,7 +179,7 @@ public partial class OcrResultWindow : Window
         {
             ClipboardService.CopyTextToClipboard(text);
             SoundService.PlayTextSound();
-            ToastWindow.Show("Copied translation", text.Length > 80 ? text[..80] + "..." : text);
+            ToastWindow.Show(ToastSpec.Standard("Copied translation", text.Length > 80 ? text[..80] + "..." : text) with { SuppressSound = true });
         }
     }
 
@@ -337,7 +337,7 @@ public partial class OcrResultWindow : Window
             {
                 From = -1.2,
                 To = 1.2,
-                Duration = TimeSpan.FromSeconds(1.25),
+                Duration = Motion.Sec(1.25),
                 RepeatBehavior = RepeatBehavior.Forever
             };
             shimmerTransform.BeginAnimation(TranslateTransform.XProperty, _translationShimmerAnimation);

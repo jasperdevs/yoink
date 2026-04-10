@@ -16,10 +16,12 @@ public sealed partial class RegionOverlayForm
         if (_isTyping && _textBuffer.Length > 0)
             AddAnnotation(new TextAnnotation(_textPos, _textBuffer, _textFontSize, _toolColor, _textBold, _textItalic, _textStroke, _textShadow, _textFontFamily));
         _isTyping = false;
+        SetSnapGuides(false, false);
         _textBuffer = "";
         InvalidateActiveTextLayout();
         _fontPickerOpen = false;
         HideTextBox();
+        RefreshOverlayUiChrome();
         Invalidate();
     }
 
@@ -49,7 +51,7 @@ public sealed partial class RegionOverlayForm
                 TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
             _activeTextRectCache = MeasureTextRect(_textPos, _textBuffer, _textFontSize, _textFontFamily, _textBold, _textItalic);
             _activeTextMeasureWidth = measured.Width;
-            const int hs = 10;
+            const int hs = 12;
             _activeTextHandleCache[0] = new RectangleF(_activeTextRectCache.X - hs / 2f, _activeTextRectCache.Y - hs / 2f, hs, hs);
             _activeTextHandleCache[1] = new RectangleF(_activeTextRectCache.Right - hs / 2f, _activeTextRectCache.Y - hs / 2f, hs, hs);
             _activeTextHandleCache[2] = new RectangleF(_activeTextRectCache.X - hs / 2f, _activeTextRectCache.Bottom - hs / 2f, hs, hs);
@@ -64,7 +66,11 @@ public sealed partial class RegionOverlayForm
         if (!_isTyping) return -1;
         _ = GetActiveTextRect();
         for (int i = 0; i < _activeTextHandleCache.Length; i++)
-            if (_activeTextHandleCache[i].Contains(p)) return i;
+        {
+            var h = Rectangle.Round(_activeTextHandleCache[i]);
+            h.Inflate((TextHandleHitSize - h.Width) / 2, (TextHandleHitSize - h.Height) / 2);
+            if (h.Contains(p)) return i;
+        }
         return -1;
     }
 
@@ -83,6 +89,42 @@ public sealed partial class RegionOverlayForm
         return -1;
     }
 
+    private float MeasureTextPrefixWidth(string text, int length, Font font)
+    {
+        if (length <= 0 || string.IsNullOrEmpty(text))
+            return 0f;
+
+        length = Math.Min(length, text.Length);
+        var size = TextRenderer.MeasureText(text[..length], font, Size.Empty,
+            TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
+        return size.Width;
+    }
+
+    private int GetTextCharIndexAt(Point p)
+    {
+        if (!_isTyping)
+            return 0;
+
+        var style = FontStyle.Regular;
+        if (_textBold) style |= FontStyle.Bold;
+        if (_textItalic) style |= FontStyle.Italic;
+        var font = GetAnnotationFont(_textFontFamily, _textFontSize, style);
+        string text = _textBuffer ?? string.Empty;
+        float x = p.X - _textPos.X;
+        if (x <= 0 || text.Length == 0)
+            return 0;
+
+        for (int i = 1; i <= text.Length; i++)
+        {
+            float width = MeasureTextPrefixWidth(text, i, font);
+            float prevWidth = MeasureTextPrefixWidth(text, i - 1, font);
+            if (x <= ((prevWidth + width) / 2f))
+                return i - 1;
+        }
+
+        return text.Length;
+    }
+
     private void ToggleColorPicker()
     {
         _emojiPickerOpen = false;
@@ -99,44 +141,136 @@ public sealed partial class RegionOverlayForm
     {
         if (!_colorPickerRect.Contains(p)) return false;
 
-        int swatchSize = 28, pad = 4;
-        int relX = p.X - _colorPickerRect.X - pad;
-        int relY = p.Y - _colorPickerRect.Y - pad;
-        int col = relX / (swatchSize + pad);
-        if (col >= 0 && col < ToolColors.Length && relY >= 0 && relY < swatchSize + pad)
+        for (int i = 0; i < ToolColors.Length; i++)
         {
-            _toolColor = ToolColors[col];
-            _toolColorIndex = col;
+            if (!GetColorPickerSwatchRect(i).Contains(p))
+                continue;
+
+            _toolColor = ToolColors[i];
+            _toolColorIndex = i;
             _colorPickerOpen = false;
             Invalidate(InflateForRepaint(GetColorPickerBounds(), 12));
             RefreshToolbar();
             return true;
         }
-        return false;
+
+        return true; // absorb clicks inside the popup even between swatches
     }
 
     private bool HandleFontPickerClick(Point p)
     {
         if (!_fontPickerRect.Contains(p)) return false;
 
-        int itemH = 28, pad = 6, searchBarH = 28;
+        int itemH = 30, pad = 8, searchBarH = 32;
         int listY = _fontPickerRect.Y + pad + searchBarH + pad;
         int relY = p.Y - listY;
-        int idx = _fontPickerScroll + relY / itemH;
         var fonts = GetFilteredFonts();
+        int visibleCount = 8;
+        int maxScroll = Math.Max(0, fonts.Length - visibleCount);
+        int trackH = visibleCount * itemH - 8;
+        int trackX = _fontPickerRect.Right - pad - 4;
+        int trackY = listY + 4;
+        var trackRect = new Rectangle(trackX - 4, trackY, 12, trackH);
+        if (trackRect.Contains(p) && fonts.Length > visibleCount)
+        {
+            int thumbH = Math.Max(12, trackH * visibleCount / fonts.Length);
+            int thumbTravel = Math.Max(1, trackH - thumbH);
+            int target = p.Y - trackY - (thumbH / 2);
+            target = Math.Clamp(target, 0, thumbTravel);
+            _fontPickerScroll = (int)Math.Round((double)target / thumbTravel * maxScroll);
+            RefreshToolbar();
+            return true;
+        }
+
+        int idx = _fontPickerScroll + relY / itemH;
 
         if (relY >= 0 && idx >= 0 && idx < fonts.Length)
         {
+            var oldTextRect = Rectangle.Round(GetActiveTextRect());
+            var oldToolbarRect = Rectangle.Round(GetTextToolbarBounds());
+            var oldPickerRect = InflateForRepaint(GetFontPickerBounds(), 12);
             _textFontFamily = fonts[idx];
             _fontPickerOpen = false;
             _fontSearch = ""; _filteredFonts = null;
             InvalidateActiveTextLayout();
             UpdateTextBoxStyle(); SyncTextBoxSize();
-            Invalidate(InflateForRepaint(GetFontPickerBounds(), 12));
+            var newTextRect = Rectangle.Round(GetActiveTextRect());
+            var newToolbarRect = Rectangle.Round(GetTextToolbarBounds());
+            RefreshOverlayUiChrome();
+            Invalidate(Rectangle.Union(
+                Rectangle.Union(InflateForRepaint(oldTextRect, 16), InflateForRepaint(newTextRect, 16)),
+                Rectangle.Union(Rectangle.Union(InflateForRepaint(oldToolbarRect, 16), InflateForRepaint(newToolbarRect, 16)), oldPickerRect)));
             RefreshToolbar();
             return true;
         }
         return true; // absorb click inside picker
+    }
+
+    private bool IsPointInFontPickerSearch(Point p)
+    {
+        if (!_fontPickerRect.Contains(p)) return false;
+        int searchBarH = 32, pad = 8;
+        int searchBottom = _fontPickerRect.Y + pad + searchBarH;
+        return p.Y < searchBottom;
+    }
+
+    private bool IsPointInFontPickerScrollbar(Point p)
+    {
+        if (!_fontPickerRect.Contains(p)) return false;
+        var fonts = GetFilteredFonts();
+        int visibleCount = 8;
+        if (fonts.Length <= visibleCount) return false;
+
+        int itemH = 30, pad = 8, searchBarH = 32;
+        int listY = _fontPickerRect.Y + pad + searchBarH + pad;
+        int trackH = visibleCount * itemH - 8;
+        int trackX = _fontPickerRect.Right - pad - 4;
+        int trackY = listY + 4;
+        var trackRect = new Rectangle(trackX - 4, trackY, 12, trackH);
+        return trackRect.Contains(p);
+    }
+
+    private bool IsPointInFontPickerList(Point p)
+    {
+        if (!_fontPickerRect.Contains(p)) return false;
+        int itemH = 30, pad = 8, searchBarH = 32;
+        int listY = _fontPickerRect.Y + pad + searchBarH + pad;
+        int relY = p.Y - listY;
+        int idx = _fontPickerScroll + relY / itemH;
+        return relY >= 0 && idx >= 0 && idx < GetFilteredFonts().Length;
+    }
+
+    private bool IsPointInEmojiPickerSearch(Point p)
+    {
+        if (!_emojiPickerRect.Contains(p)) return false;
+        int pad = 6, searchBarH = 28;
+        int searchBottom = _emojiPickerRect.Y + pad + searchBarH + pad;
+        return p.Y < searchBottom;
+    }
+
+    private bool IsPointInEmojiPickerItem(Point p)
+    {
+        if (!_emojiPickerRect.Contains(p)) return false;
+
+        var filtered = GetFilteredEmojiPalette();
+        int cols = 8, emojiSize = 32, pad = 6;
+        int searchBarH = 28;
+        int gridY = _emojiPickerRect.Y + pad + searchBarH + pad;
+        int relX = p.X - _emojiPickerRect.X - pad;
+        int relY = p.Y - gridY;
+        int col = relX / (emojiSize + pad);
+        int row = relY / (emojiSize + pad);
+        int idx = (_emojiScrollOffset + row) * cols + col;
+        return col >= 0 && col < cols && row >= 0 && idx >= 0 && idx < filtered.Length;
+    }
+
+    private bool IsPointInColorPickerSwatch(Point p)
+    {
+        if (!_colorPickerRect.Contains(p)) return false;
+        for (int i = 0; i < ToolColors.Length; i++)
+            if (GetColorPickerSwatchRect(i).Contains(p))
+                return true;
+        return false;
     }
 
     private bool HandleEmojiPickerClick(Point p)

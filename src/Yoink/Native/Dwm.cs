@@ -23,8 +23,28 @@ internal static partial class Dwm
     /// <summary>Disable system backdrop (Mica/Acrylic) on a window.</summary>
     public static void DisableBackdrop(IntPtr hwnd)
     {
+        if (!SupportsSystemBackdropType())
+            return;
+
         int val = DWMSBT_NONE;
         DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref val, sizeof(int));
+    }
+
+    public static void TrySetWindowCornerPreference(IntPtr hwnd, int preference)
+    {
+        if (!SupportsWindowCornerPreference())
+            return;
+
+        DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+    }
+
+    public static void TrySetImmersiveDarkMode(IntPtr hwnd, bool enabled)
+    {
+        if (!SupportsImmersiveDarkMode())
+            return;
+
+        int value = enabled ? 1 : 0;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref value, sizeof(int));
     }
 
     [LibraryImport("dwmapi.dll")]
@@ -60,4 +80,8 @@ internal static partial class Dwm
             out int cloaked, sizeof(int));
         return hr == 0 && cloaked != 0;
     }
+
+    private static bool SupportsImmersiveDarkMode() => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763);
+    private static bool SupportsWindowCornerPreference() => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
+    private static bool SupportsSystemBackdropType() => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
 }

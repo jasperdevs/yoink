@@ -39,7 +39,7 @@ public sealed class ColorHistoryEntry
     public DateTime CapturedAt { get; set; }
 }
 
-public sealed partial class HistoryService
+public sealed partial class HistoryService : IDisposable
 {
     public static readonly string HistoryDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Yoink History");
@@ -71,6 +71,7 @@ public sealed partial class HistoryService
     private IReadOnlyList<HistoryEntry>? _stickerEntries;
     private readonly object _gate = new();
     private readonly System.Threading.Timer _flushTimer;
+    private bool _disposed;
     private bool _entriesRewritePending;
     private bool _ocrDirty;
     private bool _colorDirty;
@@ -96,7 +97,24 @@ public sealed partial class HistoryService
 
     private void InvalidateFilteredCache() { _imageEntries = null; _gifEntries = null; _stickerEntries = null; }
 
-    private void NotifyChanged() => Changed?.Invoke();
+    private void NotifyChanged()
+    {
+        var handlers = Changed;
+        if (handlers is null)
+            return;
+
+        foreach (Action handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.LogError("history.changed", ex);
+            }
+        }
+    }
 
     public string GetDiskFingerprint(string saveDirectory)
     {
@@ -491,6 +509,22 @@ public sealed partial class HistoryService
             ScheduleFlush_NoLock();
         }
         NotifyChanged();
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            try { _flushTimer.Change(Timeout.Infinite, Timeout.Infinite); } catch { }
+            try { FlushPendingWrites_NoLock(); } catch (Exception ex) { AppDiagnostics.LogError("history.dispose", ex); }
+        }
+
+        _flushTimer.Dispose();
+        GC.SuppressFinalize(this);
     }
 
 }

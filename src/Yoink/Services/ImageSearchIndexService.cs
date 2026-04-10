@@ -281,9 +281,12 @@ public sealed partial class ImageSearchIndexService : IDisposable
     private static readonly string LegacyHistoryIndexPath = Path.Combine(HistoryService.HistoryDir, "image_search_index.json");
 
     private readonly object _gate = new();
+    private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly Dictionary<string, ImageSearchIndexRecord> _records = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, float[]> _queryEmbeddingCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LinkedList<string> _queryEmbeddingCacheOrder = new();
+    private readonly Dictionary<string, LinkedListNode<string>> _queryEmbeddingCacheNodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<string>> _searchResultCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly LinkedList<string> _searchResultCacheOrder = new();
     private readonly Dictionary<string, LinkedListNode<string>> _searchResultCacheNodes = new(StringComparer.OrdinalIgnoreCase);
@@ -298,6 +301,7 @@ public sealed partial class ImageSearchIndexService : IDisposable
     private bool _disposed;
     private int _version;
     private string _statusText = "Search index idle";
+    private Task? _syncLoopTask;
     private const int MaxSearchCacheEntries = 96;
 
     public event Action? Changed;
@@ -522,8 +526,15 @@ public sealed partial class ImageSearchIndexService : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
         _disposed = true;
+        _lifetimeCts.Cancel();
         _clipRuntime.StatusChanged -= ClipRuntime_StatusChanged;
+        try { _syncLoopTask?.Wait(TimeSpan.FromSeconds(2)); } catch { }
         _clipRuntime.Dispose();
+        _syncGate.Dispose();
+        _lifetimeCts.Dispose();
     }
 }

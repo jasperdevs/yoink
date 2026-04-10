@@ -54,13 +54,13 @@ public sealed class SettingsService : IDisposable
             {
                 var defaults = new AppSettings();
                 CacheSettings(resolvedPath, defaults);
-                return defaults;
+                return CloneSettings(defaults);
             }
 
             var json = File.ReadAllText(resolvedPath);
             var loaded = DeserializeSettings(json);
             CacheSettings(resolvedPath, loaded);
-            return loaded;
+            return CloneSettings(loaded);
         }
         catch { return null; }
     }
@@ -190,7 +190,7 @@ public sealed class SettingsService : IDisposable
         {
             if (string.Equals(s_cachedPath, settingsPath, StringComparison.OrdinalIgnoreCase))
             {
-                settings = s_cachedSettings;
+                settings = s_cachedSettings is null ? null : CloneSettings(s_cachedSettings);
                 return settings is not null;
             }
         }
@@ -204,8 +204,16 @@ public sealed class SettingsService : IDisposable
         lock (CacheGate)
         {
             s_cachedPath = settingsPath;
-            s_cachedSettings = settings;
+            s_cachedSettings = CloneSettings(settings);
         }
+    }
+
+    private static AppSettings CloneSettings(AppSettings settings)
+    {
+        return JsonSerializer.Deserialize<AppSettings>(
+                   JsonSerializer.Serialize(settings, JsonOptions),
+                   JsonOptions)
+               ?? new AppSettings();
     }
 
     private static AppSettings DeserializeSettings(string json)

@@ -72,7 +72,7 @@ public sealed partial class ImageSearchIndexService
             return null;
 
         lock (_gate)
-            _queryEmbeddingCache[normalizedQuery] = result.Embedding;
+            SetCacheEntry_NoLock(normalizedQuery, result.Embedding, _queryEmbeddingCache, _queryEmbeddingCacheNodes, _queryEmbeddingCacheOrder);
 
         return result.Embedding;
     }
@@ -226,6 +226,8 @@ public sealed partial class ImageSearchIndexService
         _textScoreCacheNodes.Clear();
         _textScoreCacheOrder.Clear();
         _queryEmbeddingCache.Clear();
+        _queryEmbeddingCacheNodes.Clear();
+        _queryEmbeddingCacheOrder.Clear();
     }
 
     private static void SetCacheEntry_NoLock<T>(

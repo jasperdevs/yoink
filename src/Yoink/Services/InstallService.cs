@@ -364,7 +364,7 @@ public static class InstallService
             "ffmpeg.exe"
         };
 
-        return entries.All(name => allowed.Contains(name!));
+        return !entries.All(name => allowed.Contains(name!));
     }
 
     private static IEnumerable<string> GetOptionalPayloadEntries()

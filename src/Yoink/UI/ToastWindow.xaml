@@ -13,7 +13,7 @@
         ShowActivated="False">
 
     <Border x:Name="OuterShell"
-            CornerRadius="17"
+            CornerRadius="12"
             Background="Transparent"
             BorderThickness="0"
             Padding="0"
@@ -25,7 +25,7 @@
             </TransformGroup>
         </Border.RenderTransform>
 
-        <Border x:Name="Root" CornerRadius="14" ClipToBounds="True"
+        <Border x:Name="Root" CornerRadius="10" ClipToBounds="True"
                 MaxWidth="360" MinWidth="196"
                 SnapsToDevicePixels="True">
             <Grid>
@@ -42,7 +42,7 @@
 
                 <!-- Image preview area (hidden for text-only toasts) -->
                 <Grid x:Name="ImageArea" Grid.Row="0" Visibility="Collapsed" MaxHeight="176" HorizontalAlignment="Center">
-                    <Border x:Name="ImageFrame" CornerRadius="14,14,0,0" ClipToBounds="True">
+                    <Border x:Name="ImageFrame" CornerRadius="10,10,0,0" ClipToBounds="True">
                         <Image x:Name="PreviewImage" Stretch="Uniform"
                                UseLayoutRounding="True"
                                SnapsToDevicePixels="True"
@@ -50,52 +50,50 @@
                     </Border>
 
                     <!-- Overlay buttons (shown on hover) -->
-                    <Border x:Name="CloseBtn" Width="32" Height="32" CornerRadius="9"
-                            Background="#660B0D10" BorderBrush="#26FFFFFF" BorderThickness="1"
+                    <Border x:Name="CloseBtn" Width="32" Height="32" CornerRadius="8"
+                            Background="#E0202024" BorderBrush="#30FFFFFF" BorderThickness="0.8"
                             ToolTipService.IsEnabled="False"
                             Cursor="Hand"
                             HorizontalAlignment="Right" VerticalAlignment="Top"
                             Margin="0,8,8,0" Opacity="0" Visibility="Collapsed">
-                        <Canvas Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Line X1="0" Y1="0" X2="10" Y2="10" Stroke="White" StrokeThickness="1.4"/>
-                            <Line X1="10" Y1="0" X2="0" Y2="10" Stroke="White" StrokeThickness="1.4"/>
-                        </Canvas>
+                        <Image x:Name="CloseIcon" Width="14" Height="14" Stretch="Uniform" Opacity="0.9"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <Border x:Name="PinBtn" Width="32" Height="32" CornerRadius="9"
-                            Background="#660B0D10" BorderBrush="#26FFFFFF" BorderThickness="1"
+                    <Border x:Name="PinBtn" Width="32" Height="32" CornerRadius="8"
+                            Background="#E0202024" BorderBrush="#30FFFFFF" BorderThickness="0.8"
                             ToolTipService.IsEnabled="False"
                             Cursor="Hand"
                             HorizontalAlignment="Left" VerticalAlignment="Top"
                             Margin="8,8,0,0" Opacity="0" Visibility="Collapsed">
-                        <Path x:Name="PinIcon"
-                              Data="M16,12V4h1V2H7V4h1v8l-2,2v2h5.2v6h1.6v-6H18v-2Z"
-                              Fill="White" Stretch="Uniform" Width="12" Height="12" Opacity="0.9"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image x:Name="PinIcon" Width="14" Height="14" Stretch="Uniform" Opacity="0.9"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <Border x:Name="SaveBtn" Width="32" Height="32" CornerRadius="9"
-                            Background="#660B0D10" BorderBrush="#26FFFFFF" BorderThickness="1"
+                    <Border x:Name="SaveBtn" Width="32" Height="32" CornerRadius="8"
+                            Background="#E0202024" BorderBrush="#30FFFFFF" BorderThickness="0.8"
                             ToolTipService.IsEnabled="False"
                             Cursor="Hand"
                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
                             Margin="0,0,8,8" Opacity="0" Visibility="Collapsed">
-                        <Path Data="M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"
-                              Fill="White" Stretch="Uniform" Width="12" Height="12" Opacity="0.9"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image x:Name="SaveIcon" Width="14" Height="14" Stretch="Uniform" Opacity="0.9"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <Border x:Name="DeleteBtn" Width="32" Height="32" CornerRadius="9"
-                            Background="#660B0D10" BorderBrush="#26FFFFFF" BorderThickness="1"
+                    <Border x:Name="DeleteBtn" Width="32" Height="32" CornerRadius="8"
+                            Background="#E0202024" BorderBrush="#30FFFFFF" BorderThickness="0.8"
                             ToolTipService.IsEnabled="False"
                             Cursor="Hand"
                             HorizontalAlignment="Left" VerticalAlignment="Bottom"
                             Margin="8,0,0,8" Opacity="0" Visibility="Collapsed">
-                        <Path Data="M9,3h6l1,1h4v2H4V4h4l1-1Zm-2,6h2v8H7V9Zm4,0h2v8h-2V9Zm4,0h2v8h-2V9Z"
-                              Fill="White" Stretch="Uniform" Width="12" Height="12" Opacity="0.9"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image x:Name="DeleteIcon" Width="14" Height="14" Stretch="Uniform" Opacity="0.9"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                 </Grid>
 
                 <!-- Text content -->
-                <StackPanel x:Name="TextContentPanel" Grid.Row="1" Orientation="Horizontal" Margin="14,12,14,10">
+                <StackPanel x:Name="TextContentPanel" Grid.Row="1" Orientation="Horizontal" Margin="14,11,14,11">
                     <Border x:Name="ColorSwatch" Width="28" Height="28" CornerRadius="8"
                             Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center"/>
                     <Border x:Name="InlinePreviewHost" Width="44" Height="44" CornerRadius="8"
@@ -131,7 +129,7 @@
             <Border x:Name="ShellStroke"
                     Grid.RowSpan="2"
                     Margin="0"
-                    CornerRadius="14"
+                    CornerRadius="10"
                     Background="Transparent"
                     BorderThickness="1"
                     SnapsToDevicePixels="True"

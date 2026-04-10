@@ -61,6 +61,11 @@ public static class WindowDetector
     private static Rectangle GetTopLevelWindowRectAtPoint(Point screenPoint, Rectangle virtualBounds)
     {
         var pt = ToScreenPoint(screenPoint, virtualBounds);
+
+        var liveHit = GetTopLevelWindowRectFallbackFromPoint(pt, virtualBounds);
+        if (!liveHit.IsEmpty)
+            return liveHit;
+
         Rectangle detected = Rectangle.Empty;
         var seen = new HashSet<IntPtr>();
 
@@ -79,7 +84,7 @@ public static class WindowDetector
         if (!detected.IsEmpty)
             return detected;
 
-        return GetTopLevelWindowRectFallbackFromPoint(pt, virtualBounds);
+        return Rectangle.Empty;
     }
 
     /// <summary>Secondary live fallback when z-order enumeration doesn't resolve a hit.</summary>
@@ -132,6 +137,10 @@ public static class WindowDetector
 
     private static IntPtr NormalizeTopLevelWindowForHitTest(IntPtr hwnd)
     {
+        IntPtr rootOwner = User32.GetAncestor(hwnd, User32.GA_ROOTOWNER);
+        if (rootOwner != IntPtr.Zero)
+            return rootOwner;
+
         IntPtr root = User32.GetAncestor(hwnd, User32.GA_ROOT);
         return root != IntPtr.Zero ? root : hwnd;
     }

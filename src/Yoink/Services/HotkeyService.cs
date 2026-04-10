@@ -41,6 +41,33 @@ public sealed class HotkeyService : IDisposable
     public event Action? ScrollCaptureHotkeyPressed;
     public event Action? AiRedirectHotkeyPressed;
 
+    private void EnsureMessageHook()
+    {
+        if (_registered)
+            return;
+
+        ComponentDispatcher.ThreadPreprocessMessage += OnMsg;
+        _registered = true;
+    }
+
+    private bool RegisterHotkey(ref bool registeredFlag, int id, uint modifiers, uint key)
+    {
+        EnsureMessageHook();
+
+        if (registeredFlag)
+        {
+            User32.UnregisterHotKey(IntPtr.Zero, id);
+            registeredFlag = false;
+        }
+
+        if (key == 0)
+            return true;
+
+        registeredFlag = User32.RegisterHotKey(
+            IntPtr.Zero, id, modifiers | User32.MOD_NOREPEAT, key);
+        return registeredFlag;
+    }
+
     /// <summary>Force-unregister all hotkey IDs to clear any stale registrations from previous instances.</summary>
     public void UnregisterAll()
     {
@@ -70,95 +97,57 @@ public sealed class HotkeyService : IDisposable
 
     public bool Register(uint modifiers, uint key)
     {
-        if (!_registered)
-        {
-            ComponentDispatcher.ThreadPreprocessMessage += OnMsg;
-            _registered = true;
-        }
-        if (key == 0) { _captureRegistered = false; return true; }
-        _captureRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_CAPTURE, modifiers | User32.MOD_NOREPEAT, key);
-        return _captureRegistered;
+        return RegisterHotkey(ref _captureRegistered, HOTKEY_CAPTURE, modifiers, key);
     }
 
     public bool RegisterOcr(uint modifiers, uint key)
     {
-        if (key == 0) { _ocrRegistered = false; return true; }
-        _ocrRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_OCR, modifiers | User32.MOD_NOREPEAT, key);
-        return _ocrRegistered;
+        return RegisterHotkey(ref _ocrRegistered, HOTKEY_OCR, modifiers, key);
     }
 
     public bool RegisterPicker(uint modifiers, uint key)
     {
-        if (key == 0) { _pickerRegistered = false; return true; }
-        _pickerRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_PICKER, modifiers | User32.MOD_NOREPEAT, key);
-        return _pickerRegistered;
+        return RegisterHotkey(ref _pickerRegistered, HOTKEY_PICKER, modifiers, key);
     }
 
     public bool RegisterScan(uint modifiers, uint key)
     {
-        if (key == 0) { _scanRegistered = false; return true; }
-        _scanRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_SCAN, modifiers | User32.MOD_NOREPEAT, key);
-        return _scanRegistered;
+        return RegisterHotkey(ref _scanRegistered, HOTKEY_SCAN, modifiers, key);
     }
 
     public bool RegisterRuler(uint modifiers, uint key)
     {
-        if (key == 0) { _rulerRegistered = false; return true; }
-        _rulerRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_RULER, modifiers | User32.MOD_NOREPEAT, key);
-        return _rulerRegistered;
+        return RegisterHotkey(ref _rulerRegistered, HOTKEY_RULER, modifiers, key);
     }
 
     public bool RegisterSticker(uint modifiers, uint key)
     {
-        if (key == 0) { _stickerRegistered = false; return true; }
-        _stickerRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_STICKER, modifiers | User32.MOD_NOREPEAT, key);
-        return _stickerRegistered;
+        return RegisterHotkey(ref _stickerRegistered, HOTKEY_STICKER, modifiers, key);
     }
 
     public bool RegisterGif(uint modifiers, uint key)
     {
-        if (key == 0) { _gifRegistered = false; return true; }
-        _gifRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_GIF, modifiers | User32.MOD_NOREPEAT, key);
-        return _gifRegistered;
+        return RegisterHotkey(ref _gifRegistered, HOTKEY_GIF, modifiers, key);
     }
 
     public bool RegisterFullscreen(uint modifiers, uint key)
     {
-        if (key == 0) { _fullscreenRegistered = false; return true; }
-        _fullscreenRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_FULLSCREEN, modifiers | User32.MOD_NOREPEAT, key);
-        return _fullscreenRegistered;
+        return RegisterHotkey(ref _fullscreenRegistered, HOTKEY_FULLSCREEN, modifiers, key);
     }
 
     public bool RegisterActiveWindow(uint modifiers, uint key)
     {
-        if (key == 0) { _activeWindowRegistered = false; return true; }
-        _activeWindowRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_ACTIVE_WINDOW, modifiers | User32.MOD_NOREPEAT, key);
-        return _activeWindowRegistered;
+        return RegisterHotkey(ref _activeWindowRegistered, HOTKEY_ACTIVE_WINDOW, modifiers, key);
     }
 
     public bool RegisterScrollCapture(uint modifiers, uint key)
     {
-        if (key == 0) { _scrollCaptureRegistered = false; return true; }
-        _scrollCaptureRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_SCROLL_CAPTURE, modifiers | User32.MOD_NOREPEAT, key);
-        return _scrollCaptureRegistered;
+        return RegisterHotkey(ref _scrollCaptureRegistered, HOTKEY_SCROLL_CAPTURE, modifiers, key);
     }
 
     public bool RegisterAiRedirect(uint modifiers, uint key)
     {
-        if (key == 0) { _aiRedirectRegistered = false; return true; }
-        _aiRedirectRegistered = User32.RegisterHotKey(
-            IntPtr.Zero, HOTKEY_AI_REDIRECT, modifiers | User32.MOD_NOREPEAT, key);
-        return _aiRedirectRegistered;
+        return RegisterHotkey(ref _aiRedirectRegistered, HOTKEY_AI_REDIRECT, modifiers, key);
     }
 
     public void Unregister()
@@ -185,17 +174,35 @@ public sealed class HotkeyService : IDisposable
     {
         if (msg.message != User32.WM_HOTKEY) return;
         int id = (int)msg.wParam;
-        if (id == HOTKEY_CAPTURE) { HotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_OCR) { OcrHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_PICKER) { PickerHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_SCAN) { ScanHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_RULER) { RulerHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_STICKER) { StickerHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_GIF) { GifHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_FULLSCREEN) { FullscreenHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_ACTIVE_WINDOW) { ActiveWindowHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_SCROLL_CAPTURE) { ScrollCaptureHotkeyPressed?.Invoke(); handled = true; }
-        else if (id == HOTKEY_AI_REDIRECT) { AiRedirectHotkeyPressed?.Invoke(); handled = true; }
+        if (id == HOTKEY_CAPTURE) { InvokeHandlersSafely(HotkeyPressed, "hotkey.capture"); handled = true; }
+        else if (id == HOTKEY_OCR) { InvokeHandlersSafely(OcrHotkeyPressed, "hotkey.ocr"); handled = true; }
+        else if (id == HOTKEY_PICKER) { InvokeHandlersSafely(PickerHotkeyPressed, "hotkey.picker"); handled = true; }
+        else if (id == HOTKEY_SCAN) { InvokeHandlersSafely(ScanHotkeyPressed, "hotkey.scan"); handled = true; }
+        else if (id == HOTKEY_RULER) { InvokeHandlersSafely(RulerHotkeyPressed, "hotkey.ruler"); handled = true; }
+        else if (id == HOTKEY_STICKER) { InvokeHandlersSafely(StickerHotkeyPressed, "hotkey.sticker"); handled = true; }
+        else if (id == HOTKEY_GIF) { InvokeHandlersSafely(GifHotkeyPressed, "hotkey.gif"); handled = true; }
+        else if (id == HOTKEY_FULLSCREEN) { InvokeHandlersSafely(FullscreenHotkeyPressed, "hotkey.fullscreen"); handled = true; }
+        else if (id == HOTKEY_ACTIVE_WINDOW) { InvokeHandlersSafely(ActiveWindowHotkeyPressed, "hotkey.active-window"); handled = true; }
+        else if (id == HOTKEY_SCROLL_CAPTURE) { InvokeHandlersSafely(ScrollCaptureHotkeyPressed, "hotkey.scroll-capture"); handled = true; }
+        else if (id == HOTKEY_AI_REDIRECT) { InvokeHandlersSafely(AiRedirectHotkeyPressed, "hotkey.ai-redirect"); handled = true; }
+    }
+
+    private static void InvokeHandlersSafely(Action? handlers, string context)
+    {
+        if (handlers is null)
+            return;
+
+        foreach (Action handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.LogError(context, ex);
+            }
+        }
     }
 
     public void Dispose() => Unregister();

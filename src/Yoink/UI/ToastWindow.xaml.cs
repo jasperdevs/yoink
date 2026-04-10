@@ -14,7 +14,7 @@ namespace Yoink.UI;
 
 public partial class ToastWindow : Window
 {
-    private const double RootCornerRadius = 14;
+    private const double RootCornerRadius = 10;
     private readonly DispatcherTimer _timer;
     private ToastSpec _spec;
     private bool _isDismissing;
@@ -42,9 +42,10 @@ public partial class ToastWindow : Window
     private static System.Windows.Media.Effects.DropShadowEffect CreateToastShadow()
         => new()
         {
-            BlurRadius = 24,
-            ShadowDepth = 2,
-            Opacity = Theme.IsDark ? 0.26 : 0.18,
+            BlurRadius = 18,
+            ShadowDepth = 3,
+            Opacity = Theme.IsDark ? 0.32 : 0.20,
+            Direction = 270,
             Color = Colors.Black
         };
 
@@ -87,6 +88,7 @@ public partial class ToastWindow : Window
         InitializeComponent();
         Opacity = 0;
         Theme.Refresh();
+        LoadOverlayIcons();
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_durationSeconds) };
         _timer.Tick += (_, _) =>
@@ -139,8 +141,8 @@ public partial class ToastWindow : Window
     private void ConfigureShell()
     {
         OuterShell.Background = System.Windows.Media.Brushes.Transparent;
-        OuterShell.BorderBrush = Theme.Brush(Color.FromArgb(212, 255, 255, 255));
-        OuterShell.BorderThickness = new Thickness(2.8);
+        OuterShell.BorderBrush = Theme.Brush(Color.FromArgb(180, 255, 255, 255));
+        OuterShell.BorderThickness = new Thickness(2.0);
         OuterShell.Effect = CreateToastShadow();
         Root.Background = Theme.Brush(Theme.ToastBg);
         Root.BorderBrush = System.Windows.Media.Brushes.Transparent;
@@ -158,8 +160,8 @@ public partial class ToastWindow : Window
             ? Color.FromArgb(34, 255, 255, 255)
             : Color.FromArgb(20, 0, 0, 0));
         ProgressBar.Background = Theme.Brush(Theme.IsDark
-            ? Color.FromArgb(140, 255, 255, 255)
-            : Color.FromArgb(84, 0, 0, 0));
+            ? Color.FromArgb(100, 255, 255, 255)
+            : Color.FromArgb(60, 0, 0, 0));
     }
 
     internal bool TryUpdateInPlace(ToastSpec spec)
@@ -192,8 +194,8 @@ public partial class ToastWindow : Window
         _isPinned = false;
         ConfigureShell();
         ProgressBar.Visibility = Visibility.Visible;
-        PinBtn.Background = new SolidColorBrush(Color.FromArgb(144, 0, 0, 0));
-        PinIcon.Fill = System.Windows.Media.Brushes.White;
+        PinBtn.Background = new SolidColorBrush(Color.FromArgb(224, 32, 32, 36));
+        PinIcon.Source = StreamlineIcons.RenderWpf("pin", System.Drawing.Color.FromArgb(230, 255, 255, 255), 20);
 
         _savedFilePath = spec.FilePath;
 
@@ -254,8 +256,8 @@ public partial class ToastWindow : Window
             Root.Background = Theme.Brush(Theme.IsDark
                 ? Color.FromRgb(60, 28, 28)
                 : Color.FromRgb(255, 240, 240));
-            OuterShell.BorderBrush = Theme.Brush(Color.FromArgb(188, red.R, red.G, red.B));
-            OuterShell.BorderThickness = new Thickness(2.6);
+            OuterShell.BorderBrush = Theme.Brush(Color.FromArgb(160, red.R, red.G, red.B));
+            OuterShell.BorderThickness = new Thickness(2.0);
             ProgressBar.Background = Theme.Brush(Color.FromArgb(180, red.R, red.G, red.B));
             TitleText.Foreground = Theme.Brush(red);
         }
@@ -301,9 +303,9 @@ public partial class ToastWindow : Window
             ImageArea.Height = toastH;
             ImageArea.MaxHeight = toastH;
             System.Windows.Controls.Grid.SetRowSpan(ImageArea, 2);
-            Root.Background = fallbackFramed ? Theme.Brush(Theme.ToastBg) : System.Windows.Media.Brushes.Transparent;
-            ImageFrame.Background = fallbackFramed ? Theme.Brush(Theme.ToastBg) : System.Windows.Media.Brushes.Transparent;
-            ImageFrame.CornerRadius = new CornerRadius(14);
+            Root.Background = Theme.Brush(Theme.ToastBg);
+            ImageFrame.Background = Theme.Brush(Theme.ToastBg);
+            ImageFrame.CornerRadius = new CornerRadius(10);
             ImageFrame.BorderThickness = new Thickness(0);
         }
         else
@@ -320,7 +322,7 @@ public partial class ToastWindow : Window
             System.Windows.Controls.Grid.SetRowSpan(ImageArea, 1);
             Root.Background = Theme.Brush(Theme.ToastBg);
             ImageFrame.Background = Theme.Brush(Theme.ToastBg);
-            ImageFrame.CornerRadius = new CornerRadius(14, 14, 0, 0);
+            ImageFrame.CornerRadius = new CornerRadius(10, 10, 0, 0);
             ImageFrame.BorderThickness = new Thickness(1);
         }
 
@@ -351,6 +353,35 @@ public partial class ToastWindow : Window
             InlinePreviewHost.Height = 44;
             InlinePreviewImage.Margin = new Thickness(4);
         }
+    }
+
+    private static readonly System.Drawing.Color IconWhite = System.Drawing.Color.FromArgb(230, 255, 255, 255);
+
+    private void LoadOverlayIcons()
+    {
+        CloseIcon.Source = StreamlineIcons.RenderWpf("close", IconWhite, 20);
+        PinIcon.Source = StreamlineIcons.RenderWpf("pin", IconWhite, 20);
+        SaveIcon.Source = StreamlineIcons.RenderWpf("download", IconWhite, 20);
+        DeleteIcon.Source = StreamlineIcons.RenderWpf("trash", IconWhite, 20);
+
+        HookOverlayHover(CloseBtn, CloseIcon, "close");
+        HookOverlayHover(PinBtn, PinIcon, "pin");
+        HookOverlayHover(SaveBtn, SaveIcon, "download");
+        HookOverlayHover(DeleteBtn, DeleteIcon, "trash");
+    }
+
+    private void HookOverlayHover(System.Windows.Controls.Border btn, System.Windows.Controls.Image icon, string iconId)
+    {
+        btn.MouseEnter += (_, _) =>
+        {
+            if (iconId == "pin" && _isPinned) return;
+            icon.Source = StreamlineIcons.RenderWpf(iconId, IconWhite, 20, active: true);
+        };
+        btn.MouseLeave += (_, _) =>
+        {
+            if (iconId == "pin" && _isPinned) return;
+            icon.Source = StreamlineIcons.RenderWpf(iconId, IconWhite, 20, active: false);
+        };
     }
 
     private void HookOverlayButtons()
@@ -471,7 +502,7 @@ public partial class ToastWindow : Window
             ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
             ProgressBar.Visibility = Visibility.Collapsed;
             PinBtn.Background = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255));
-            PinIcon.Fill = new SolidColorBrush(Color.FromRgb(20, 20, 20));
+            PinIcon.Source = StreamlineIcons.RenderWpf("pin", System.Drawing.Color.FromArgb(230, 20, 20, 20), 20, active: true);
             PinBtn.Opacity = 1;
             return;
         }
@@ -479,11 +510,11 @@ public partial class ToastWindow : Window
         ProgressBar.Visibility = Visibility.Visible;
         ProgressScale.ScaleX = 1;
         ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation { To = 0, Duration = TimeSpan.FromSeconds(_durationSeconds) });
+            new DoubleAnimation { To = 0, Duration = Motion.Sec(_durationSeconds) });
         _timer.Interval = TimeSpan.FromSeconds(_durationSeconds);
         _timer.Start();
-        PinBtn.Background = new SolidColorBrush(Color.FromArgb(144, 0, 0, 0));
-        PinIcon.Fill = System.Windows.Media.Brushes.White;
+        PinBtn.Background = new SolidColorBrush(Color.FromArgb(224, 32, 32, 36));
+        PinIcon.Source = StreamlineIcons.RenderWpf("pin", System.Drawing.Color.FromArgb(230, 255, 255, 255), 20);
     }
 
     private void AnimateOverlayButtons(double targetOpacity, double pinnedOpacity)
@@ -618,8 +649,8 @@ public partial class ToastWindow : Window
         CancelDismissForHover();
         _dragBorderThickness = OuterShell.BorderThickness;
         _dragBorderBrush = OuterShell.BorderBrush;
-        OuterShell.BorderBrush = Theme.Brush(Color.FromArgb(255, 255, 255, 255));
-        OuterShell.BorderThickness = new Thickness(3.2);
+        OuterShell.BorderBrush = Theme.Brush(Color.FromArgb(230, 255, 255, 255));
+        OuterShell.BorderThickness = new Thickness(2.4);
         DragScale.CenterX = ActualWidth / 2;
         DragScale.CenterY = ActualHeight / 2;
         DragScale.BeginAnimation(ScaleTransform.ScaleXProperty,
@@ -702,7 +733,7 @@ public partial class ToastWindow : Window
         ProgressBar.Visibility = Visibility.Visible;
         if (_dragBorderBrush is not null)
             OuterShell.BorderBrush = _dragBorderBrush;
-        OuterShell.BorderThickness = _dragBorderThickness == default ? new Thickness(2.8) : _dragBorderThickness;
+        OuterShell.BorderThickness = _dragBorderThickness == default ? new Thickness(2.0) : _dragBorderThickness;
         _dragBorderBrush = null;
         _dragBorderThickness = default;
         Mouse.OverrideCursor = null;
@@ -763,8 +794,8 @@ public partial class ToastWindow : Window
         SlideTransform.X = offsetX;
         SlideTransform.Y = offsetY;
 
-        var dur = TimeSpan.FromMilliseconds(subtleEntry ? 145 : 165);
-        var ease = Motion.SmoothOut;
+        var dur = Motion.Ms(subtleEntry ? 160 : 200);
+        var ease = Motion.Ease(Motion.SmoothOut);
         SlideTransform.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation
         {
             To = 0,
@@ -803,7 +834,7 @@ public partial class ToastWindow : Window
         ProgressBar.Visibility = Visibility.Visible;
         ProgressScale.ScaleX = Math.Clamp(seconds / _durationSeconds, 0, 1);
         ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation { To = 0, Duration = TimeSpan.FromSeconds(seconds) });
+            new DoubleAnimation { To = 0, Duration = Motion.Sec(seconds) });
         _timer.Start();
     }
 
@@ -835,7 +866,7 @@ public partial class ToastWindow : Window
         _timer.Stop();
         ProgressBar.Visibility = Visibility.Collapsed;
         _closeAfterOpacityAnimation = true;
-        StartDismissAnimation(TimeSpan.FromSeconds(_fadeOutSeconds), slide: false, 0, 0);
+        StartDismissAnimation(Motion.Sec(_fadeOutSeconds), slide: false, 0, 0);
     }
 
     private void SlideAway()
@@ -848,7 +879,7 @@ public partial class ToastWindow : Window
         _closeAfterOpacityAnimation = true;
         ProgressBar.Visibility = Visibility.Collapsed;
 
-        var dur = TimeSpan.FromMilliseconds(205);
+        var dur = Motion.Ms(240);
         var (dismissOffsetX, dismissOffsetY) = GetDismissOffset();
         StartDismissAnimation(dur, slide: true, dismissOffsetX, dismissOffsetY);
     }
@@ -863,7 +894,7 @@ public partial class ToastWindow : Window
         OuterShell.Opacity = 1;
         var dismissToken = _dismissAnimationToken;
         IEasingFunction ease = slide
-            ? Motion.SmoothIn
+            ? Motion.SmoothOut
             : Motion.SmoothInOut;
 
         if (slide)

@@ -12,7 +12,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>yoink.ico</ApplicationIcon>
-    <Version>0.8.4.0</Version>
+    <Version>0.8.4.1</Version>
     <RuntimeIdentifiers>win-x64;win-x86;win-arm64</RuntimeIdentifiers>
     <Authors>jasperdevs</Authors>
     <Description>Screenshot, annotation, OCR, sticker, and recording tool for Windows</Description>
@@ -62,6 +62,7 @@
     <Resource Include="Assets\uguu.png" />
     <Resource Include="Assets\uguu_sq.png" />
     <EmbeddedResource Include="lucide.ttf" LogicalName="Yoink.lucide.ttf" />
+    <EmbeddedResource Include="Resources\Icons\*.png" />
   </ItemGroup>
 
   <ItemGroup>

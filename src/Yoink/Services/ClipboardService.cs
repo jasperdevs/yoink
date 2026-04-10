@@ -27,7 +27,10 @@ public static class ClipboardService
         {
             bitmap.Save(pngStream, ImageFormat.Png);
         }
-        dataObject.SetData("PNG", false, new MemoryStream(pngStream.ToArray()));
+        if (pngStream.TryGetBuffer(out var pngBuffer))
+            dataObject.SetData("PNG", false, new MemoryStream(pngBuffer.Array!, pngBuffer.Offset, pngBuffer.Count, writable: false, publiclyVisible: true));
+        else
+            dataObject.SetData("PNG", false, new MemoryStream(pngStream.ToArray(), writable: false));
 
         if (!string.IsNullOrWhiteSpace(filePath) && File.Exists(filePath))
         {

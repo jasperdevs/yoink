@@ -7,29 +7,49 @@ namespace Yoink.Helpers;
 
 /// <summary>
 /// Shared rendering helpers for semantic tool icons.
-/// These are used for icons that should look the same everywhere instead of relying on font glyph availability.
+/// Prefers Streamline Core Flat icons when available, with Lucide font glyph fallback.
 /// </summary>
 public static class ToolIcons
 {
+    /// <summary>Map from tool IDs to Streamline icon IDs (where they differ).</summary>
+    private static readonly Dictionary<string, string> ToolToStreamlineId = new()
+    {
+        ["_record"] = "record",
+    };
+
     public static BitmapSource RenderToolIconWpf(string toolId, char glyph, Color color, int size)
     {
-        if (toolId == "sticker")
-            return RenderStickerWpf(color, size);
+        var iconId = ToolToStreamlineId.TryGetValue(toolId, out var mapped) ? mapped : toolId;
 
-        if (toolId == "_record")
-            return RenderRecordWpf(color, size);
+        if (StreamlineIcons.HasIcon(iconId))
+        {
+            var src = StreamlineIcons.RenderWpf(iconId, color, size);
+            if (src != null) return src;
+        }
 
         return IconFont.RenderGlyphWpf(glyph, color, size);
     }
 
-    public static BitmapSource RenderStickerWpf(Color color, int size) =>
-        RenderShapeWpf(size, g => DrawSticker(g, size, color));
+    public static BitmapSource RenderStickerWpf(Color color, int size)
+    {
+        var src = StreamlineIcons.RenderWpf("sticker", color, size);
+        if (src != null) return src;
+        return RenderShapeWpf(size, g => DrawSticker(g, size, color));
+    }
 
-    public static BitmapSource RenderRecordWpf(Color color, int size) =>
-        RenderShapeWpf(size, g => DrawRecord(g, size, color));
+    public static BitmapSource RenderRecordWpf(Color color, int size)
+    {
+        var src = StreamlineIcons.RenderWpf("record", color, size);
+        if (src != null) return src;
+        return RenderShapeWpf(size, g => DrawRecord(g, size, color));
+    }
 
-    public static BitmapSource RenderFolderWpf(Color color, int size) =>
-        RenderShapeWpf(size, g => DrawFolder(g, size, color));
+    public static BitmapSource RenderFolderWpf(Color color, int size)
+    {
+        var src = StreamlineIcons.RenderWpf("folder", color, size);
+        if (src != null) return src;
+        return RenderShapeWpf(size, g => DrawFolder(g, size, color));
+    }
 
     private static BitmapSource RenderShapeWpf(int size, Action<Graphics> draw)
     {

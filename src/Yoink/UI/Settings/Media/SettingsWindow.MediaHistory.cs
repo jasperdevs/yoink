@@ -381,11 +381,8 @@ public partial class SettingsWindow
             return;
         }
 
-        lock (ThumbInflight)
-        {
-            if (!ThumbInflight.Add(cacheKey))
-                return;
-        }
+        if (!SettingsMediaCache.TryBeginInflight(cacheKey))
+            return;
 
         _ = Task.Run(async () =>
         {
@@ -433,8 +430,7 @@ public partial class SettingsWindow
             catch { }
             finally
             {
-                lock (ThumbInflight)
-                    ThumbInflight.Remove(cacheKey);
+                SettingsMediaCache.EndInflight(cacheKey);
             }
         });
     }
@@ -449,11 +445,8 @@ public partial class SettingsWindow
             return;
         }
 
-        lock (ThumbInflight)
-        {
-            if (!ThumbInflight.Add(cacheKey))
-                return;
-        }
+        if (!SettingsMediaCache.TryBeginInflight(cacheKey))
+            return;
 
         _ = Task.Run(async () =>
         {
@@ -493,8 +486,7 @@ public partial class SettingsWindow
             }
             finally
             {
-                lock (ThumbInflight)
-                    ThumbInflight.Remove(cacheKey);
+                SettingsMediaCache.EndInflight(cacheKey);
             }
         });
     }
@@ -541,37 +533,11 @@ public partial class SettingsWindow
     private static bool ShouldCachePlaceholder(HistoryKind kind) =>
         kind != HistoryKind.Image && kind != HistoryKind.Gif && kind != HistoryKind.Sticker;
 
-    private static void RegisterThumbWaiter(string cacheKey, System.Windows.Controls.Image image)
-    {
-        lock (ThumbWaiters)
-        {
-            if (!ThumbWaiters.TryGetValue(cacheKey, out var waiters))
-            {
-                waiters = new List<WeakReference<System.Windows.Controls.Image>>();
-                ThumbWaiters[cacheKey] = waiters;
-            }
-
-            waiters.RemoveAll(waiter => !waiter.TryGetTarget(out var existing) || ReferenceEquals(existing, image));
-            waiters.Add(new WeakReference<System.Windows.Controls.Image>(image));
-        }
-    }
+    private static void RegisterThumbWaiter(string cacheKey, System.Windows.Controls.Image image) => SettingsMediaCache.RegisterWaiter(cacheKey, image);
 
     private static void ApplyThumbnailToWaiters(string cacheKey, BitmapSource bitmap, bool animate)
     {
-        List<System.Windows.Controls.Image> targets = new();
-        lock (ThumbWaiters)
-        {
-            if (ThumbWaiters.TryGetValue(cacheKey, out var waiters))
-            {
-                foreach (var waiter in waiters)
-                {
-                    if (waiter.TryGetTarget(out var image))
-                        targets.Add(image);
-                }
-
-                ThumbWaiters.Remove(cacheKey);
-            }
-        }
+        var targets = SettingsMediaCache.TakeWaiters(cacheKey);
 
         foreach (var target in targets)
         {

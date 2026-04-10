@@ -34,6 +34,7 @@ public sealed partial class RegionOverlayForm
             if (_isTyping)
             {
                 _isTyping = false;
+                SetSnapGuides(false, false);
                 _textBuffer = "";
                 HideTextBox();
                 anyClosed = true;

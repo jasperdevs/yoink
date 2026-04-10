@@ -94,6 +94,30 @@ public sealed class SettingsServiceTests
         Assert.Equal(UploadDestination.Catbox, settings.ImageUploadSettings.AiChatUploadDestination);
     }
 
+    [Fact]
+    public void LoadStatic_ReturnsIsolatedCachedSettingsInstances()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var settingsPath = Path.Combine(root, "settings.json");
+
+            var first = SettingsService.LoadStatic(settingsPath);
+            Assert.NotNull(first);
+
+            first!.MuteSounds = true;
+
+            var second = SettingsService.LoadStatic(settingsPath);
+            Assert.NotNull(second);
+            Assert.NotSame(first, second);
+            Assert.False(second!.MuteSounds);
+        }
+        finally
+        {
+            TryDeleteRoot(root);
+        }
+    }
+
     private static string CreateTempRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "yoink-tests", Guid.NewGuid().ToString("N"));

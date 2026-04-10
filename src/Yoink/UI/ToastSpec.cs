@@ -17,6 +17,7 @@ internal sealed record ToastSpec
     public string? ClickActionLabel { get; init; }
     public bool PlayCaptureSound { get; init; }
     public bool PlayErrorSound { get; init; }
+    public bool SuppressSound { get; init; }
     public bool IsError { get; init; }
     public bool AutoPin { get; init; }
     public bool TransparentShell { get; init; }
@@ -31,8 +32,7 @@ internal sealed record ToastSpec
     {
         Title = title,
         Body = body,
-        FilePath = filePath,
-        PlayCaptureSound = true
+        FilePath = filePath
     };
 
     public static ToastSpec Error(string title, string body = "", string? filePath = null) => new()
@@ -48,8 +48,7 @@ internal sealed record ToastSpec
     {
         Title = title,
         Body = body,
-        SwatchColor = color,
-        PlayCaptureSound = true
+        SwatchColor = color
     };
 
     public static ToastSpec InlinePreview(Bitmap preview, string title, string body, string? filePath = null) => new()

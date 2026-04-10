@@ -97,7 +97,7 @@ public sealed class ToolbarLayoutTests
 
         Assert.True(rect.Left >= 8);
         Assert.True(rect.Right <= 1920 - 8);
-        Assert.Equal(16, rect.Top);
+        Assert.Equal(14, rect.Top);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class ToolbarLayoutTests
 
         Assert.True(rect.Left >= 1928);
         Assert.True(rect.Right <= 3840 - 8);
-        Assert.Equal(16, rect.Top);
+        Assert.Equal(14, rect.Top);
     }
 
     [Fact]

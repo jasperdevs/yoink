@@ -56,17 +56,13 @@ public partial class PreviewWindow
                 return;
             }
 
-            var dur = TimeSpan.FromMilliseconds(180);
-            var ease = Motion.SmoothOut;
             DragScale.CenterX = ActualWidth / 2;
             DragScale.CenterY = ActualHeight / 2;
-            DragScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-                new DoubleAnimation { To = 0.96, Duration = dur, EasingFunction = ease });
-            DragScale.BeginAnimation(ScaleTransform.ScaleYProperty,
-                new DoubleAnimation { To = 0.96, Duration = dur, EasingFunction = ease });
-            BeginAnimation(OpacityProperty, new DoubleAnimation { To = 0.82, Duration = dur, EasingFunction = ease });
+            DragScale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion.To(0.96, 180, Motion.SmoothOut));
+            DragScale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion.To(0.96, 180, Motion.SmoothOut));
+            BeginAnimation(OpacityProperty, Motion.To(0.82, 180, Motion.SmoothOut));
 
-            var shake = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(200) };
+            var shake = new DoubleAnimationUsingKeyFrames { Duration = Motion.Ms(200) };
             shake.KeyFrames.Add(new LinearDoubleKeyFrame(-2, KeyTime.FromPercent(0.15)));
             shake.KeyFrames.Add(new LinearDoubleKeyFrame(2, KeyTime.FromPercent(0.35)));
             shake.KeyFrames.Add(new LinearDoubleKeyFrame(-1, KeyTime.FromPercent(0.55)));
@@ -134,27 +130,19 @@ public partial class PreviewWindow
         BeginAnimation(TopProperty, null);
 
         var wa = SystemParameters.WorkArea;
-        var dur = TimeSpan.FromMilliseconds(280);
-        var ease = Motion.SmoothIn;
 
         var (exitLeft, exitTop, animateLeft) = PopupWindowHelper.GetDismissPlacement(
             _position, ActualWidth, ActualHeight, wa, Edge);
         if (animateLeft)
         {
-            BeginAnimation(LeftProperty, new DoubleAnimation
-            {
-                To = exitLeft, Duration = dur, EasingFunction = ease
-            });
+            BeginAnimation(LeftProperty, Motion.To(exitLeft, 280, Motion.SmoothIn));
         }
         else
         {
-            BeginAnimation(TopProperty, new DoubleAnimation
-            {
-                To = exitTop, Duration = dur, EasingFunction = ease
-            });
+            BeginAnimation(TopProperty, Motion.To(exitTop, 280, Motion.SmoothIn));
         }
 
-        var fadeOut = new DoubleAnimation { To = 0, Duration = dur, EasingFunction = ease };
+        var fadeOut = Motion.To(0, 280, Motion.SmoothIn);
         fadeOut.Completed += (_, _) => ForceClose();
         BeginAnimation(OpacityProperty, fadeOut);
     }
@@ -204,7 +192,7 @@ public partial class PreviewWindow
             ProgressBar.Visibility = System.Windows.Visibility.Visible;
             ProgressScale.ScaleX = 1;
             ProgressScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty,
-                new DoubleAnimation { To = 0, Duration = TimeSpan.FromSeconds(_duration) });
+                new DoubleAnimation { To = 0, Duration = Motion.Sec(_duration) });
             _fadeTimer.Interval = TimeSpan.FromSeconds(_duration);
             _fadeTimer.Start();
         }

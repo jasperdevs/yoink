@@ -37,6 +37,14 @@ public partial class SettingsWindow
         SoundService.Muted = _settingsService.Settings.MuteSounds;
     }
 
+    private void DisableAnimationsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settingsService.Settings.DisableAnimations = DisableAnimationsCheck.IsChecked == true;
+        _settingsService.Save();
+        Motion.Disabled = _settingsService.Settings.DisableAnimations;
+    }
+
     private void SoundPackCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;

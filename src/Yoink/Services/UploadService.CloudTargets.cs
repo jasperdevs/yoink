@@ -209,16 +209,24 @@ public static partial class UploadService
         if (string.IsNullOrWhiteSpace(s.FtpUrl) || string.IsNullOrWhiteSpace(s.FtpUsername))
             return new UploadResult { Error = "FTP URL or username not configured" };
 
-        var baseUri = new Uri(s.FtpUrl.EndsWith('/') ? s.FtpUrl : s.FtpUrl + "/");
+        var rawUrl = s.FtpUrl.Trim();
+        if (!rawUrl.Contains("://", StringComparison.Ordinal))
+            rawUrl = "ftp://" + rawUrl;
+
+        if (!Uri.TryCreate(rawUrl.EndsWith('/') ? rawUrl : rawUrl + "/", UriKind.Absolute, out var baseUri) ||
+            baseUri.Scheme is not ("ftp" or "ftps"))
+        {
+            return new UploadResult { Error = "FTP URL must be a valid ftp:// or ftps:// address." };
+        }
+
         string fileName = Path.GetFileName(filePath);
         string remotePath = baseUri.AbsolutePath.TrimEnd('/') + "/" + fileName;
         string url = new Uri(baseUri, Uri.EscapeDataString(fileName)).ToString();
 
         var config = new FtpConfig
         {
-            EncryptionMode = FtpEncryptionMode.None,
-            DataConnectionType = FtpDataConnectionType.AutoPassive,
-            ValidateAnyCertificate = true
+            EncryptionMode = FtpEncryptionMode.Explicit,
+            DataConnectionType = FtpDataConnectionType.AutoPassive
         };
 
         using var client = new AsyncFtpClient(baseUri.Host, s.FtpUsername, s.FtpPassword ?? string.Empty, baseUri.Port > 0 ? baseUri.Port : 21, config);

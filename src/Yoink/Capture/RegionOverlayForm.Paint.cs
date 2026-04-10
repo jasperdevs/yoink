@@ -58,18 +58,18 @@ public sealed partial class RegionOverlayForm
             if (bounds.Width > 0 && bounds.Height > 0)
             {
                 var selRect = Rectangle.Inflate(bounds, 4, 4);
-                var selPen = _selectDashPen ??= new Pen(Color.FromArgb(200, 100, 149, 237), 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                var selPen = _selectDashPen ??= new Pen(Color.FromArgb(200, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f } };
                 g.DrawRectangle(selPen, selRect);
 
                 // Corner handles
-                int hs = 6;
+                int hs = SelectHandleSize;
                 var hBrush = _selectHandleBrush ??= new SolidBrush(UiChrome.SurfaceTextPrimary);
-                var hPen = _selectHandlePen ??= new Pen(Color.FromArgb(200, 100, 149, 237), 1f);
+                var hPen = _selectHandlePen ??= new Pen(Color.FromArgb(200, 255, 255, 255), 1f);
                 var corners = new[] {
                     new Rectangle(selRect.X - hs / 2, selRect.Y - hs / 2, hs, hs),
-                    new Rectangle(selRect.Right - hs / 2, selRect.Y - hs / 2, hs, hs),
-                    new Rectangle(selRect.X - hs / 2, selRect.Bottom - hs / 2, hs, hs),
-                    new Rectangle(selRect.Right - hs / 2, selRect.Bottom - hs / 2, hs, hs),
+                    new Rectangle(selRect.Right - 1 - hs / 2, selRect.Y - hs / 2, hs, hs),
+                    new Rectangle(selRect.X - hs / 2, selRect.Bottom - 1 - hs / 2, hs, hs),
+                    new Rectangle(selRect.Right - 1 - hs / 2, selRect.Bottom - 1 - hs / 2, hs, hs),
                 };
                 foreach (var c in corners) { g.FillRectangle(hBrush, c); g.DrawRectangle(hPen, c); }
             }
@@ -143,12 +143,15 @@ public sealed partial class RegionOverlayForm
     private static Pen? _selectDashPen, _selectHandlePen;
     private static SolidBrush? _selectHandleBrush;
 
-    /// <summary>Cached dashed pen for selection borders. Reuses instances for common alpha values.</summary>
-    private static Pen DashedPen(int alpha, float width = 2f)
+    // Monochrome white accent for selection borders
+    private static readonly Color SelectionAccent = Color.FromArgb(255, 255, 255, 255);
+
+    /// <summary>Cached selection pen — dashed white stroke.</summary>
+    private static Pen DashedPen(int alpha, float width = 2.0f)
     {
         // Fast path: return cached instance for the common alpha values used every frame.
         ref Pen? slot = ref _cachedDash180; // dummy init
-        if (width == 2f)
+        if (width == 2.0f)
         {
             switch (alpha)
             {
@@ -156,19 +159,20 @@ public sealed partial class RegionOverlayForm
                 case 180: slot = ref _cachedDash180; break;
                 case 220: slot = ref _cachedDash220; break;
                 case 255: slot = ref _cachedDash255; break;
-                default: slot = ref _cachedDash180; goto create; // uncommon alpha, always create
+                default: slot = ref _cachedDash180; goto create;
             }
             if (slot != null) return slot;
         }
         else goto create;
 
         create:
-        var pen = new Pen(Color.FromArgb(alpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), width)
+        var pen = new Pen(Color.FromArgb(alpha, SelectionAccent.R, SelectionAccent.G, SelectionAccent.B), width)
         {
             DashStyle = DashStyle.Dash,
-            DashPattern = new[] { 6f, 4f }
+            DashPattern = new[] { 4f, 3f },
+            LineJoin = LineJoin.Miter
         };
-        if (width == 2f && (alpha is 120 or 180 or 220 or 255))
+        if (width == 2.0f && (alpha is 120 or 180 or 220 or 255))
             slot = pen;
         return pen;
     }
@@ -185,8 +189,13 @@ public sealed partial class RegionOverlayForm
             return;
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        var shadowPen = ShadowPen(30);
-        var outlinePen = DashedPen(255);
+        using var shadowPen = new Pen(Color.FromArgb(30, 0, 0, 0), 4f) { LineJoin = LineJoin.Round };
+        using var outlinePen = new Pen(Color.FromArgb(255, SelectionAccent.R, SelectionAccent.G, SelectionAccent.B), 2.0f)
+        {
+            DashStyle = DashStyle.Dash,
+            DashPattern = new[] { 4f, 3f },
+            LineJoin = LineJoin.Round
+        };
         var path = pts.ToArray();
         g.DrawLines(shadowPen, path);
         g.DrawLines(outlinePen, path);
@@ -246,21 +255,22 @@ public sealed partial class RegionOverlayForm
         g.CompositingQuality = CompositingQuality.HighQuality;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-        var baseRect = rect;
-        baseRect.Inflate(2f, 2f);
-        var offsets = new (float dx, float dy, int a)[]
-        {
-            (5f, yOffset + 5f, alpha / 6),
-            (3f, yOffset + 3f, alpha / 4),
-            (1.5f, yOffset + 1.5f, alpha / 2),
-            (0f, yOffset, alpha),
-        };
-        foreach (var (dx, dy, a) in offsets)
-        {
-            using var path = RRect(new RectangleF(baseRect.X + dx, baseRect.Y + dy, baseRect.Width, baseRect.Height), radius + 2f);
-            using var brush = new SolidBrush(Color.FromArgb(Math.Clamp(a, 1, 255), 0, 0, 0));
+        // Fluent 2-layer shadow: ambient (soft, wide) + directional (tighter, more Y-offset)
+        var ambient = rect;
+        ambient.Inflate(8f, 8f);
+        ambient.Offset(0, yOffset + 1f);
+        int ambientAlpha = Math.Clamp((int)(alpha * 0.10f), 1, 255);
+        using (var path = RRect(ambient, radius + 8f))
+        using (var brush = new SolidBrush(Color.FromArgb(ambientAlpha, 0, 0, 0)))
             g.FillPath(brush, path);
-        }
+
+        var directional = rect;
+        directional.Inflate(3f, 3f);
+        directional.Offset(0, yOffset + 4f);
+        int dirAlpha = Math.Clamp((int)(alpha * 0.22f), 1, 255);
+        using (var path = RRect(directional, radius + 3f))
+        using (var brush = new SolidBrush(Color.FromArgb(dirAlpha, 0, 0, 0)))
+            g.FillPath(brush, path);
 
         g.SmoothingMode = oldSmooth;
         g.CompositingMode = oldComp;

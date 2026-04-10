@@ -209,22 +209,13 @@ public partial class PreviewWindow : Window
         {
             UpdatePreviewClip();
             Opacity = 1;
-            var dur = TimeSpan.FromMilliseconds(300);
-            var ease = Motion.SmoothOut;
-
             if (animateLeft)
             {
-                BeginAnimation(LeftProperty, new DoubleAnimation
-                {
-                    To = targetLeft, Duration = dur, EasingFunction = ease
-                });
+                BeginAnimation(LeftProperty, Motion.To(targetLeft, 300, Motion.SmoothOut));
             }
             else
             {
-                BeginAnimation(TopProperty, new DoubleAnimation
-                {
-                    To = targetTop, Duration = dur, EasingFunction = ease
-                });
+                BeginAnimation(TopProperty, Motion.To(targetTop, 300, Motion.SmoothOut));
             }
 
             _fadeTimer.Start();
@@ -234,7 +225,7 @@ public partial class PreviewWindow : Window
             {
                 ProgressScale.ScaleX = 1;
                 ProgressScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty,
-                    new DoubleAnimation { To = 0, Duration = TimeSpan.FromSeconds(_duration) });
+                    new DoubleAnimation { To = 0, Duration = Motion.Sec(_duration) });
             }
         }, System.Windows.Threading.DispatcherPriority.Render);
     }
@@ -267,7 +258,7 @@ public partial class PreviewWindow : Window
             if (remaining > 0.1)
             {
                 ProgressScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty,
-                    new DoubleAnimation { To = 0, Duration = TimeSpan.FromSeconds(remaining) });
+                    new DoubleAnimation { To = 0, Duration = Motion.Sec(remaining) });
             }
             _fadeTimer.Interval = TimeSpan.FromSeconds(Math.Max(0.1, remaining));
         }

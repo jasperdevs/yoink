@@ -17,7 +17,6 @@ public sealed partial class RegionOverlayForm
     // This method only renders live previews for the in-progress tool state.
     private void PaintAnnotations(Graphics g)
     {
-
         // Active tool previews
         if (_mode == CaptureMode.Eraser && _isEraserDragging)
         {
@@ -98,6 +97,8 @@ public sealed partial class RegionOverlayForm
             var font = GetAnnotationFont(_textFontFamily, _textFontSize, fontStyle);
             string display = _textBuffer.Length > 0 ? _textBuffer : "Type here...";
             var textSize = g.MeasureString(display, font);
+            int selectionStart = _textBox?.SelectionStart ?? 0;
+            int selectionLength = _textBox?.SelectionLength ?? 0;
 
             // Dashed selection border — use cached rect so handles match hit areas
             var textRect = GetActiveTextRect();
@@ -113,6 +114,15 @@ public sealed partial class RegionOverlayForm
                 g.DrawRectangle(handleShadow, h.X, h.Y, h.Width, h.Height);
             }
 
+            if (_textBuffer.Length > 0 && selectionLength > 0)
+            {
+                float selX = _textPos.X + MeasureTextPrefixWidth(_textBuffer, selectionStart, font);
+                float selW = Math.Max(2f, MeasureTextPrefixWidth(_textBuffer, selectionStart + selectionLength, font) - MeasureTextPrefixWidth(_textBuffer, selectionStart, font));
+                var selRect = new RectangleF(selX - 1, textRect.Y + 3, selW + 2, Math.Max(16f, textRect.Height - 6));
+                using var selBrush = new SolidBrush(Color.FromArgb(90, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
+                g.FillRectangle(selBrush, selRect);
+            }
+
             // Render text with stroke/shadow
             if (_textBuffer.Length > 0)
             {
@@ -125,23 +135,27 @@ public sealed partial class RegionOverlayForm
                 g.DrawString(display, font, placeholderBrush, _textPos.X, _textPos.Y);
             }
 
-            // Blinking cursor — use Graphics.MeasureString to match DrawString positioning
+            // Blinking caret: draw a standard I-beam inside the text frame, not inside glyph strokes.
+            if (selectionLength == 0)
             {
                 float cursorX;
+                int caretIndex = _textBox?.SelectionStart ?? _textBuffer.Length;
                 if (_textBuffer.Length > 0)
                 {
-                    var cursorSize = g.MeasureString(_textBuffer, font, PointF.Empty, StringFormat.GenericDefault);
-                    cursorX = _textPos.X + cursorSize.Width - 2;
+                    cursorX = _textPos.X + MeasureTextPrefixWidth(_textBuffer, caretIndex, font) - 1;
                 }
                 else
                 {
                     cursorX = _textPos.X;
                 }
-                // Smooth cursor blink using sine wave
+
                 float blinkAlpha = (float)(Math.Sin(Environment.TickCount64 / 400.0 * Math.PI) * 0.5 + 0.5);
-                int alpha = (int)(blinkAlpha * _toolColor.A);
-                using var cursorPen = new Pen(Color.FromArgb(alpha, _toolColor), 2f);
-                g.DrawLine(cursorPen, cursorX, _textPos.Y + 2, cursorX, _textPos.Y + textSize.Height - 4);
+                int alpha = (int)(blinkAlpha * 220);
+                var caretColor = Color.FromArgb(alpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B);
+                float caretTop = textRect.Y + 3;
+                float caretBottom = textRect.Bottom - 3;
+                using var cursorPen = new Pen(caretColor, 1.6f);
+                g.DrawLine(cursorPen, cursorX, caretTop, cursorX, caretBottom);
             }
 
             // Inline text formatting toolbar above text
@@ -156,7 +170,41 @@ public sealed partial class RegionOverlayForm
                 _selectedEmoji, _emojiPlaceSize, 0.6f);
         }
 
+        PaintGlobalSnapGuides(g);
+
         // Color/emoji/font picker popups are painted on the separate ToolbarForm
+    }
+
+    private void PaintGlobalSnapGuides(Graphics g)
+    {
+        if (!_snapGuideXVisible && !_snapGuideYVisible)
+            return;
+
+        g.SmoothingMode = SmoothingMode.None;
+        int centerX = ClientSize.Width / 2;
+        int centerY = ClientSize.Height / 2;
+
+        if (_snapGuideXVisible)
+        {
+            using var shadowPen = new Pen(Color.FromArgb(28, 0, 0, 0), 3f);
+            using var guidePen = new Pen(Color.FromArgb(150, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), 1f);
+            guidePen.DashStyle = DashStyle.Dash;
+            guidePen.DashPattern = new[] { 6f, 4f };
+            g.DrawLine(shadowPen, centerX + 1, 0, centerX + 1, ClientSize.Height);
+            g.DrawLine(guidePen, centerX, 0, centerX, ClientSize.Height);
+        }
+
+        if (_snapGuideYVisible)
+        {
+            using var shadowPen = new Pen(Color.FromArgb(28, 0, 0, 0), 3f);
+            using var guidePen = new Pen(Color.FromArgb(150, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), 1f);
+            guidePen.DashStyle = DashStyle.Dash;
+            guidePen.DashPattern = new[] { 6f, 4f };
+            g.DrawLine(shadowPen, 0, centerY + 1, ClientSize.Width, centerY + 1);
+            g.DrawLine(guidePen, 0, centerY, ClientSize.Width, centerY);
+        }
+
+        g.SmoothingMode = SmoothingMode.AntiAlias;
     }
 
     /// <summary>Text annotation: uses DrawString for correct kerning. Shadow and stroke via offset draws.</summary>

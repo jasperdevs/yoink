@@ -157,7 +157,8 @@ public sealed class PickerMagnifierForm : Form
 
         // Center crosshair dot
         int dotSize = 4;
-        g.FillRectangle(Brushes.White, cx - dotSize / 2, cy - dotSize / 2, dotSize, dotSize);
+        using var dotFill = new SolidBrush(UiChrome.SurfaceTextPrimary);
+        g.FillRectangle(dotFill, cx - dotSize / 2, cy - dotSize / 2, dotSize, dotSize);
         using var dotBorder = new Pen(UiChrome.SurfaceBorderStrong, 1f);
         g.DrawRectangle(dotBorder, cx - dotSize / 2, cy - dotSize / 2, dotSize, dotSize);
 
