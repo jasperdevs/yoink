@@ -1,3 +1,11 @@
+# Yoink v0.8.4.3
+
+## Highlights
+- Fixed the in-app self-updater so update installs can complete from Settings without tripping over the downloaded ZIP file.
+
+## Fixed
+- The update package is now fully closed before checksum verification runs, which prevents the `Yoink-win-x64.zip is being used by another process` failure during in-app updates.
+
 # Yoink v0.8.4.2
 
 ## Highlights
