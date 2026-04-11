@@ -72,10 +72,21 @@ jobs:
             --mainExe Yoink.exe `
             --packTitle Yoink `
             --packAuthors jasperdevs `
+            --icon src/Yoink/yoink.ico `
             --channel "${{ matrix.rid }}" `
             --runtime "${{ matrix.rid }}" `
             --releaseNotes "docs/CHANGELOG.md" `
             --outputDir $outDir
+
+          $setup = Get-ChildItem $outDir -Filter '*-Setup.exe' | Select-Object -First 1
+          if ($null -ne $setup) {
+            Rename-Item -LiteralPath $setup.FullName -NewName "Yoink-${{ matrix.rid }}-Setup.exe"
+          }
+
+          $portable = Get-ChildItem $outDir -Filter '*-Portable.zip' | Select-Object -First 1
+          if ($null -ne $portable) {
+            Rename-Item -LiteralPath $portable.FullName -NewName "Yoink-${{ matrix.rid }}-Portable.zip"
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
