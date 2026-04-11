@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/3banner-readme-v2.png" alt="yoink screenshot" width="840" />
+  <img src="assets/3banner-readme-v2.png" alt="yoink screenshot" width="900" />
 </p>
 
 ## Download
