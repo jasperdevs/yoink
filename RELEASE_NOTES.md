@@ -1,3 +1,29 @@
+# Yoink v0.8.4.2
+
+## Highlights
+- Simplified AI Redirect targets to the four primary destinations: ChatGPT, Claude, Gemini, and Google Lens.
+- Improved text annotation editing so placed text can be repositioned directly while editing.
+- Added a background text style for callout-style annotations.
+- Expanded upload destination coverage in the settings UI to surface the full provider set.
+
+## Added
+- Inline `Bg` text-style toggle that renders selected-color text backgrounds with white text and optional stroke/shadow.
+- `tmpfiles.org` and `transfer.sh` surfaced as explicit upload destination options in the upload selectors.
+
+## Changed
+- The AI Redirect provider picker now presents `Claude` as a single option instead of splitting `Claude` and `Claude Opus`.
+- Legacy `Claude Opus` selections now normalize to the standard Claude redirect flow.
+- Active text annotations can be dragged directly without switching to Select mode first.
+- Upload destination lists now expose the complete supported provider lineup in the app UI.
+
+## Improved
+- Text annotation bounds now account for the new background style so selection, hit testing, and resizing stay aligned.
+- AI redirect workflows are easier to reason about with a smaller provider list focused on the main supported destinations.
+
+## Fixed
+- Re-editing existing text annotations now preserves and restores the new text background style correctly.
+- Upload destination pickers no longer hide supported temporary-host options that already exist in the app.
+
 # Yoink v0.8.4.1
 
 ## Highlights

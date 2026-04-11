@@ -81,7 +81,11 @@ public partial class SettingsWindow
     {
         if (AiChatProviderCombo.SelectedItem is ComboBoxItem item &&
             item.Tag is string tag && int.TryParse(tag, out var value))
+        {
+            if (value == (int)Services.AiChatProvider.ClaudeOpus)
+                return Services.AiChatProvider.Claude;
             return (Services.AiChatProvider)value;
+        }
         return Services.AiChatProvider.ChatGpt;
     }
 
@@ -534,6 +538,9 @@ public partial class SettingsWindow
 
     private void SelectAiChatProviderByValue(int providerValue)
     {
+        if (providerValue == (int)Services.AiChatProvider.ClaudeOpus)
+            providerValue = (int)Services.AiChatProvider.Claude;
+
         var tag = providerValue.ToString();
         foreach (ComboBoxItem item in AiChatProviderCombo.Items)
         {

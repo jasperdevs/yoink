@@ -1480,7 +1480,6 @@
                                           SelectionChanged="AiChatProviderCombo_Changed">
                                     <ComboBoxItem Content="ChatGPT" Tag="0"/>
                                     <ComboBoxItem Content="Claude" Tag="1"/>
-                                    <ComboBoxItem Content="Claude Opus" Tag="2"/>
                                     <ComboBoxItem Content="Gemini" Tag="3"/>
                                     <ComboBoxItem Content="Google Lens" Tag="4"/>
                                 </ComboBox>

@@ -44,6 +44,7 @@ public enum AiChatProvider
 {
     ChatGpt,
     Claude,
+    // Legacy saved value; normalized to Claude in current UI/runtime behavior.
     ClaudeOpus,
     Gemini,
     GoogleLens
@@ -244,7 +245,7 @@ public static partial class UploadService
     {
         AiChatProvider.ChatGpt => "ChatGPT",
         AiChatProvider.Claude => "Claude",
-        AiChatProvider.ClaudeOpus => "Claude Opus",
+        AiChatProvider.ClaudeOpus => "Claude",
         AiChatProvider.Gemini => "Gemini",
         AiChatProvider.GoogleLens => "Google Lens",
         _ => "AI Redirects"
@@ -256,7 +257,7 @@ public static partial class UploadService
         {
             AiChatProvider.ChatGpt => "https://chatgpt.com/",
             AiChatProvider.Claude => "https://claude.ai/new",
-            AiChatProvider.ClaudeOpus => "https://claude.ai/new?model=claude-opus-4-1",
+            AiChatProvider.ClaudeOpus => "https://claude.ai/new",
             AiChatProvider.Gemini => "https://gemini.google.com/app",
             AiChatProvider.GoogleLens => "https://lens.google.com/search?hl=en&country=us",
             _ => "https://chatgpt.com/"
