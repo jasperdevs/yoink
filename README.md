@@ -135,6 +135,15 @@ Upload screenshots, stickers, and recordings to Imgur, ImgBB, Catbox, Litterbox,
 <img src="assets/uploads-readme-v2.png" alt="Yoink uploads" width="100%" />
 </td>
 </tr>
+<tr>
+<td width="40%" valign="middle">
+<h3>Upload to AIs + Google Lens</h3>
+Redirect captures straight into ChatGPT, Claude, Claude Opus, Gemini, or Google Lens with dedicated AI upload flows built for drag-and-drop and fast paste.
+</td>
+<td width="60%">
+<img src="assets/ai-uploads-readme-v2.png" alt="Yoink AI uploads and Google Lens" width="100%" />
+</td>
+</tr>
 </table>
 
 <a href="https://star-history.com/#jasperdevs/yoink&Date">
