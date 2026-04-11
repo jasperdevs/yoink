@@ -8,20 +8,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jasperdevs/yoink/releases/latest">
-    <img src="https://img.shields.io/github/v/release/jasperdevs/yoink?style=flat-square&color=1962F4" alt="Release" />
-  </a>
   <a href="https://github.com/jasperdevs/yoink/releases">
-    <img src="https://img.shields.io/github/downloads/jasperdevs/yoink/total?style=flat-square&cacheSeconds=300" alt="Downloads" />
-  </a>
-  <a href="https://github.com/jasperdevs/yoink/releases/latest">
-    <img src="https://img.shields.io/github/downloads/jasperdevs/yoink/latest/total?style=flat-square&cacheSeconds=300" alt="Latest release downloads" />
+    <img src="https://img.shields.io/badge/downloads-555?logo=github" alt="Downloads" />
   </a>
   <a href="https://github.com/jasperdevs/yoink/stargazers">
-    <img src="https://img.shields.io/github/stars/jasperdevs/yoink?style=flat-square" alt="Stars" />
-  </a>
-  <a href="https://github.com/jasperdevs/yoink/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/jasperdevs/yoink?style=flat-square" alt="License" />
+    <img src="https://img.shields.io/github/stars/jasperdevs/yoink?style=flat&logo=github&label=stars&color=4c71f2" alt="GitHub stars" />
   </a>
 </p>
 
@@ -140,8 +131,6 @@ Upload screenshots, stickers, and recordings to Imgur, S3, Dropbox, and self-hos
 </tr>
 </table>
 
-## Star History
-
 <a href="https://star-history.com/#jasperdevs/yoink&Date">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Date&theme=dark" />
@@ -149,3 +138,7 @@ Upload screenshots, stickers, and recordings to Imgur, S3, Dropbox, and self-hos
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jasperdevs/yoink&type=Date" width="600" />
  </picture>
 </a>
+
+## License
+
+yoink is open source under [GPL-3.0-or-later](LICENSE).
