@@ -125,6 +125,7 @@ jobs:
           foreach ($channel in @('win-x64', 'win-x86', 'win-arm64')) {
             vpk upload github `
               --repoUrl $repoUrl `
+              --token $env:GITHUB_TOKEN `
               --releaseName "Yoink v${{ steps.version.outputs.version }}" `
               --tag "v${{ steps.version.outputs.version }}" `
               --channel $channel `
