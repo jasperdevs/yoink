@@ -1,3 +1,13 @@
+# Yoink v0.8.7.1
+
+## Highlights
+- Blocked insecure automatic installs for Argos Translate and the open-source local translation runtime.
+
+## Fixed
+- Yoink no longer auto-installs `argostranslate` or auto-downloads Argos language packs at runtime.
+- Yoink no longer auto-installs the open-source local translation Python/model stack at runtime.
+- Translation settings now fail closed with a clear manual-install message instead of downloading unverified packages or models.
+
 # Yoink v0.8.7
 
 ## Highlights

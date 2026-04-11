@@ -101,27 +101,12 @@ public static class TranslationService
         if (await IsArgosReadyAsync(cancellationToken).ConfigureAwait(false))
             return;
 
-        progress?.Report("Installing Argos Translate...");
-        AppDiagnostics.LogInfo("translation.argos.install", "Installing Argos Translate runtime.");
+        progress?.Report("Argos Translate must be installed manually.");
+        AppDiagnostics.LogWarning("translation.argos.install-disabled", "Blocked automatic Argos installation because package and language-pack downloads are not integrity-verified.");
 
-        var install = await RunPythonAsync(new[]
-        {
-            PythonLauncherArg, "-m", "pip", "install", "--user", "--upgrade", "argostranslate"
-        }, cancellationToken).ConfigureAwait(false);
-
-        if (install.ExitCode != 0)
-        {
-            var message = !string.IsNullOrWhiteSpace(install.StdErr)
-                ? install.StdErr.Trim()
-                : install.StdOut.Trim();
-
-            throw new InvalidOperationException(string.IsNullOrWhiteSpace(message)
-                ? "Couldn't install Argos Translate."
-                : message);
-        }
-
-        TryWriteArgosMarker();
-        UpdateArgosProbeCache(true, "Installed");
+        throw new InvalidOperationException(
+            "Automatic Argos Translate installation is disabled for security reasons. " +
+            "Install Argos Translate and the required language packs manually from trusted, integrity-verified sources, then retry.");
     }
 
     public static async Task UninstallAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
@@ -420,13 +405,7 @@ from_lang = next((l for l in installed if l.code == from_code), None)
 to_lang = next((l for l in installed if l.code == to_code), None)
 
 if not from_lang or not to_lang or not from_lang.get_translation(to_lang):
-    import argostranslate.package as pkg
-    print("Installing language pack...", file=sys.stderr, flush=True)
-    pkg.update_package_index()
-    available = pkg.get_available_packages()
-    pack = next((p for p in available if p.from_code == from_code and p.to_code == to_code), None)
-    if pack:
-        pack.install()
+    raise RuntimeError("Required Argos language pack is not installed. Install it manually before using Argos translation.")
 
 translated = tr.translate(text, from_code, to_code)
 print(translated)
