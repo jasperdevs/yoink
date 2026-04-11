@@ -65,10 +65,13 @@ function isWindowsAsset(asset: ReleaseAsset): boolean {
 
 function getArchLabel(name: string): string {
   const arch = getAssetArch(name);
-  if (arch === "arm64") return "Windows (arm64)";
-  if (arch === "x64") return "Windows (x64)";
-  if (arch === "x86") return "Windows (x86)";
-  return "Windows";
+  const lower = name.toLowerCase();
+  const flavor = lower.includes("setup") ? "Installer" : lower.includes("portable") ? "Portable" : "";
+  const suffix = flavor ? ` ${flavor}` : "";
+  if (arch === "arm64") return "Windows (arm64)" + suffix;
+  if (arch === "x64") return "Windows (x64)" + suffix;
+  if (arch === "x86") return "Windows (x86)" + suffix;
+  return "Windows" + suffix;
 }
 
 function ReleaseCard({

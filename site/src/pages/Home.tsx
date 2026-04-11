@@ -35,8 +35,8 @@ const faq = [
   { q: "What models does the sticker maker use?", a: "Yoink supports local background removal with 5 AI models: BRIA RMBG (recommended, best quality), BiRefNet Lite (high quality), ISNet General Use (balanced), U2Net (older), and U2Netp (fastest). You can also use cloud providers Remove.bg and Photoroom. Local models run on CPU or GPU (CUDA)." },
   { q: "How is Yoink different from ShareX?", a: "Yoink has a modern, clean interface with built-in sticker creation, semantic image search, and uses Windows native OCR instead of Tesseract. It focuses on being simple to use while still being powerful." },
   { q: "Can I customize hotkeys?", a: "Yes. Every action has a configurable global hotkey. You can set hotkeys for screenshot, OCR, color picker, recording, stickers, and more in Settings." },
-  { q: "Does Yoink have a portable version?", a: "Yes. The standalone .exe from the Downloads page works without installation. Just run it from any folder." },
-  { q: "How do I update Yoink?", a: "Yoink checks for updates automatically in the background. When a new version is available, you'll be notified. You can also download the latest version from the Downloads page." },
+  { q: "Does Yoink have a portable version?", a: "Yes. The Downloads page includes both a Windows installer (recommended) and a portable zip if you want to run Yoink without installing it." },
+  { q: "How do I update Yoink?", a: "Installed builds can update through the app. You can also download the latest installer or portable build directly from the Downloads page." },
   { q: "Does Yoink support multiple monitors?", a: "Yes. Yoink fully supports multi-monitor setups for capture, recording, and color picking. You can capture regions across monitors or target a specific screen." },
 ];
 
