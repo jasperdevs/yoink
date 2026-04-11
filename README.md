@@ -5,14 +5,14 @@
   <a href="https://github.com/jasperdevs/yoink/releases/latest">
     <img src="https://img.shields.io/badge/Windows%20download-4c71f2?logo=windows&logoColor=white" alt="Download yoink for Windows" />
   </a>
-  <a href="https://github.com/jasperdevs/yoink/releases">
-    <img src="https://img.shields.io/badge/GitHub%20downloads-555?logo=github" alt="GitHub downloads" />
-  </a>
+  <img src="https://img.shields.io/badge/macOS%20planned-555?logo=apple" alt="macOS planned" />
+  <img src="https://img.shields.io/badge/Linux%20planned-555?logo=linux" alt="Linux planned" />
+</p>
+
+<p align="center">
   <a href="https://github.com/jasperdevs/yoink/stargazers">
     <img src="https://img.shields.io/github/stars/jasperdevs/yoink?style=flat&logo=github&label=stars&color=4c71f2" alt="GitHub stars" />
   </a>
-  <img src="https://img.shields.io/badge/macOS%20planned-555?logo=apple" alt="macOS planned" />
-  <img src="https://img.shields.io/badge/Linux%20planned-555?logo=linux" alt="Linux planned" />
 </p>
 
 <p align="center">
