@@ -78,7 +78,7 @@ Extract text from any screen region into a dedicated result window where you can
 Launch capture, OCR, color picking, recording, history, and more from system-wide hotkeys or the tray menu without breaking your flow.
 </td>
 <td width="60%">
-<img src="assets/screenshot-main-readme-v2.png" alt="Yoink hotkeys and tray workflow" width="100%" />
+<img src="assets/hotkeys-tray-readme-v2.png" alt="Yoink hotkeys and tray workflow" width="100%" />
 </td>
 </tr>
 <tr>
