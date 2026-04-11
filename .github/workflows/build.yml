@@ -42,6 +42,10 @@ jobs:
         if: matrix.rid == 'win-x64'
         run: dotnet test tests/Yoink.Tests/Yoink.Tests.csproj -c Release
 
+      - name: Install Velopack CLI
+        shell: pwsh
+        run: dotnet tool install -g vpk --version 0.0.1298
+
       - name: Publish
         run: >
           dotnet publish src/Yoink/Yoink.csproj
@@ -51,9 +55,36 @@ jobs:
           -p:PublishSingleFile=true
           -o publish
 
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$csproj = Get-Content src/Yoink/Yoink.csproj -Raw
+          $version = ($csproj.Project.PropertyGroup.Version | Select-Object -First 1).Trim()
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version" -Encoding utf8
+
+      - name: Build Velopack package
+        shell: pwsh
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          $outDir = Join-Path $PWD "vpk-${{ matrix.rid }}"
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+          vpk pack `
+            --packId JasperDevs.Yoink `
+            --packVersion "${{ steps.version.outputs.version }}" `
+            --packDir publish `
+            --mainExe Yoink.exe `
+            --packTitle Yoink `
+            --packAuthors jasperdevs `
+            --channel "${{ matrix.rid }}" `
+            --runtime "${{ matrix.rid }}" `
+            --releaseNotes "docs/CHANGELOG.md" `
+            --outputDir $outDir
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Yoink-${{ matrix.rid }}
-          path: publish/
+          name: Velopack-${{ matrix.rid }}
+          path: vpk-${{ matrix.rid }}/
           if-no-files-found: error

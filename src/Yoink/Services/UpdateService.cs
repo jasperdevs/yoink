@@ -29,7 +29,6 @@ public static class UpdateService
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     private static readonly HttpClient Http = CreateHttpClient();
-    private static readonly HttpClient DownloadHttp = CreateDownloadHttpClient();
     private static readonly SemaphoreSlim CheckGate = new(1, 1);
     private static UpdateCheckResult? _cachedResult;
     private static DateTimeOffset _cachedAt;
@@ -111,71 +110,6 @@ public static class UpdateService
         }
     }
 
-    public static async Task<string> DownloadUpdatePackageAsync(UpdateCheckResult update, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(update.DownloadUrl))
-            throw new InvalidOperationException("No update package is available to download.");
-
-        PurgeStaleUpdateDownloads();
-
-        var extension = string.IsNullOrWhiteSpace(update.AssetName)
-            ? ".zip"
-            : Path.GetExtension(update.AssetName);
-        if (string.IsNullOrWhiteSpace(extension))
-            extension = ".zip";
-
-        var downloadDir = Path.Combine(Path.GetTempPath(), "Yoink", "Updates", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(downloadDir);
-
-        var fileName = string.IsNullOrWhiteSpace(update.AssetName)
-            ? $"Yoink-update{extension}"
-            : update.AssetName;
-        var packagePath = Path.Combine(downloadDir, fileName);
-
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, update.DownloadUrl);
-            using var response = await DownloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-
-            await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using (var destination = new FileStream(packagePath, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
-                await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            VerifyDownloadedAsset(packagePath, update.AssetSha256);
-            return packagePath;
-        }
-        catch
-        {
-            try
-            {
-                if (Directory.Exists(downloadDir))
-                    Directory.Delete(downloadDir, recursive: true);
-            }
-            catch { }
-
-            throw;
-        }
-    }
-
-    private static void VerifyDownloadedAsset(string packagePath, string? expectedSha256)
-    {
-        if (string.IsNullOrWhiteSpace(expectedSha256))
-            throw new InvalidOperationException("Update package checksum is missing from the release metadata.");
-
-        using var stream = File.OpenRead(packagePath);
-        using var sha256 = SHA256.Create();
-        var actual = Convert.ToHexString(sha256.ComputeHash(stream));
-        if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
-        {
-            try { File.Delete(packagePath); } catch { }
-            throw new InvalidOperationException("Update package checksum verification failed.");
-        }
-    }
-
     private static string? TryExtractSha256Hex(string? digest)
     {
         if (string.IsNullOrWhiteSpace(digest))
@@ -192,27 +126,6 @@ public static class UpdateService
         return hash.ToUpperInvariant();
     }
 
-    private static void PurgeStaleUpdateDownloads()
-    {
-        try
-        {
-            var updatesDir = Path.Combine(Path.GetTempPath(), "Yoink", "Updates");
-            if (!Directory.Exists(updatesDir))
-                return;
-
-            foreach (var dir in Directory.EnumerateDirectories(updatesDir))
-            {
-                try
-                {
-                    if (Directory.GetLastWriteTimeUtc(dir) < DateTime.UtcNow.AddDays(-7))
-                        Directory.Delete(dir, recursive: true);
-                }
-                catch { }
-            }
-        }
-        catch { }
-    }
-
     private static HttpClient CreateHttpClient()
     {
         var client = new HttpClient
@@ -222,17 +135,6 @@ public static class UpdateService
         client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersionLabel()}");
         client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         client.DefaultRequestHeaders.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
-        return client;
-    }
-
-    private static HttpClient CreateDownloadHttpClient()
-    {
-        var client = new HttpClient
-        {
-            Timeout = TimeSpan.FromMinutes(5)
-        };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd($"Yoink/{GetCurrentVersionLabel()}");
-        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         return client;
     }
 

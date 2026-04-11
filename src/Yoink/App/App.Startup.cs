@@ -21,34 +21,7 @@ public partial class App
             return;
         }
 
-        if (TryApplyUpdateAndExit(e))
-            return;
-
         bool isPostInstall = e.Args.Any(a => a.Equals("--post-install", StringComparison.OrdinalIgnoreCase));
-
-        bool shouldInstall = !isPostInstall && InstallService.ShouldShowInstaller();
-        if (shouldInstall)
-        {
-            try
-            {
-                base.OnStartup(e);
-                Theme.Refresh();
-                Theme.ApplyTo(Resources);
-                var installer = new InstallWizard();
-                installer.ShowDialog();
-                if (installer.InstallCompleted && installer.LaunchAfter)
-                    InstallService.LaunchInstalled(installer.InstalledPath, true);
-            }
-            catch (Exception ex)
-            {
-                try { base.OnStartup(e); } catch (Exception startupEx) { AppDiagnostics.LogError("startup.install-wizard.base", startupEx); }
-                AppDiagnostics.LogError("startup.install-wizard", ex);
-                MessageBox.Show($"Install wizard failed to start:\n\n{ex}", "Yoink", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-
-            Shutdown();
-            return;
-        }
 
         _mutex = new Mutex(false, "YoinkScreenshotTool_SingleInstance");
         bool acquired;
@@ -117,55 +90,6 @@ public partial class App
 
         if (openSettingsAfterWizard)
             ShowSettings();
-    }
-
-    private bool TryApplyUpdateAndExit(StartupEventArgs e)
-    {
-        var index = Array.FindIndex(e.Args, arg => arg.Equals("--apply-update", StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
-            return false;
-
-        if (e.Args.Length < index + 3)
-        {
-            base.OnStartup(e);
-            MessageBox.Show("Yoink update helper was launched with invalid arguments.", "Update failed", MessageBoxButton.OK, MessageBoxImage.Error);
-            Shutdown();
-            return true;
-        }
-
-        var packagePath = e.Args[index + 1];
-        var targetDir = e.Args[index + 2];
-        var nextArg = e.Args.Length > index + 3 ? e.Args[index + 3] : null;
-        var versionLabel = nextArg != null && !nextArg.StartsWith("--") ? nextArg : null;
-
-        var pidIndex = Array.FindIndex(e.Args, arg => arg.Equals("--wait-pid", StringComparison.OrdinalIgnoreCase));
-        if (pidIndex >= 0 && e.Args.Length > pidIndex + 1 && int.TryParse(e.Args[pidIndex + 1], out int parentPid))
-        {
-            try
-            {
-                using var parent = System.Diagnostics.Process.GetProcessById(parentPid);
-                parent.WaitForExit(15000);
-            }
-            catch (Exception ex) { AppDiagnostics.LogWarning("startup.apply-update.wait-parent", "Parent process was already gone or couldn't be inspected.", ex); }
-        }
-
-        base.OnStartup(e);
-
-        try
-        {
-            InstallService.KillRunningInstances();
-            InstallService.ApplyUpdateFromZip(packagePath, targetDir, versionLabel, launchAfter: true);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(ex.Message, "Update failed", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            Shutdown();
-        }
-
-        return true;
     }
 
     private void WireUnhandledExceptionLogging()
