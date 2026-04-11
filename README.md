@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/3banner-readme-v2.png" alt="yoink screenshot" width="860" />
+  <img src="assets/readme/3banner-readme-v2.png" alt="yoink screenshot" width="860" />
 </p>
 
 ## Download
@@ -42,7 +42,7 @@ winget upgrade --id JasperDevs.Yoink -e
 Region, fullscreen, active-window, and scrolling capture in one ShareX-style workflow.
 </td>
 <td width="60%">
-<img src="assets/screenshot-main-readme-v2.png" alt="Yoink main capture workflow" width="100%" />
+<img src="assets/readme/screenshot-main-readme-v2.png" alt="Yoink main capture workflow" width="100%" />
 </td>
 </tr>
 <tr>
@@ -51,7 +51,7 @@ Region, fullscreen, active-window, and scrolling capture in one ShareX-style wor
 Open ChatGPT, Claude, Gemini, or Google Lens right after capture, then keep the image pinned and ready to drag or paste into the chat box.
 </td>
 <td width="60%">
-<img src="assets/ai-uploads-readme-v4.png" alt="Yoink AI Redirects" width="100%" />
+<img src="assets/readme/ai-uploads-readme-v4.png" alt="Yoink AI Redirects" width="100%" />
 </td>
 </tr>
 <tr>
@@ -60,7 +60,7 @@ Open ChatGPT, Claude, Gemini, or Google Lens right after capture, then keep the 
 Remove backgrounds and turn screenshots into polished stickers with optional stroke and shadow finishing.
 </td>
 <td width="60%">
-<img src="assets/sticker-showcase-readme-v2.png" alt="Yoink sticker creation" width="100%" />
+<img src="assets/readme/sticker-showcase-readme-v2.png" alt="Yoink sticker creation" width="100%" />
 </td>
 </tr>
 <tr>
@@ -69,7 +69,7 @@ Remove backgrounds and turn screenshots into polished stickers with optional str
 Extract text from any screen region into a dedicated result window where you can edit, copy, and translate with local or cloud-backed providers.
 </td>
 <td width="60%">
-<img src="assets/screenshot-ocr-readme-v2.png" alt="Yoink OCR and translation" width="100%" />
+<img src="assets/readme/screenshot-ocr-readme-v2.png" alt="Yoink OCR and translation" width="100%" />
 </td>
 </tr>
 <tr>
@@ -78,7 +78,7 @@ Extract text from any screen region into a dedicated result window where you can
 Launch capture, OCR, color picking, recording, history, and more from system-wide hotkeys or the tray menu without breaking your flow.
 </td>
 <td width="60%">
-<img src="assets/global-hotkeys-tray-readme-v2.png" alt="Yoink hotkeys and tray workflow" width="100%" />
+<img src="assets/readme/utility-tools-readme-v2.png" alt="Yoink hotkeys and tray workflow" width="100%" />
 </td>
 </tr>
 <tr>
@@ -87,7 +87,7 @@ Launch capture, OCR, color picking, recording, history, and more from system-wid
 Record GIFs and videos in multiple formats with optional microphone and desktop audio capture, and capture long scrolling regions without stitching them manually.
 </td>
 <td width="60%">
-<img src="assets/recording-readme-v2.png" alt="Yoink recording" width="100%" />
+<img src="assets/readme/recording-readme-v2.png" alt="Yoink recording" width="100%" />
 </td>
 </tr>
 <tr>
@@ -96,7 +96,7 @@ Record GIFs and videos in multiple formats with optional microphone and desktop 
 Find past captures by filename, OCR text, or semantic similarity so you can recover screenshots by meaning, not just date.
 </td>
 <td width="60%">
-<img src="assets/screenshot-search-readme-v2.png" alt="Yoink searchable history" width="100%" />
+<img src="assets/readme/screenshot-search-readme-v2.png" alt="Yoink searchable history" width="100%" />
 </td>
 </tr>
 <tr>
@@ -105,7 +105,7 @@ Find past captures by filename, OCR text, or semantic similarity so you can reco
 Arrows, text, shapes, blur, and freehand markup are built into the same fast capture workflow with cleaner stroke and shadow effects.
 </td>
 <td width="60%">
-<img src="assets/screenshot-main-readme-v2.png" alt="Yoink annotation tools" width="100%" />
+<img src="assets/readme/screenshot-main-readme-v2.png" alt="Yoink annotation tools" width="100%" />
 </td>
 </tr>
 <tr>
@@ -114,7 +114,7 @@ Arrows, text, shapes, blur, and freehand markup are built into the same fast cap
 Download language packs on demand for multilingual OCR and translation workflows without turning the app into a cloud-only tool.
 </td>
 <td width="60%">
-<img src="assets/screenshot-ocr-readme-v2.png" alt="Yoink OCR language support" width="100%" />
+<img src="assets/readme/screenshot-ocr-readme-v2.png" alt="Yoink OCR language support" width="100%" />
 </td>
 </tr>
 <tr>
@@ -123,7 +123,7 @@ Download language packs on demand for multilingual OCR and translation workflows
 Color picker, QR and barcode scanning, ruler tools, and step numbering live alongside capture instead of being split across separate apps.
 </td>
 <td width="60%">
-<img src="assets/utility-tools-readme-v2.png" alt="Yoink utility tools" width="100%" />
+<img src="assets/readme/utility-tools-readme-v2.png" alt="Yoink utility tools" width="100%" />
 </td>
 </tr>
 <tr>
@@ -132,7 +132,7 @@ Color picker, QR and barcode scanning, ruler tools, and step numbering live alon
 Upload screenshots, stickers, and recordings to Imgur, ImgBB, Catbox, Litterbox, Gyazo, file.io, Uguu, tmpfiles.org, transfer.sh, Dropbox, Google Drive, OneDrive, Azure Blob, GitHub, Immich, FTP, SFTP, WebDAV, S3 / R2 / B2, and Custom HTTP from the same post-capture flow.
 </td>
 <td width="60%">
-<img src="assets/uploads-readme-v3.png" alt="Yoink uploads" width="100%" />
+<img src="assets/readme/uploads-readme-v3.png" alt="Yoink uploads" width="100%" />
 </td>
 </tr>
 </table>
