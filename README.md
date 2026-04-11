@@ -123,7 +123,7 @@ Download language packs on demand for multilingual OCR and translation workflows
 Color picker, QR and barcode scanning, ruler tools, and step numbering live alongside capture instead of being split across separate apps.
 </td>
 <td width="60%">
-<img src="assets/screenshot-main-readme-v2.png" alt="Yoink utility tools" width="100%" />
+<img src="assets/utility-tools-readme-v2.png" alt="Yoink utility tools" width="100%" />
 </td>
 </tr>
 <tr>
