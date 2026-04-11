@@ -7,6 +7,6 @@ export default defineConfig({
   base: "/yoink/",
   build: {
     outDir: "../docs",
-    emptyOutDir: true,
+    emptyOutDir: false,
   },
 });
