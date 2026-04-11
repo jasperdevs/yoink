@@ -1,3 +1,11 @@
+# Yoink v0.8.9
+
+## Highlights
+- Reissued the latest Velopack-based release from the current verified mainline after the previous release was removed.
+
+## Changed
+- Refreshed the shipped patch release tag on top of the same validated Velopack/update and security-fix baseline.
+
 # Yoink v0.8.8
 
 ## Highlights
