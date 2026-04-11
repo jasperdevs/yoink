@@ -51,7 +51,7 @@ Region, fullscreen, active-window, and scrolling capture in one ShareX-style wor
 Open ChatGPT, Claude, Gemini, or Google Lens right after capture, then keep the image pinned and ready to drag or paste into the chat box.
 </td>
 <td width="60%">
-<img src="assets/airedirects-readme-v2.png" alt="Yoink AI Redirects" width="100%" />
+<img src="assets/ai-uploads-readme-v3.png" alt="Yoink AI Redirects" width="100%" />
 </td>
 </tr>
 <tr>
@@ -78,7 +78,7 @@ Extract text from any screen region into a dedicated result window where you can
 Launch capture, OCR, color picking, recording, history, and more from system-wide hotkeys or the tray menu without breaking your flow.
 </td>
 <td width="60%">
-<img src="assets/hotkeys-tray-readme-v2.png" alt="Yoink hotkeys and tray workflow" width="100%" />
+<img src="assets/global-hotkeys-tray-readme-v2.png" alt="Yoink hotkeys and tray workflow" width="100%" />
 </td>
 </tr>
 <tr>
@@ -123,7 +123,7 @@ Download language packs on demand for multilingual OCR and translation workflows
 Color picker, QR and barcode scanning, ruler tools, and step numbering live alongside capture instead of being split across separate apps.
 </td>
 <td width="60%">
-<img src="assets/utility-tools-readme-v2.png" alt="Yoink utility tools" width="100%" />
+<img src="assets/screenshot-main-readme-v2.png" alt="Yoink utility tools" width="100%" />
 </td>
 </tr>
 <tr>
@@ -132,16 +132,7 @@ Color picker, QR and barcode scanning, ruler tools, and step numbering live alon
 Upload screenshots, stickers, and recordings to Imgur, ImgBB, Catbox, Litterbox, Gyazo, file.io, Uguu, tmpfiles.org, transfer.sh, Dropbox, Google Drive, OneDrive, Azure Blob, GitHub, Immich, FTP, SFTP, WebDAV, S3 / R2 / B2, and Custom HTTP from the same post-capture flow.
 </td>
 <td width="60%">
-<img src="assets/uploads-readme-v2.png" alt="Yoink uploads" width="100%" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Upload to AIs + Google Lens</h3>
-Redirect captures straight into ChatGPT, Claude, Claude Opus, Gemini, or Google Lens with dedicated AI upload flows built for drag-and-drop and fast paste.
-</td>
-<td width="60%">
-<img src="assets/ai-uploads-readme-v2.png" alt="Yoink AI uploads and Google Lens" width="100%" />
+<img src="assets/uploads-readme-v3.png" alt="Yoink uploads" width="100%" />
 </td>
 </tr>
 </table>
