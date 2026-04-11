@@ -80,12 +80,32 @@ jobs:
 
           $setup = Get-ChildItem $outDir -Filter '*-Setup.exe' | Select-Object -First 1
           if ($null -ne $setup) {
-            Rename-Item -LiteralPath $setup.FullName -NewName "Yoink-${{ matrix.rid }}-Setup.exe"
+            Rename-Item -LiteralPath $setup.FullName -NewName "01-Yoink-${{ matrix.rid }}-Setup.exe"
           }
 
           $portable = Get-ChildItem $outDir -Filter '*-Portable.zip' | Select-Object -First 1
           if ($null -ne $portable) {
-            Rename-Item -LiteralPath $portable.FullName -NewName "Yoink-${{ matrix.rid }}-Portable.zip"
+            Rename-Item -LiteralPath $portable.FullName -NewName "20-Yoink-${{ matrix.rid }}-Portable.zip"
+          }
+
+          $full = Get-ChildItem $outDir -Filter '*-full.nupkg' | Select-Object -First 1
+          if ($null -ne $full) {
+            Rename-Item -LiteralPath $full.FullName -NewName "90-Yoink-${{ steps.version.outputs.version }}-${{ matrix.rid }}-full.nupkg"
+          }
+
+          $releases = Get-ChildItem $outDir -Filter 'RELEASES-*' | Select-Object -First 1
+          if ($null -ne $releases) {
+            Rename-Item -LiteralPath $releases.FullName -NewName "91-RELEASES-${{ matrix.rid }}"
+          }
+
+          $releaseJson = Get-ChildItem $outDir -Filter 'releases.*.json' | Select-Object -First 1
+          if ($null -ne $releaseJson) {
+            Rename-Item -LiteralPath $releaseJson.FullName -NewName "92-releases.${{ matrix.rid }}.json"
+          }
+
+          $assetsJson = Get-ChildItem $outDir -Filter 'assets.*.json' | Select-Object -First 1
+          if ($null -ne $assetsJson) {
+            Rename-Item -LiteralPath $assetsJson.FullName -NewName "93-assets.${{ matrix.rid }}.json"
           }
 
       - name: Upload artifacts

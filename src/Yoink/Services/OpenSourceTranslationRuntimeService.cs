@@ -27,12 +27,22 @@ public static class OpenSourceTranslationRuntimeService
         if (await IsRuntimeReadyAsync(cancellationToken).ConfigureAwait(false))
             return;
 
-        progress?.Report("Open-source local translation must be installed manually.");
-        AppDiagnostics.LogWarning("translation.local.install-disabled", "Blocked automatic local translation install because dependency and model downloads are not integrity-verified.");
+        progress?.Report("Installing local translation dependencies...");
+        var install = await RunPythonAsync(new[]
+        {
+            PythonLauncherArg, "-m", "pip", "install", "--user", "--upgrade",
+            "ctranslate2", "transformers", "sentencepiece", "langid", "huggingface_hub", "numpy"
+        }, cancellationToken).ConfigureAwait(false);
 
-        throw new InvalidOperationException(
-            "Automatic install of the open-source local translation runtime is disabled for security reasons. " +
-            "Install the Python dependencies and model files from trusted, integrity-verified sources, then retry.");
+        if (install.ExitCode != 0)
+        {
+            var message = !string.IsNullOrWhiteSpace(install.StdErr) ? install.StdErr.Trim() : install.StdOut.Trim();
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(message) ? "Couldn't install the local translation runtime." : message);
+        }
+
+        progress?.Report("Preparing local translation model...");
+        await PrepareRuntimeAsync(progress, cancellationToken).ConfigureAwait(false);
+        await IsRuntimeReadyAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public static Task UninstallAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
