@@ -59,6 +59,15 @@ Open ChatGPT, Claude, Gemini, or Google Lens right after capture, then keep the 
 </tr>
 <tr>
 <td width="40%" valign="middle">
+<h3>Upscale</h3>
+Capture any region into the new Upscale workflow, compare before and after, and run it locally with SwinIR x4 or Real-ESRGAN x4plus. Local is the default, with optional API providers if you want them.
+</td>
+<td width="60%">
+<img src="assets/readme/upscaleimage.png" alt="Yoink Upscale workflow" width="100%" />
+</td>
+</tr>
+<tr>
+<td width="40%" valign="middle">
 <h3>Sticker creation</h3>
 Remove backgrounds and turn screenshots into polished stickers with optional stroke and shadow finishing.
 </td>

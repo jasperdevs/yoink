@@ -10,6 +10,9 @@ namespace Yoink.UI;
 
 public partial class SettingsWindow
 {
+    private const string OpenSourceLocalManualSetupUrl = "https://github.com/OpenNMT/CTranslate2";
+    private const string ArgosManualSetupUrl = "https://github.com/argosopentech/argos-translate";
+
     private bool _ocrTabLoaded;
 
     private readonly List<ComboBoxItem> _ocrLanguageItems = new();
@@ -44,18 +47,18 @@ public partial class SettingsWindow
         else if (OpenSourceTranslationRuntimeService.TryGetCachedStatus(out var openSourceReady, out var openSourceStatus))
         {
             _openSourceLocalInstalled = openSourceReady;
-            OpenSourceLocalStatusText.Text = openSourceStatus;
+            OpenSourceLocalStatusText.Text = openSourceReady ? openSourceStatus : "Manual setup required";
             OpenSourceLocalProgressBar.Visibility = Visibility.Collapsed;
             OpenSourceLocalInstallBtn.IsEnabled = true;
-            OpenSourceLocalInstallBtn.Content = openSourceReady ? "Uninstall" : "Install";
+            OpenSourceLocalInstallBtn.Content = openSourceReady ? "Uninstall" : "Open guide";
             SetLoadingTextShimmer(OpenSourceLocalStatusText, false, 0.7, 0.45);
         }
         else if (hasOpenSourceJob && openSourceJob is { LastSucceeded: false })
         {
-            OpenSourceLocalStatusText.Text = $"Failed: {FormatRuntimeStatus(openSourceJob.LastError)}";
+            OpenSourceLocalStatusText.Text = "Manual setup required";
             OpenSourceLocalProgressBar.Visibility = Visibility.Collapsed;
             OpenSourceLocalInstallBtn.IsEnabled = true;
-            OpenSourceLocalInstallBtn.Content = "Install";
+            OpenSourceLocalInstallBtn.Content = "Open guide";
             SetLoadingTextShimmer(OpenSourceLocalStatusText, false, 0.7, 0.45);
         }
         else
@@ -77,18 +80,18 @@ public partial class SettingsWindow
         else if (TranslationService.TryGetArgosCachedStatus(out var argosReady, out var argosStatus))
         {
             _argosInstalled = argosReady;
-            ArgosStatusText.Text = argosStatus;
+            ArgosStatusText.Text = argosReady ? argosStatus : "Manual setup required";
             ArgosProgressBar.Visibility = Visibility.Collapsed;
             ArgosInstallBtn.IsEnabled = true;
-            ArgosInstallBtn.Content = argosReady ? "Uninstall" : "Install";
+            ArgosInstallBtn.Content = argosReady ? "Uninstall" : "Open guide";
             SetLoadingTextShimmer(ArgosStatusText, false, 0.7, 0.45);
         }
         else if (hasArgosJob && argosJob is { LastSucceeded: false })
         {
-            ArgosStatusText.Text = $"Failed: {FormatRuntimeStatus(argosJob.LastError)}";
+            ArgosStatusText.Text = "Manual setup required";
             ArgosProgressBar.Visibility = Visibility.Collapsed;
             ArgosInstallBtn.IsEnabled = true;
-            ArgosInstallBtn.Content = "Install";
+            ArgosInstallBtn.Content = "Open guide";
             SetLoadingTextShimmer(ArgosStatusText, false, 0.7, 0.45);
         }
         else
@@ -225,6 +228,15 @@ public partial class SettingsWindow
     private void OpenSourceLocalInstallBtn_Click(object sender, RoutedEventArgs e)
     {
         var isUninstall = _openSourceLocalInstalled;
+        if (!isUninstall)
+        {
+            OpenManualSetupGuide(
+                "Open-source local translation",
+                "Automatic install is disabled for security reasons. Open the upstream project and install the runtime manually, then return here.",
+                OpenSourceLocalManualSetupUrl);
+            return;
+        }
+
         var started = BackgroundRuntimeJobService.Start(
             new BackgroundRuntimeJobOptions(
                 OpenSourceLocalTranslationJobKey,
@@ -263,6 +275,15 @@ public partial class SettingsWindow
     private void ArgosInstallBtn_Click(object sender, RoutedEventArgs e)
     {
         var isUninstall = _argosInstalled;
+        if (!isUninstall)
+        {
+            OpenManualSetupGuide(
+                "Argos Translate",
+                "Automatic install is disabled for security reasons. Open the upstream project and install Argos plus the language packs manually, then return here.",
+                ArgosManualSetupUrl);
+            return;
+        }
+
         var started = BackgroundRuntimeJobService.Start(
             new BackgroundRuntimeJobOptions(
                 ArgosTranslationJobKey,
@@ -316,9 +337,9 @@ public partial class SettingsWindow
                 OpenSourceLocalStatusText.Text = _openSourceLocalInstalled
                     ? "Installed"
                     : openSourceJob is { LastSucceeded: false }
-                        ? $"Failed: {FormatRuntimeStatus(openSourceJob.LastError)}"
-                        : "Not installed";
-                OpenSourceLocalInstallBtn.Content = _openSourceLocalInstalled ? "Uninstall" : "Install";
+                        ? "Manual setup required"
+                        : "Manual setup required";
+                OpenSourceLocalInstallBtn.Content = _openSourceLocalInstalled ? "Uninstall" : "Open guide";
                 OpenSourceLocalInstallBtn.IsEnabled = true;
                 OpenSourceLocalProgressBar.Visibility = Visibility.Collapsed;
                 SetLoadingTextShimmer(OpenSourceLocalStatusText, false, 0.7, 0.45);
@@ -338,9 +359,9 @@ public partial class SettingsWindow
                 ArgosStatusText.Text = _argosInstalled
                     ? "Installed"
                     : argosJob is { LastSucceeded: false }
-                        ? $"Failed: {FormatRuntimeStatus(argosJob.LastError)}"
-                        : "Not installed";
-                ArgosInstallBtn.Content = _argosInstalled ? "Uninstall" : "Install";
+                        ? "Manual setup required"
+                        : "Manual setup required";
+                ArgosInstallBtn.Content = _argosInstalled ? "Uninstall" : "Open guide";
                 ArgosInstallBtn.IsEnabled = true;
                 ArgosProgressBar.Visibility = Visibility.Collapsed;
                 SetLoadingTextShimmer(ArgosStatusText, false, 0.7, 0.45);
@@ -416,6 +437,22 @@ public partial class SettingsWindow
         _settingsService.Save();
         TranslationService.SetGoogleApiKey(_settingsService.Settings.GoogleTranslateApiKey);
         UpdateTranslationModelUi();
+    }
+
+    private static void OpenManualSetupGuide(string title, string body, string url)
+    {
+        ToastWindow.Show(title, body);
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+        }
     }
 
     private void OcrCombo_PreviewTextInput(object sender, TextCompositionEventArgs e)
