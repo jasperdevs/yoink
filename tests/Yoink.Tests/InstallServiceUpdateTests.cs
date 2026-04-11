@@ -65,7 +65,7 @@ public sealed class InstallServiceUpdateTests
     }
 
     [Fact]
-    public void StandaloneInstallerFolder_DoesNotLookLikeFullPayloadTree()
+    public void InstallerOnlyFolder_DoesNotLookLikeFullPayloadTree()
     {
         var root = Path.Combine(Path.GetTempPath(), "yoink-tests", Guid.NewGuid().ToString("N"));
 
@@ -73,7 +73,6 @@ public sealed class InstallServiceUpdateTests
         {
             Directory.CreateDirectory(root);
             File.WriteAllText(Path.Combine(root, "Yoink.exe"), "installer");
-            File.WriteAllText(Path.Combine(root, "notes.txt"), "user file");
 
             Assert.False(InvokeShouldCopyFullPayloadTree(root));
         }
@@ -89,7 +88,7 @@ public sealed class InstallServiceUpdateTests
     }
 
     [Fact]
-    public void PublishPayloadFolder_LooksLikeFullPayloadTree()
+    public void FolderWithExtraPayloadEntries_LooksLikeFullPayloadTree()
     {
         var root = Path.Combine(Path.GetTempPath(), "yoink-tests", Guid.NewGuid().ToString("N"));
 
@@ -97,7 +96,7 @@ public sealed class InstallServiceUpdateTests
         {
             Directory.CreateDirectory(root);
             File.WriteAllText(Path.Combine(root, "Yoink.exe"), "installer");
-            File.WriteAllText(Path.Combine(root, "ffmpeg.exe"), "binary");
+            File.WriteAllText(Path.Combine(root, "notes.txt"), "extra payload");
 
             Assert.True(InvokeShouldCopyFullPayloadTree(root));
         }

@@ -71,7 +71,7 @@ public sealed class UploadServiceTests
     [Theory]
     [InlineData(AiChatProvider.ChatGpt, "https://chatgpt.com/")]
     [InlineData(AiChatProvider.Claude, "https://claude.ai/new")]
-    [InlineData(AiChatProvider.ClaudeOpus, "https://claude.ai/new?model=claude-opus-4-1")]
+    [InlineData(AiChatProvider.ClaudeOpus, "https://claude.ai/new")]
     [InlineData(AiChatProvider.Gemini, "https://gemini.google.com/app")]
     [InlineData(AiChatProvider.GoogleLens, "https://lens.google.com/search?hl=en&country=us")]
     public void BuildAiChatStartUrl_ReturnsProviderSpecificUrl(AiChatProvider provider, string expected)
