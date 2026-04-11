@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Yoink: All-in-one open-source ShareX alternative</strong>
+  <strong>yoink
 </p>
 
 <p align="center">
