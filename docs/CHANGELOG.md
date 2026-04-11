@@ -1,3 +1,11 @@
+# Yoink v0.8.4.7
+
+## Highlights
+- The installer now completes even if bundled semantic-search preparation hits a machine-specific failure.
+
+## Fixed
+- Runtime preparation during install is now non-fatal; Yoink installs successfully and can finish preparing semantic search after launch instead of showing `Installation failed`.
+
 # Yoink v0.8.4.6
 
 ## Highlights

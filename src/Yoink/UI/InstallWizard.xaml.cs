@@ -117,7 +117,20 @@ public partial class InstallWizard : Window
             }, cancellationToken);
 
             StatusText.Text = "Preparing semantic search...";
-            await PrepareBundledRuntimesAsync(cancellationToken);
+            try
+            {
+                await PrepareBundledRuntimesAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.LogWarning("install-wizard.prepare-runtimes", ex.Message, ex);
+                StatusDetail.Text = "Yoink installed. Semantic search will finish preparing after launch.";
+                await Task.Delay(1200, cancellationToken);
+            }
 
             StatusText.Text = "Installed!";
             StatusDetail.Text = "";
