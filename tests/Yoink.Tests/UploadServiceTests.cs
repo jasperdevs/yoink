@@ -51,10 +51,14 @@ public sealed class UploadServiceTests
         Assert.True(UploadService.HasCredentials(UploadDestination.TmpFiles, settings));
         Assert.True(UploadService.HasCredentials(UploadDestination.AiChat, settings));
         Assert.False(UploadService.HasCredentials(UploadDestination.Imgur, settings));
+        Assert.False(UploadService.HasCredentials(UploadDestination.Sftp, settings));
 
         settings.ImgurClientId = "client-id";
+        settings.SftpHost = "sftp.example.com";
+        settings.SftpHostKeyFingerprint = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         Assert.True(UploadService.HasCredentials(UploadDestination.Imgur, settings));
         Assert.True(UploadService.HasCredentials(UploadDestination.AiChat, settings));
+        Assert.True(UploadService.HasCredentials(UploadDestination.Sftp, settings));
     }
 
     [Theory]

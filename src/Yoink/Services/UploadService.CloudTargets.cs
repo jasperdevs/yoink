@@ -247,8 +247,15 @@ public static partial class UploadService
         {
             if (string.IsNullOrWhiteSpace(s.SftpHost) || string.IsNullOrWhiteSpace(s.SftpUsername))
                 return new UploadResult { Error = "SFTP host or username not configured" };
+            if (!TryNormalizeSftpFingerprint(s.SftpHostKeyFingerprint, out var expectedFingerprint))
+                return new UploadResult { Error = "SFTP host key fingerprint not configured or invalid (expected 64 hex chars)." };
 
             using var client = new SftpClient(s.SftpHost, s.SftpPort <= 0 ? 22 : s.SftpPort, s.SftpUsername, s.SftpPassword ?? string.Empty);
+            client.HostKeyReceived += (_, e) =>
+            {
+                var actual = Convert.ToHexString(SHA256.HashData(e.HostKey));
+                e.CanTrust = string.Equals(actual, expectedFingerprint, StringComparison.OrdinalIgnoreCase);
+            };
             client.Connect();
             string remoteDir = string.IsNullOrWhiteSpace(s.SftpRemotePath) ? "/" : s.SftpRemotePath;
             string remotePath = remoteDir.TrimEnd('/') + "/" + Path.GetFileName(filePath);
@@ -260,6 +267,16 @@ public static partial class UploadService
                 : s.SftpPublicUrl.TrimEnd('/') + "/" + Path.GetFileName(filePath);
             return new UploadResult { Success = true, Url = publicUrl };
         });
+    }
+
+    private static bool TryNormalizeSftpFingerprint(string? fingerprint, out string normalized)
+    {
+        normalized = string.Empty;
+        if (string.IsNullOrWhiteSpace(fingerprint))
+            return false;
+
+        normalized = new string(fingerprint.Where(Uri.IsHexDigit).ToArray()).ToUpperInvariant();
+        return normalized.Length == 64;
     }
 
     private static async Task<UploadResult> UploadWebDav(string filePath, UploadSettings s)

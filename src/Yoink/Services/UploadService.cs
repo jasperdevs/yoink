@@ -320,7 +320,8 @@ public static partial class UploadService
         UploadDestination.S3Compatible => !string.IsNullOrWhiteSpace(settings.S3AccessKey),
         UploadDestination.GitHub => !string.IsNullOrWhiteSpace(settings.GitHubToken),
         UploadDestination.Immich => !string.IsNullOrWhiteSpace(settings.ImmichApiKey),
-        UploadDestination.Sftp => !string.IsNullOrWhiteSpace(settings.SftpHost),
+        UploadDestination.Sftp => !string.IsNullOrWhiteSpace(settings.SftpHost)
+            && !string.IsNullOrWhiteSpace(settings.SftpHostKeyFingerprint),
         UploadDestination.Ftp => !string.IsNullOrWhiteSpace(settings.FtpUrl),
         UploadDestination.CustomHttp => !string.IsNullOrWhiteSpace(settings.CustomUploadUrl),
         UploadDestination.AiChat => true,
@@ -492,6 +493,7 @@ public sealed class UploadSettings
     public string SftpPassword { get; set; } = "";
     public string SftpRemotePath { get; set; } = "/";
     public string SftpPublicUrl { get; set; } = "";
+    public string SftpHostKeyFingerprint { get; set; } = "";
 
     // WebDAV
     public string WebDavUrl { get; set; } = "";

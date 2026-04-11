@@ -43,6 +43,7 @@ public partial class SettingsWindow
         SftpPasswordBox.Text = s.SftpPassword;
         SftpRemotePathBox.Text = s.SftpRemotePath;
         SftpPublicUrlBox.Text = s.SftpPublicUrl;
+        SftpHostKeyFingerprintBox.Text = s.SftpHostKeyFingerprint;
         WebDavUrlBox.Text = s.WebDavUrl;
         WebDavUsernameBox.Text = s.WebDavUsername;
         WebDavPasswordBox.Text = s.WebDavPassword;

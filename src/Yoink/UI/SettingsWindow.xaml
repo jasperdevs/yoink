@@ -1859,6 +1859,8 @@
                                 <TextBox x:Name="SftpRemotePathBox" FontSize="11" Padding="7,4" TextChanged="SftpRemotePathBox_Changed" Background="{DynamicResource ThemeInputBackgroundBrush}" Foreground="{DynamicResource ThemeTextPrimaryBrush}" BorderBrush="{DynamicResource ThemeInputBorderBrush}" BorderThickness="1"/>
                                 <TextBlock Text="Public URL base (optional)" FontSize="12" Opacity="0.6" Margin="0,8,0,4"/>
                                 <TextBox x:Name="SftpPublicUrlBox" FontSize="11" Padding="7,4" TextChanged="SftpPublicUrlBox_Changed" Background="{DynamicResource ThemeInputBackgroundBrush}" Foreground="{DynamicResource ThemeTextPrimaryBrush}" BorderBrush="{DynamicResource ThemeInputBorderBrush}" BorderThickness="1"/>
+                                <TextBlock Text="Server fingerprint (SHA256 hex)" FontSize="12" Opacity="0.6" Margin="0,8,0,4"/>
+                                <TextBox x:Name="SftpHostKeyFingerprintBox" FontSize="11" Padding="7,4" TextChanged="SftpHostKeyFingerprintBox_Changed" Background="{DynamicResource ThemeInputBackgroundBrush}" Foreground="{DynamicResource ThemeTextPrimaryBrush}" BorderBrush="{DynamicResource ThemeInputBorderBrush}" BorderThickness="1"/>
                         </StackPanel>
                     </controls:ProviderSection>
 
