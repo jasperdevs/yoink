@@ -9,16 +9,13 @@
 
 <p align="center">
   <a href="https://github.com/jasperdevs/yoink/releases">
-    <img src="https://img.shields.io/badge/downloads-555?logo=github" alt="Downloads" />
+    <img src="https://img.shields.io/badge/GitHub%20downloads-555?logo=github" alt="GitHub downloads" />
   </a>
   <a href="https://github.com/jasperdevs/yoink/stargazers">
     <img src="https://img.shields.io/github/stars/jasperdevs/yoink?style=flat&logo=github&label=stars&color=4c71f2" alt="GitHub stars" />
   </a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/macOS-planned-6b7280?style=flat-square&logo=apple&logoColor=white" alt="macOS planned" />
-  <img src="https://img.shields.io/badge/Linux-planned-6b7280?style=flat-square&logo=linux&logoColor=white" alt="Linux planned" />
+  <img src="https://img.shields.io/badge/macOS%20planned-555?logo=apple" alt="macOS planned" />
+  <img src="https://img.shields.io/badge/Linux%20planned-555?logo=linux" alt="Linux planned" />
 </p>
 
 <p align="center">
