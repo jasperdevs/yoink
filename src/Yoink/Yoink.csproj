@@ -12,12 +12,13 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>yoink.ico</ApplicationIcon>
-    <Version>0.8.4.9</Version>
+    <Version>0.8.5.0</Version>
     <RuntimeIdentifiers>win-x64;win-x86;win-arm64</RuntimeIdentifiers>
     <Authors>jasperdevs</Authors>
     <Description>Screenshot, annotation, OCR, sticker, and recording tool for Windows</Description>
     <RepositoryUrl>https://github.com/jasperdevs/yoink</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <StartupObject>Yoink.App</StartupObject>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -28,6 +29,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
     <Resource Include="yoink.ico" />
     <Content Include="Assets\Clip\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -73,6 +76,7 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="SSH.NET" Version="2024.2.0" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
+    <PackageReference Include="Velopack" Version="0.0.1298" />
     <PackageReference Include="Vortice.Direct2D1" Version="3.8.3" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageReference Include="ZXing.Net" Version="0.16.10" />

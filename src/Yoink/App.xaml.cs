@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using Velopack;
 using Yoink.Services;
 using Yoink.UI;
 
@@ -7,6 +8,16 @@ namespace Yoink;
 
 public partial class App : Application
 {
+    [STAThread]
+    public static void Main()
+    {
+        VelopackApp.Build().Run();
+
+        var app = new App();
+        app.InitializeComponent();
+        app.Run();
+    }
+
     private static Mutex? _mutex;
     private HotkeyService? _hotkeyService;
     private SettingsService? _settingsService;

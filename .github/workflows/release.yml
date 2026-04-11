@@ -34,6 +34,10 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Install Velopack CLI
+        shell: pwsh
+        run: dotnet tool install -g vpk --version 0.0.1298
+
       - name: Restore dependencies
         run: dotnet restore src/Yoink/Yoink.csproj -r ${{ matrix.rid }}
 
@@ -46,25 +50,39 @@ jobs:
           -p:PublishSingleFile=true
           -o publish
 
-      - name: Create archive and checksum
+      - name: Read version
+        id: version
         shell: pwsh
         run: |
-          $zipName = "Yoink-${{ matrix.rid }}.zip"
-          $zipPath = Join-Path $PWD $zipName
-          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-          Compress-Archive -Path (Join-Path $PWD 'publish\*') -DestinationPath $zipPath -Force
+          [xml]$csproj = Get-Content src/Yoink/Yoink.csproj -Raw
+          $version = ($csproj.Project.PropertyGroup.Version | Select-Object -First 1).Trim()
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version" -Encoding utf8
 
-          $exeName = "Yoink-${{ matrix.rid }}.exe"
-          $exePath = Join-Path $PWD $exeName
-          Copy-Item -Path (Join-Path $PWD 'publish\Yoink.exe') -Destination $exePath -Force
+      - name: Build Velopack package
+        shell: pwsh
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          $outDir = Join-Path $PWD "vpk-${{ matrix.rid }}"
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+          vpk pack `
+            --packId JasperDevs.Yoink `
+            --packVersion "${{ steps.version.outputs.version }}" `
+            --packDir publish `
+            --mainExe Yoink.exe `
+            --packTitle Yoink `
+            --packAuthors jasperdevs `
+            --packDescription "Screenshot, annotation, OCR, sticker, and recording tool for Windows" `
+            --channel "${{ matrix.rid }}" `
+            --runtime "${{ matrix.rid }}" `
+            --releaseNotes "docs/CHANGELOG.md" `
+            --outputDir $outDir
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Yoink-${{ matrix.rid }}
-          path: |
-            Yoink-${{ matrix.rid }}.exe
-            Yoink-${{ matrix.rid }}.zip
+          name: Velopack-${{ matrix.rid }}
+          path: vpk-${{ matrix.rid }}/
           if-no-files-found: error
 
   publish:
@@ -74,6 +92,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Install Velopack CLI
+        shell: pwsh
+        run: dotnet tool install -g vpk --version 0.0.1298
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -89,6 +116,21 @@ jobs:
           $version = ($csproj.Project.PropertyGroup.Version | Select-Object -First 1).Trim()
           Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version" -Encoding utf8
 
+      - name: Publish GitHub release via Velopack
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          $repoUrl = "https://github.com/${{ github.repository }}"
+          vpk upload github `
+            --repoUrl $repoUrl `
+            --releaseName "Yoink v${{ steps.version.outputs.version }}" `
+            --tag "v${{ steps.version.outputs.version }}" `
+            --publish `
+            --merge `
+            --outputDir dist
+
       - name: Generate winget manifests
         shell: pwsh
         run: |
@@ -96,27 +138,29 @@ jobs:
           $tag = "v$version"
           $baseUrl = "https://github.com/${{ github.repository }}/releases/download/$tag"
 
-          $x64Zip = Join-Path $PWD 'dist\Yoink-win-x64.zip'
-          $x86Zip = Join-Path $PWD 'dist\Yoink-win-x86.zip'
-          $arm64Zip = Join-Path $PWD 'dist\Yoink-win-arm64.zip'
+          $x64Setup = Get-ChildItem dist -Filter '*win-x64*Setup.exe' | Select-Object -First 1
+          $x86Setup = Get-ChildItem dist -Filter '*win-x86*Setup.exe' | Select-Object -First 1
+          $arm64Setup = Get-ChildItem dist -Filter '*win-arm64*Setup.exe' | Select-Object -First 1
+
+          if ($null -eq $x64Setup -or $null -eq $x86Setup -or $null -eq $arm64Setup) {
+            throw "Expected Velopack setup executables for x64/x86/arm64 were not found in dist."
+          }
 
           & scripts/winget/New-WingetManifests.ps1 `
             -PackageVersion $version `
             -OutputDirectory (Join-Path $PWD 'dist\winget-manifests') `
-            -X64InstallerUrl "$baseUrl/Yoink-win-x64.zip" `
-            -X64InstallerSha256 ((Get-FileHash -Algorithm SHA256 $x64Zip).Hash.ToUpperInvariant()) `
-            -X86InstallerUrl "$baseUrl/Yoink-win-x86.zip" `
-            -X86InstallerSha256 ((Get-FileHash -Algorithm SHA256 $x86Zip).Hash.ToUpperInvariant()) `
-            -Arm64InstallerUrl "$baseUrl/Yoink-win-arm64.zip" `
-            -Arm64InstallerSha256 ((Get-FileHash -Algorithm SHA256 $arm64Zip).Hash.ToUpperInvariant())
+            -X64InstallerUrl "$baseUrl/$($x64Setup.Name)" `
+            -X64InstallerSha256 ((Get-FileHash -Algorithm SHA256 $x64Setup.FullName).Hash.ToUpperInvariant()) `
+            -X86InstallerUrl "$baseUrl/$($x86Setup.Name)" `
+            -X86InstallerSha256 ((Get-FileHash -Algorithm SHA256 $x86Setup.FullName).Hash.ToUpperInvariant()) `
+            -Arm64InstallerUrl "$baseUrl/$($arm64Setup.Name)" `
+            -Arm64InstallerSha256 ((Get-FileHash -Algorithm SHA256 $arm64Setup.FullName).Hash.ToUpperInvariant())
 
-      - name: Create GitHub release
+      - name: Upload winget manifests to release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/**/*.exe
-            dist/**/*.zip
-            dist/winget-manifests/**/*.yaml
+          files: dist/winget-manifests/**/*.yaml
+          append_body: false
           body_path: docs/CHANGELOG.md
 
       - name: Submit release to WinGet

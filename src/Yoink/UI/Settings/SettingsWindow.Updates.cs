@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using Velopack;
+using Velopack.Sources;
 using Yoink.Services;
 
 namespace Yoink.UI;
@@ -17,8 +19,7 @@ public partial class SettingsWindow
         if (_latestUpdate is null)
             return;
 
-        OpenExternalUrl(_latestUpdate.ReleaseUrl);
-        await Task.CompletedTask;
+        await InstallUpdateAsync();
     }
 
     private async Task RefreshUpdateStatusAsync(bool isManualCheck)
@@ -43,8 +44,8 @@ public partial class SettingsWindow
                 var published = _latestUpdate.PublishedAt.HasValue
                     ? $"Published {FormatTimeAgo(_latestUpdate.PublishedAt.Value.LocalDateTime)}"
                     : "Published recently";
-                UpdateDetailText.Text = $"Current build: {UpdateService.GetCurrentVersionLabel()}. {published}. Download the latest release to update.";
-                DownloadUpdateButton.Content = "Open release";
+                UpdateDetailText.Text = $"Current build: {UpdateService.GetCurrentVersionLabel()}. {published}.";
+                DownloadUpdateButton.Content = CanInstallUpdate() ? "Update now" : "Open release";
                 DownloadUpdateButton.Visibility = Visibility.Visible;
             }
             else
@@ -77,5 +78,69 @@ public partial class SettingsWindow
             FileName = url,
             UseShellExecute = true
         });
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_latestUpdate is null)
+            return;
+
+        if (_updateCheckInFlight)
+            return;
+
+        if (!CanInstallUpdate())
+        {
+            OpenExternalUrl(_latestUpdate.ReleaseUrl);
+            return;
+        }
+
+        _updateCheckInFlight = true;
+        CheckUpdatesButton.IsEnabled = false;
+        DownloadUpdateButton.IsEnabled = false;
+        CheckUpdatesButton.Content = "Checking...";
+        DownloadUpdateButton.Content = "Updating...";
+        UpdateStatusText.Text = "Preparing update...";
+        UpdateDetailText.Text = "Yoink will close, update, and reopen automatically.";
+
+        try
+        {
+            var manager = CreateVelopackUpdateManager();
+            var update = await manager.CheckForUpdatesAsync();
+            if (update is null)
+            {
+                UpdateStatusText.Text = "You're up to date";
+                UpdateDetailText.Text = UpdateService.GetCurrentVersionLabel();
+                return;
+            }
+
+            UpdateStatusText.Text = "Downloading update...";
+            await manager.DownloadUpdatesAsync(update);
+            ToastWindow.Show("Updating Yoink", "Yoink will close, update, and reopen.");
+            manager.ApplyUpdatesAndRestart(update);
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = "Update failed";
+            UpdateDetailText.Text = "Open the GitHub release and install the latest setup manually.";
+            ToastWindow.ShowError("Update failed", ex.Message);
+        }
+        finally
+        {
+            _updateCheckInFlight = false;
+            CheckUpdatesButton.IsEnabled = true;
+            DownloadUpdateButton.IsEnabled = true;
+            CheckUpdatesButton.Content = "Check now";
+        }
+    }
+
+    private static bool CanInstallUpdate()
+    {
+        return !InstallService.LooksLikeBuildOutputPath(InstallService.GetRunningAppDirectory());
+    }
+
+    private static UpdateManager CreateVelopackUpdateManager()
+    {
+        var source = new GithubSource("jasperdevs", "yoink", prerelease: false);
+        return new UpdateManager(source);
     }
 }

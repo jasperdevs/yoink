@@ -1,3 +1,18 @@
+# Yoink v0.8.5.0
+
+## Highlights
+- Switched release packaging and app updates over to Velopack.
+
+## Changed
+- Release publishing now packages Yoink with Velopack instead of the old hand-rolled zip/update flow.
+- The app now initializes through `VelopackApp.Build().Run()` on startup.
+- Settings updates now use Velopack's `UpdateManager` against GitHub releases when running in a normal installed/packaged context.
+- The old extra winget-on-release workflow was removed in favor of a single Velopack-driven release lane.
+
+## Fixed
+- Removes the custom self-updater from the normal update path.
+- Removes the custom install wizard from the normal startup path.
+
 # Yoink v0.8.4.9
 
 ## Highlights
