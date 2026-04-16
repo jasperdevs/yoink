@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.IO;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
 using Yoink.Models;
@@ -34,19 +33,6 @@ public sealed partial class ImageSearchIndexService
             if (shouldRestart)
                 StartSyncLoopIfNeeded();
         }
-    }
-
-    private void ClipRuntime_StatusChanged(string status)
-    {
-        bool indexingActive;
-        lock (_gate)
-            indexingActive = _syncLoopRunning || _statusText.StartsWith("Indexing screenshots", StringComparison.OrdinalIgnoreCase);
-
-        if (!indexingActive)
-            SetStatus(status);
-
-        if (_clipRuntime.IsAvailable || status.StartsWith("Ready", StringComparison.OrdinalIgnoreCase))
-            StartSyncLoopIfNeeded();
     }
 
     private async Task EnsureSyncLoopAsync(CancellationToken cancellationToken)
@@ -156,7 +142,6 @@ public sealed partial class ImageSearchIndexService
                         OcrEngineId = OcrService.EngineId,
                         OcrCompleted = false,
                         OcrState = ImageSearchOcrState.RetryableError,
-                        SemanticModelKey = _clipRuntime.ModelKey,
                         IndexedAt = DateTime.UtcNow,
                         LastError = ex.Message
                     }, existingRecord);
@@ -191,8 +176,6 @@ public sealed partial class ImageSearchIndexService
         using var bitmap = new Bitmap(entry.FilePath);
         string ocrText = "";
         string? ocrError = null;
-        string? semanticError = null;
-        float[]? embedding = null;
 
         try
         {
@@ -202,17 +185,6 @@ public sealed partial class ImageSearchIndexService
         catch (Exception ex)
         {
             ocrError = ex.Message;
-        }
-
-        var clipResult = new ClipEmbeddingResult(null, null);
-        if (_clipRuntime.IsAvailable)
-        {
-            clipResult = await _clipRuntime.EmbedImageAsync(bitmap, cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (clipResult.IsSuccess)
-                embedding = clipResult.Embedding;
-            else
-                semanticError = clipResult.Error;
         }
 
         ImageSearchOcrState ocrState;
@@ -241,11 +213,8 @@ public sealed partial class ImageSearchIndexService
             OcrRetryCount = retryCount,
             NextOcrRetryUtcTicks = nextRetryTicks,
             OcrText = ocrText.Trim(),
-            SemanticModelKey = clipResult.IsSuccess ? _clipRuntime.ModelKey : "",
-            SemanticCompleted = clipResult.IsSuccess,
-            SemanticEmbedding = embedding ?? Array.Empty<float>(),
             IndexedAt = DateTime.UtcNow,
-            LastError = string.Join("; ", new[] { ocrError, semanticError }.Where(value => !string.IsNullOrWhiteSpace(value)))
+            LastError = ocrError ?? ""
         };
     }
 
@@ -267,9 +236,6 @@ public sealed partial class ImageSearchIndexService
             return true;
 
         if (NeedsOcrRetry(record))
-            return true;
-
-        if (_clipRuntime.IsAvailable && (!record.SemanticCompleted || !string.Equals(record.SemanticModelKey ?? "", _clipRuntime.ModelKey, StringComparison.OrdinalIgnoreCase)))
             return true;
 
         return false;
@@ -418,9 +384,6 @@ public sealed partial class ImageSearchIndexService
                 ocrLanguageTag TEXT NOT NULL DEFAULT '',
                 ocrEngineId TEXT NOT NULL DEFAULT '',
                 ocrCompleted INTEGER NOT NULL DEFAULT 0,
-                semanticModelKey TEXT NOT NULL DEFAULT '',
-                semanticCompleted INTEGER NOT NULL DEFAULT 0,
-                semanticEmbedding TEXT NOT NULL DEFAULT '',
                 lastError TEXT NOT NULL DEFAULT ''
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS image_search_fts USING fts5(
@@ -530,9 +493,6 @@ public sealed partial class ImageSearchIndexService
                 ocrLanguageTag,
                 ocrEngineId,
                 ocrCompleted,
-                semanticModelKey,
-                semanticCompleted,
-                semanticEmbedding,
                 lastError)
             VALUES(
                 $filePath,
@@ -548,9 +508,6 @@ public sealed partial class ImageSearchIndexService
                 $ocrLanguageTag,
                 $ocrEngineId,
                 $ocrCompleted,
-                $semanticModelKey,
-                $semanticCompleted,
-                $semanticEmbedding,
                 $lastError)
             ON CONFLICT(filePath) DO UPDATE SET
                 fileName = excluded.fileName,
@@ -565,9 +522,6 @@ public sealed partial class ImageSearchIndexService
                 ocrLanguageTag = excluded.ocrLanguageTag,
                 ocrEngineId = excluded.ocrEngineId,
                 ocrCompleted = excluded.ocrCompleted,
-                semanticModelKey = excluded.semanticModelKey,
-                semanticCompleted = excluded.semanticCompleted,
-                semanticEmbedding = excluded.semanticEmbedding,
                 lastError = excluded.lastError;
             """;
         recordCommand.Parameters.AddWithValue("$filePath", record.FilePath);
@@ -583,9 +537,6 @@ public sealed partial class ImageSearchIndexService
         recordCommand.Parameters.AddWithValue("$ocrLanguageTag", record.OcrLanguageTag ?? "");
         recordCommand.Parameters.AddWithValue("$ocrEngineId", record.OcrEngineId ?? "");
         recordCommand.Parameters.AddWithValue("$ocrCompleted", record.OcrCompleted ? 1 : 0);
-        recordCommand.Parameters.AddWithValue("$semanticModelKey", record.SemanticModelKey ?? "");
-        recordCommand.Parameters.AddWithValue("$semanticCompleted", record.SemanticCompleted ? 1 : 0);
-        recordCommand.Parameters.AddWithValue("$semanticEmbedding", SerializeEmbedding(record.SemanticEmbedding));
         recordCommand.Parameters.AddWithValue("$lastError", record.LastError ?? "");
         recordCommand.ExecuteNonQuery();
 
@@ -654,7 +605,7 @@ public sealed partial class ImageSearchIndexService
             ? """
                 SELECT filePath, ocrText, indexedAt, ocrState, ocrRetryCount, nextOcrRetryUtcTicks,
                        fileLengthBytes, lastWriteTimeUtcTicks, ocrLanguageTag, ocrEngineId,
-                       ocrCompleted, semanticModelKey, semanticCompleted, lastError
+                       ocrCompleted, lastError
                 FROM image_search_records;
                 """
             : """
@@ -682,9 +633,7 @@ public sealed partial class ImageSearchIndexService
                 record.OcrLanguageTag = reader.IsDBNull(8) ? "" : reader.GetString(8);
                 record.OcrEngineId = reader.IsDBNull(9) ? "" : reader.GetString(9);
                 record.OcrCompleted = !reader.IsDBNull(10) && reader.GetInt64(10) != 0;
-                record.SemanticModelKey = reader.IsDBNull(11) ? "" : reader.GetString(11);
-                record.SemanticCompleted = !reader.IsDBNull(12) && reader.GetInt64(12) != 0;
-                record.LastError = reader.IsDBNull(13) ? "" : reader.GetString(13);
+                record.LastError = reader.IsDBNull(11) ? "" : reader.GetString(11);
             }
             else
             {
@@ -723,7 +672,7 @@ public sealed partial class ImageSearchIndexService
                 ? """
                     SELECT filePath, ocrText, indexedAt, ocrState, ocrRetryCount, nextOcrRetryUtcTicks,
                            fileLengthBytes, lastWriteTimeUtcTicks, ocrLanguageTag, ocrEngineId,
-                           ocrCompleted, semanticModelKey, semanticCompleted, lastError
+                           ocrCompleted, lastError
                     FROM image_search_records;
                     """
                 : """
@@ -751,9 +700,7 @@ public sealed partial class ImageSearchIndexService
                     record.OcrLanguageTag = reader.IsDBNull(8) ? "" : reader.GetString(8);
                     record.OcrEngineId = reader.IsDBNull(9) ? "" : reader.GetString(9);
                     record.OcrCompleted = !reader.IsDBNull(10) && reader.GetInt64(10) != 0;
-                    record.SemanticModelKey = reader.IsDBNull(11) ? "" : reader.GetString(11);
-                    record.SemanticCompleted = !reader.IsDBNull(12) && reader.GetInt64(12) != 0;
-                    record.LastError = reader.IsDBNull(13) ? "" : reader.GetString(13);
+                    record.LastError = reader.IsDBNull(11) ? "" : reader.GetString(11);
                 }
                 else
                 {
@@ -789,32 +736,8 @@ public sealed partial class ImageSearchIndexService
         return columns;
     }
 
-    private static string SerializeEmbedding(IReadOnlyList<float>? embedding)
-    {
-        if (embedding is null || embedding.Count == 0)
-            return "";
-
-        return JsonSerializer.Serialize(embedding);
-    }
-
-    private static float[] DeserializeEmbedding(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return Array.Empty<float>();
-
-        try
-        {
-            return JsonSerializer.Deserialize<float[]>(value) ?? Array.Empty<float>();
-        }
-        catch
-        {
-            return Array.Empty<float>();
-        }
-    }
-
     private static ImageSearchIndexRecord CreateResidentRecord(ImageSearchIndexRecord source)
     {
-        source.SemanticEmbedding = Array.Empty<float>();
         return source;
     }
 

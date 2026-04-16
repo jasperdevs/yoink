@@ -617,7 +617,7 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="Audio" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
+                    <TextBlock x:Name="AudioSettingsLabel" Text="Audio" Style="{StaticResource SectionLabel}" Margin="4,14,0,6"/>
                     <Border x:Name="VideoOnlySettings" Style="{StaticResource Card}">
                         <StackPanel>
                             <CheckBox x:Name="RecordMicCheck" Content="Record microphone" FontSize="13"
@@ -810,21 +810,12 @@
                                       Checked="AutoIndexImagesCheck_Changed" Unchecked="AutoIndexImagesCheck_Changed"/>
                             <CheckBox x:Name="ShowImageSearchDiagnosticsCheck" Content="Show search diagnostics" FontSize="13" Margin="0,6,0,0"
                                       Checked="ShowImageSearchDiagnosticsCheck_Changed" Unchecked="ShowImageSearchDiagnosticsCheck_Changed"/>
-                            <StackPanel x:Name="SemanticRuntimeSection" Visibility="Collapsed">
-                                <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
-                                <Grid x:Name="SemanticRuntimeRow">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Semantic runtime (CLIP)" FontSize="13"/>
-                                    <TextBlock x:Name="SemanticRuntimeStatusText" Text="Managed automatically." FontSize="11" Opacity="0.45" Margin="0,2,0,0"/>
-                                        <ProgressBar x:Name="SemanticRuntimeProgressBar" Height="3" Margin="0,4,0,0"
                                                      IsIndeterminate="True" Visibility="Collapsed"/>
                                     </StackPanel>
-                                    <Button x:Name="SemanticRuntimeInstallBtn" Grid.Column="1" Content="Repair" FontSize="11" Padding="12,5"
-                                            Margin="8,0,0,0" Click="SemanticRuntimeInstallBtn_Click"/>
                                 </Grid>
                                 <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
                             </StackPanel>
@@ -1339,7 +1330,7 @@
                                                      PreviewKeyDown="ImageSearchBox_PreviewKeyDown"
                                                      GotKeyboardFocus="ImageSearchBox_FocusChanged"
                                                      LostKeyboardFocus="ImageSearchBox_FocusChanged"/>
-                                            <TextBlock x:Name="ImageSearchPlaceholder" Text="Search screenshots, OCR text, filenames, or semantic matches..."
+                                            <TextBlock x:Name="ImageSearchPlaceholder" Text="Search screenshots, OCR text, or filenames..."
                                                        FontSize="12" Opacity="0.28" VerticalAlignment="Center"
                                                        IsHitTestVisible="False" Margin="0,0,0,0"/>
                                         </Grid>
@@ -1360,11 +1351,9 @@
                                                               Checked="ImageSearchSourcesCheck_Changed" Unchecked="ImageSearchSourcesCheck_Changed"/>
                                                     <MenuItem x:Name="ImageSearchOcrCheck" Header="OCR text" IsCheckable="True"
                                                               Checked="ImageSearchSourcesCheck_Changed" Unchecked="ImageSearchSourcesCheck_Changed"/>
-                                                    <MenuItem x:Name="ImageSearchSemanticCheck" Header="Semantic" IsCheckable="True"
-                                                              Checked="ImageSearchSourcesCheck_Changed" Unchecked="ImageSearchSourcesCheck_Changed"/>
                                                     <Separator/>
                                                     <MenuItem x:Name="ImageSearchExactMatchCheck" Header="Exact match" IsCheckable="True"
-                                                              ToolTip="Require exact phrase/token matches and skip semantic refine"
+                                                              ToolTip="Require exact phrase/token matches"
                                                               Checked="ImageSearchExactMatchCheck_Changed" Unchecked="ImageSearchExactMatchCheck_Changed"/>
                                                 </ContextMenu>
                                             </Button.ContextMenu>

@@ -110,19 +110,5 @@ public sealed class ImageSearchQueryMatcherTests
         Assert.True(partial > unrelated);
     }
 
-    [Fact]
-    public void SemanticScoreRewardsAlignedVectors()
-    {
-        var relatedScore = ImageSearchQueryMatcher.SemanticScore(
-            new float[] { 1f, 0f, 0f },
-            new float[] { 0.9f, 0.1f, 0f });
-
-        var unrelatedScore = ImageSearchQueryMatcher.SemanticScore(
-            new float[] { 1f, 0f, 0f },
-            new float[] { 0f, 1f, 0f });
-
-        Assert.True(relatedScore > unrelatedScore);
-    }
-
     private sealed record RankedImage(string FileName, string SearchText, DateTime CapturedAt);
 }

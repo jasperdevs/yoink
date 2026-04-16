@@ -12,7 +12,6 @@ namespace Yoink.UI;
 
 public partial class SettingsWindow : Window
 {
-    private const string SemanticRuntimeJobKey = "runtime:semantic-search";
     private const string OpenSourceLocalTranslationJobKey = "runtime:translation-open-source-local";
     private const string ArgosTranslationJobKey = "runtime:translation-argos";
     private static readonly SemaphoreSlim ThumbDecodeGate = new(4);
@@ -31,10 +30,6 @@ public partial class SettingsWindow : Window
     private readonly System.Windows.Threading.DispatcherTimer _imageSearchDebounceTimer = new()
     {
         Interval = TimeSpan.FromMilliseconds(180)
-    };
-    private readonly System.Windows.Threading.DispatcherTimer _semanticSearchTimer = new()
-    {
-        Interval = TimeSpan.FromMilliseconds(400)
     };
     private readonly SettingsService _settingsService;
     private readonly HistoryService _historyService;
@@ -90,7 +85,6 @@ public partial class SettingsWindow : Window
         _historyRefreshTimer.Tick += async (_, _) => await FlushQueuedHistoryRefreshAsync();
         _imageIndexRefreshTimer.Tick += (_, _) => FlushQueuedImageIndexRefresh();
         _imageSearchDebounceTimer.Tick += (_, _) => FlushQueuedImageSearchRefresh();
-        _semanticSearchTimer.Tick += (_, _) => FlushQueuedSemanticSearchRefresh();
         Activated += (_, _) =>
         {
             ApplyThemeColors();
@@ -114,7 +108,6 @@ public partial class SettingsWindow : Window
             _imageIndexRefreshTimer.Stop();
             _historyRefreshTimer.Stop();
             _imageSearchDebounceTimer.Stop();
-            _semanticSearchTimer.Stop();
             _ocrSearchDebounceTimer.Stop();
             _colorSearchDebounceTimer.Stop();
             _historyMonitorTimer.Stop();
@@ -134,7 +127,6 @@ public partial class SettingsWindow : Window
 
         try
         {
-            _ = RefreshSemanticRuntimeStatusAsync();
             if (_ocrTabLoaded)
                 _ = CheckModelStatusAsync();
             UpdateLocalEngineUi();
@@ -216,7 +208,7 @@ public partial class SettingsWindow : Window
             catch (Exception ex)
             {
                 AppDiagnostics.LogError("settings.image-search-index-changed", ex);
-                SetImageSearchLoading(false, forceSemantic: true);
+                SetImageSearchLoading(false, forceIndexed: true);
             }
         });
     }
@@ -237,7 +229,7 @@ public partial class SettingsWindow : Window
             catch (Exception ex)
             {
                 AppDiagnostics.LogError("settings.image-search-status", ex);
-                SetImageSearchLoading(false, forceSemantic: true);
+                SetImageSearchLoading(false, forceIndexed: true);
             }
         });
     }
@@ -297,17 +289,6 @@ public partial class SettingsWindow : Window
             return;
 
         ApplyImageSearchFilter();
-    }
-
-    private void FlushQueuedSemanticSearchRefresh()
-    {
-        _semanticSearchTimer.Stop();
-
-        if (!IsLoaded || HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
-            return;
-
-        if (!ApplySemanticSearchIfNeeded())
-            SetImageSearchLoading(false, forceSemantic: true);
     }
 
     private void PollHistoryChanges()

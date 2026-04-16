@@ -67,13 +67,11 @@ public partial class SettingsWindow
 
     private void UpdateImageSearchSourceSummary()
     {
-        var parts = new List<string>(4);
+        var parts = new List<string>(3);
         if (ImageSearchFileNameCheck.IsChecked)
             parts.Add("Name");
         if (ImageSearchOcrCheck.IsChecked)
             parts.Add("OCR");
-        if (ImageSearchSemanticCheck.IsChecked)
-            parts.Add(_semanticRuntimeInstalled ? "Semantic" : "Semantic setup");
         if (ImageSearchExactMatchCheck.IsChecked)
             parts.Add("Exact");
 
@@ -88,11 +86,6 @@ public partial class SettingsWindow
         {
             ImageSearchFileNameCheck.IsChecked = (sources & ImageSearchSourceOptions.FileName) != 0;
             ImageSearchOcrCheck.IsChecked = (sources & ImageSearchSourceOptions.Ocr) != 0;
-            ImageSearchSemanticCheck.IsChecked = (sources & ImageSearchSourceOptions.Semantic) != 0;
-            ImageSearchSemanticCheck.IsEnabled = !_settingsService.Settings.ImageSearchExactMatch && _semanticRuntimeInstalled;
-            ImageSearchSemanticCheck.ToolTip = _semanticRuntimeInstalled
-                ? "Use local semantic embeddings when the runtime is installed."
-                : LocalClipRuntimeService.SetupHelpText;
             ImageSearchExactMatchCheck.IsChecked = _settingsService.Settings.ImageSearchExactMatch;
         }
         finally
@@ -110,8 +103,6 @@ public partial class SettingsWindow
             sources |= ImageSearchSourceOptions.FileName;
         if (ImageSearchOcrCheck.IsChecked)
             sources |= ImageSearchSourceOptions.Ocr;
-        if (ImageSearchSemanticCheck.IsChecked)
-            sources |= ImageSearchSourceOptions.Semantic;
         return sources;
     }
 
@@ -125,7 +116,6 @@ public partial class SettingsWindow
             _settingsService.Settings.ImageSearchExactMatch = ImageSearchExactMatchCheck.IsChecked == true;
             _settingsService.Save();
 
-            ImageSearchSemanticCheck.IsEnabled = !_settingsService.Settings.ImageSearchExactMatch && _semanticRuntimeInstalled;
             UpdateImageSearchSourceSummary();
             CancelImageSearchWork();
 
@@ -189,7 +179,7 @@ public partial class SettingsWindow
         catch (Exception ex)
         {
             HistorySearchStatusText.Text = "Search failed";
-            SetImageSearchLoading(false, forceSemantic: true);
+            SetImageSearchLoading(false, forceIndexed: true);
             ToastWindow.ShowError("Search failed", ex.Message);
         }
     }
@@ -220,7 +210,7 @@ public partial class SettingsWindow
         catch (Exception ex)
         {
             HistorySearchStatusText.Text = "Search failed";
-            SetImageSearchLoading(false, forceSemantic: true);
+            SetImageSearchLoading(false, forceIndexed: true);
             ToastWindow.ShowError("Search failed", ex.Message);
         }
     }

@@ -127,7 +127,6 @@ public static class UninstallService
     {
         TryDeleteDirectory(RembgRuntimeService.ModelCacheDirectory);
         TryDeleteDirectory(RembgRuntimeService.RootDirectory);
-        TryDeleteDirectory(LocalClipRuntimeService.CacheDirectory);
     }
 
     public static void ScheduleInstallFolderRemoval()

@@ -28,9 +28,6 @@ public sealed class ImageSearchIndexRecord
     public int OcrRetryCount { get; set; }
     public long NextOcrRetryUtcTicks { get; set; }
     public string OcrText { get; set; } = "";
-    public string SemanticModelKey { get; set; } = "";
-    public bool SemanticCompleted { get; set; }
-    public float[] SemanticEmbedding { get; set; } = Array.Empty<float>();
     public DateTime IndexedAt { get; set; }
     public string? LastError { get; set; }
 
@@ -52,8 +49,6 @@ public sealed class ImageSearchRecordDiagnostics
 
 public static class ImageSearchQueryMatcher
 {
-    private const float SemanticSimilarityThreshold = 0.18f;
-
     public static IReadOnlyList<T> Rank<T>(IEnumerable<T> items, string query, Func<T, string> searchableTextSelector, Func<T, string> fileNameSelector, Func<T, DateTime> capturedAtSelector, bool exactMatch = false)
     {
         var normalizedQuery = Normalize(query);
@@ -161,35 +156,6 @@ public static class ImageSearchQueryMatcher
         return score;
     }
 
-    public static int SemanticScore(IReadOnlyList<float> queryEmbedding, IReadOnlyList<float> imageEmbedding)
-    {
-        if (queryEmbedding.Count == 0 || imageEmbedding.Count == 0 || queryEmbedding.Count != imageEmbedding.Count)
-            return 0;
-
-        var similarity = CosineSimilarity(queryEmbedding, imageEmbedding);
-        return similarity < SemanticSimilarityThreshold ? 0 : (int)Math.Round(similarity * 140.0);
-    }
-
-    public static float CosineSimilarity(IReadOnlyList<float> left, IReadOnlyList<float> right)
-    {
-        if (left.Count == 0 || right.Count == 0 || left.Count != right.Count)
-            return 0;
-
-        double dot = 0;
-        double leftNorm = 0;
-        double rightNorm = 0;
-        for (int i = 0; i < left.Count; i++)
-        {
-            var l = left[i];
-            var r = right[i];
-            dot += l * r;
-            leftNorm += l * l;
-            rightNorm += r * r;
-        }
-
-        return leftNorm <= 0 || rightNorm <= 0 ? 0 : (float)(dot / Math.Sqrt(leftNorm * rightNorm));
-    }
-
     public static string Normalize(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -271,7 +237,7 @@ public static class ImageSearchQueryMatcher
 
 public sealed partial class ImageSearchIndexService : IDisposable
 {
-    private const int SearchDatabaseSchemaVersion = 2;
+    private const int SearchDatabaseSchemaVersion = 3;
     private const int MaxOcrRetryCount = 4;
     private const int MaxConcurrentIndexTasks = 3;
     private static readonly string LegacyAppDataIndexPath = Path.Combine(
@@ -284,16 +250,12 @@ public sealed partial class ImageSearchIndexService : IDisposable
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly Dictionary<string, ImageSearchIndexRecord> _records = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, float[]> _queryEmbeddingCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly LinkedList<string> _queryEmbeddingCacheOrder = new();
-    private readonly Dictionary<string, LinkedListNode<string>> _queryEmbeddingCacheNodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<string>> _searchResultCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly LinkedList<string> _searchResultCacheOrder = new();
     private readonly Dictionary<string, LinkedListNode<string>> _searchResultCacheNodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, int>> _textScoreCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly LinkedList<string> _textScoreCacheOrder = new();
     private readonly Dictionary<string, LinkedListNode<string>> _textScoreCacheNodes = new(StringComparer.OrdinalIgnoreCase);
-    private readonly LocalClipRuntimeService _clipRuntime;
     private IReadOnlyList<HistoryEntry> _pendingEntries = Array.Empty<HistoryEntry>();
     private string? _pendingOcrLanguageTag;
     private bool _syncRequested;
@@ -307,13 +269,7 @@ public sealed partial class ImageSearchIndexService : IDisposable
     public event Action? Changed;
     public event Action<string>? StatusChanged;
 
-    public ImageSearchIndexService() : this(new LocalClipRuntimeService()) { }
-
-    public ImageSearchIndexService(LocalClipRuntimeService clipRuntime)
-    {
-        _clipRuntime = clipRuntime;
-        _clipRuntime.StatusChanged += ClipRuntime_StatusChanged;
-    }
+    public ImageSearchIndexService() { }
 
     public int Version { get { lock (_gate) return _version; } }
     public string StatusText { get { lock (_gate) return _statusText; } }
@@ -489,22 +445,6 @@ public sealed partial class ImageSearchIndexService : IDisposable
             ? await SearchTextIndexAsync(entryMap.Keys, normalizedQuery, exactMatch, cancellationToken).ConfigureAwait(false)
             : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        float[]? queryEmbedding = null;
-        if (!exactMatch &&
-            sources.HasFlag(ImageSearchSourceOptions.Semantic) &&
-            textScores.Count == 0)
-        {
-            queryEmbedding = await GetQueryEmbeddingAsync(query, cancellationToken).ConfigureAwait(false);
-        }
-
-        var semanticEmbeddings = queryEmbedding is { Length: > 0 }
-            ? await LoadSemanticEmbeddingsAsync(entryMap.Keys, cancellationToken).ConfigureAwait(false)
-            : new Dictionary<string, float[]>(StringComparer.OrdinalIgnoreCase);
-
-        Dictionary<string, ImageSearchIndexRecord> recordsSnapshot;
-        lock (_gate)
-            recordsSnapshot = _records.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
-
         var entriesSnapshot = entries as HistoryEntry[] ?? entries.ToArray();
         var ranked = await Task.Run(() =>
         {
@@ -513,9 +453,8 @@ public sealed partial class ImageSearchIndexService : IDisposable
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 textScores.TryGetValue(entry.FilePath, out var textScore);
-                var score = ScoreEntry(entry, normalizedQuery, sources, exactMatch, textScore, queryEmbedding, semanticEmbeddings, recordsSnapshot);
-                if (score > 0)
-                    rankedInner.Add((entry, score));
+                if (textScore > 0)
+                    rankedInner.Add((entry, textScore));
             }
 
             return rankedInner.OrderByDescending(x => x.Score).ThenByDescending(x => x.Entry.CapturedAt).Select(x => x.Entry).ToList();
@@ -534,9 +473,7 @@ public sealed partial class ImageSearchIndexService : IDisposable
 
         _disposed = true;
         _lifetimeCts.Cancel();
-        _clipRuntime.StatusChanged -= ClipRuntime_StatusChanged;
         try { _syncLoopTask?.Wait(TimeSpan.FromSeconds(2)); } catch { }
-        _clipRuntime.Dispose();
         _syncGate.Dispose();
         _lifetimeCts.Dispose();
     }
@@ -546,10 +483,6 @@ public sealed partial class ImageSearchIndexService : IDisposable
         lock (_gate)
         {
             InvalidateSearchCaches_NoLock();
-            foreach (var record in _records.Values)
-                record.SemanticEmbedding = Array.Empty<float>();
         }
-
-        _clipRuntime.ReleaseSessions();
     }
 }

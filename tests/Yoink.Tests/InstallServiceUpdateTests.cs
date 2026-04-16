@@ -112,14 +112,14 @@ public sealed class InstallServiceUpdateTests
     }
 
     [Fact]
-    public void OptionalPayloadEntries_IncludeBundledClipAssets()
+    public void OptionalPayloadEntries_DoNotIncludeBundledClipAssets()
     {
         var method = typeof(InstallService).GetMethod("GetOptionalPayloadEntries", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
         var entries = Assert.IsAssignableFrom<IEnumerable<string>>(method!.Invoke(null, Array.Empty<object>()));
 
-        Assert.Contains(Path.Combine("Assets", "Clip"), entries);
+        Assert.DoesNotContain(Path.Combine("Assets", "Clip"), entries);
     }
 
     [Theory]

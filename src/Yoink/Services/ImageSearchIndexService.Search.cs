@@ -55,82 +55,6 @@ public sealed partial class ImageSearchIndexService
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<float[]?> GetQueryEmbeddingAsync(string query, CancellationToken cancellationToken)
-    {
-        var normalizedQuery = ImageSearchQueryMatcher.Normalize(query);
-        if (string.IsNullOrWhiteSpace(normalizedQuery))
-            return null;
-
-        lock (_gate)
-        {
-            if (_queryEmbeddingCache.TryGetValue(normalizedQuery, out var cached))
-                return cached;
-        }
-
-        var result = await _clipRuntime.EmbedTextAsync(query, cancellationToken).ConfigureAwait(false);
-        if (!result.IsSuccess || result.Embedding is null)
-            return null;
-
-        lock (_gate)
-            SetCacheEntry_NoLock(normalizedQuery, result.Embedding, _queryEmbeddingCache, _queryEmbeddingCacheNodes, _queryEmbeddingCacheOrder);
-
-        return result.Embedding;
-    }
-
-    private static async Task<Dictionary<string, float[]>> LoadSemanticEmbeddingsAsync(IEnumerable<string> allowedPaths, CancellationToken cancellationToken)
-    {
-        var allowed = allowedPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (allowed.Count == 0)
-            return new Dictionary<string, float[]>(StringComparer.OrdinalIgnoreCase);
-
-        return await Task.Run(() =>
-        {
-            var results = new Dictionary<string, float[]>(StringComparer.OrdinalIgnoreCase);
-            using var connection = OpenConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = """
-                SELECT filePath, semanticEmbedding
-                FROM image_search_records
-                WHERE semanticCompleted = 1 AND semanticEmbedding <> '';
-                """;
-
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var filePath = reader.GetString(0);
-                if (!allowed.Contains(filePath) || reader.IsDBNull(1))
-                    continue;
-
-                var embedding = DeserializeEmbedding(reader.GetString(1));
-                if (embedding.Length > 0)
-                    results[filePath] = embedding;
-            }
-
-            return results;
-        }, cancellationToken).ConfigureAwait(false);
-    }
-
-    private int ScoreEntry(HistoryEntry entry, string normalizedQuery, ImageSearchSourceOptions sources, bool exactMatch, int textScore, float[]? queryEmbedding, IReadOnlyDictionary<string, float[]> semanticEmbeddings, IReadOnlyDictionary<string, ImageSearchIndexRecord> recordsSnapshot)
-    {
-        recordsSnapshot.TryGetValue(entry.FilePath, out var record);
-
-        int score = textScore;
-
-        if (!exactMatch &&
-            sources.HasFlag(ImageSearchSourceOptions.Semantic) &&
-            queryEmbedding is { Length: > 0 } &&
-            record is not null &&
-            record.SemanticCompleted &&
-            semanticEmbeddings.TryGetValue(entry.FilePath, out var imageEmbedding) &&
-            imageEmbedding.Length > 0)
-        {
-            score += ImageSearchQueryMatcher.SemanticScore(queryEmbedding, imageEmbedding);
-        }
-
-        return score;
-    }
-
     private static string BuildFtsQuery(string normalizedQuery, bool exactMatch)
     {
         var escaped = normalizedQuery.Replace("\"", "\"\"");
@@ -186,7 +110,6 @@ public sealed partial class ImageSearchIndexService
     {
         ImageSearchOcrState.Pending => "Pending index",
         ImageSearchOcrState.Indexed when string.IsNullOrWhiteSpace(record.OcrText) => "No text",
-        ImageSearchOcrState.Indexed when record.SemanticCompleted => "Indexed",
         ImageSearchOcrState.Indexed => "OCR ready",
         ImageSearchOcrState.RetryableEmpty => "Indexing OCR",
         ImageSearchOcrState.RetryableError => "OCR error",
@@ -213,7 +136,6 @@ public sealed partial class ImageSearchIndexService
             parts.Add($"OCR: {TrimForDiagnostics(record.OcrText)}");
         if (!string.IsNullOrWhiteSpace(record.LastError))
             parts.Add($"Last error: {TrimForDiagnostics(record.LastError)}");
-        parts.Add(record.SemanticCompleted ? "Semantic cache: ready" : "Semantic cache: pending");
 
         return string.Join("\n", parts);
     }
@@ -236,13 +158,6 @@ public sealed partial class ImageSearchIndexService
             ImageSearchQueryMatcher.ScorePreNormalized(normalizedQuery, normalizedOcr, "", exactMatch) > 0)
             matchedSources.Add("OCR");
 
-        if (!exactMatch &&
-            sources.HasFlag(ImageSearchSourceOptions.Semantic) &&
-            record is not null &&
-            record.SemanticCompleted &&
-            matchedSources.Count == 0)
-            matchedSources.Add("semantic");
-
         return matchedSources.Count == 0 ? "" : $"Match: {string.Join(" + ", matchedSources)}";
     }
 
@@ -260,9 +175,6 @@ public sealed partial class ImageSearchIndexService
         _textScoreCache.Clear();
         _textScoreCacheNodes.Clear();
         _textScoreCacheOrder.Clear();
-        _queryEmbeddingCache.Clear();
-        _queryEmbeddingCacheNodes.Clear();
-        _queryEmbeddingCacheOrder.Clear();
     }
 
     private static void SetCacheEntry_NoLock<T>(

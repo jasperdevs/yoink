@@ -47,15 +47,15 @@ public partial class SettingsWindow
         {
             EnsureMaterializedImageHistoryItems(_historyRenderCount <= 0 ? ImageHistoryPageSize : _historyRenderCount);
             ApplyImmediateImageFilter(query, sources, exactMatch);
-            SetImageSearchLoading(false, forceSemantic: true);
+            SetImageSearchLoading(false, forceIndexed: true);
             return;
         }
 
         // Show a lightweight local result set immediately, then refine with the indexed search.
         ApplyImmediateImageFilter(query, sources, exactMatch);
-        SetImageSearchLoading(true, forceSemantic: true);
+        SetImageSearchLoading(true, forceIndexed: true);
         _searchFilterCts = new CancellationTokenSource();
-        _ = ApplySemanticImageSearchAsync(++_searchFilterVersion, query, sources, _searchFilterCts.Token);
+        _ = ApplyIndexedImageSearchAsync(++_searchFilterVersion, query, sources, _searchFilterCts.Token);
     }
 
     private void ApplyImmediateImageFilter(string query, ImageSearchSourceOptions sources, bool exactMatch)
@@ -162,7 +162,7 @@ public partial class SettingsWindow
         return ImageSearchQueryMatcher.ScorePreNormalized(normalizedQuery, searchableText, fileName, exactMatch);
     }
 
-    private async Task ApplySemanticImageSearchAsync(int version, string query, ImageSearchSourceOptions sources, CancellationToken cancellationToken)
+    private async Task ApplyIndexedImageSearchAsync(int version, string query, ImageSearchSourceOptions sources, CancellationToken cancellationToken)
     {
         bool searchFailed = false;
         try
@@ -219,7 +219,7 @@ public partial class SettingsWindow
             else if (_useVirtualizedImageHistory)
                 UpdateVirtualizedHistoryViewport();
             UpdateImageSearchStatus();
-            SetImageSearchLoading(false, forceSemantic: true);
+            SetImageSearchLoading(false, forceIndexed: true);
             UpdateImageSearchActionButtons();
         }
         catch (OperationCanceledException)
@@ -232,16 +232,11 @@ public partial class SettingsWindow
         finally
         {
             if (version == _searchFilterVersion)
-                SetImageSearchLoading(false, forceSemantic: true);
+                SetImageSearchLoading(false, forceIndexed: true);
 
             if (version == _searchFilterVersion && searchFailed)
                 HistorySearchStatusText.Text = "Search failed";
         }
-    }
-
-    private bool ApplySemanticSearchIfNeeded()
-    {
-        return false;
     }
 
     private List<HistoryItemVM> FilterSearchResultsForLoadedThumbnails(List<HistoryItemVM> rankedItems, string query)
@@ -340,7 +335,7 @@ public partial class SettingsWindow
         HistorySearchStatusText.Text = "";
     }
 
-    private void SetImageSearchLoading(bool isLoading, bool forceSemantic = false)
+    private void SetImageSearchLoading(bool isLoading, bool forceIndexed = false)
     {
         ImageSearchLoadingBar.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
         if (HistoryCategoryCombo.SelectedIndex == 0)
@@ -350,11 +345,10 @@ public partial class SettingsWindow
     private void CancelImageSearchWork()
     {
         _imageSearchDebounceTimer.Stop();
-        _semanticSearchTimer.Stop();
         _searchFilterCts?.Cancel();
         _searchFilterCts?.Dispose();
         _searchFilterCts = null;
-        SetImageSearchLoading(false, forceSemantic: true);
+        SetImageSearchLoading(false, forceIndexed: true);
     }
 
     private bool CanReuseImmediateSearchScope(string normalizedQuery, ImageSearchSourceOptions sources, bool exactMatch)
@@ -384,7 +378,6 @@ public partial class SettingsWindow
             ImageSearchPlaceholder.Visibility = string.IsNullOrWhiteSpace(ImageSearchBox.Text) && !ImageSearchBox.IsKeyboardFocused
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-            ImageSearchSemanticCheck.IsEnabled = !_settingsService.Settings.ImageSearchExactMatch && _semanticRuntimeInstalled;
         }
         else
         {

@@ -8,9 +8,6 @@ namespace Yoink.UI;
 
 public partial class SettingsWindow
 {
-    private bool _semanticRuntimeInstalled;
-    private bool _semanticRuntimeInstallInProgress;
-
     private void ExportSettingsButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -233,94 +230,6 @@ public partial class SettingsWindow
 
         if (HistoryTab.IsChecked == true)
             LoadCurrentHistoryTab();
-    }
-
-    private void SemanticRuntimeInstallBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (_semanticRuntimeInstallInProgress)
-            return;
-
-        var started = BackgroundRuntimeJobService.Start(
-            new BackgroundRuntimeJobOptions(
-                SemanticRuntimeJobKey,
-                "Semantic search",
-                "Preparing semantic search...",
-                "Semantic search ready",
-                "Local semantic search finished preparing.",
-                "Semantic search setup failed")
-            {
-                SuccessStatus = "Ready"
-            },
-            (progress, cancellationToken) => LocalClipRuntimeService.EnsureInstalledAsync(progress, cancellationToken));
-
-        if (!started)
-            ToastWindow.Show("Semantic search", "Semantic search is already preparing in the background.");
-
-        _ = RefreshSemanticRuntimeStatusAsync();
-    }
-
-    private Task RefreshSemanticRuntimeStatusAsync()
-    {
-        try
-        {
-            if (BackgroundRuntimeJobService.TryGetSnapshot(SemanticRuntimeJobKey, out var job) && job.IsRunning)
-            {
-                _semanticRuntimeInstallInProgress = true;
-                _semanticRuntimeInstalled = false;
-                SemanticRuntimeStatusText.Text = job.Status;
-                SemanticRuntimeInstallBtn.Content = "Repair";
-                SemanticRuntimeInstallBtn.IsEnabled = false;
-                SemanticRuntimeProgressBar.Visibility = Visibility.Visible;
-                SemanticRuntimeSection.Visibility = Visibility.Visible;
-                SetLoadingTextShimmer(SemanticRuntimeStatusText, true, 0.7, 0.45);
-                LoadImageSearchSources();
-                return Task.CompletedTask;
-            }
-
-            _semanticRuntimeInstallInProgress = false;
-            string status;
-            if (LocalClipRuntimeService.TryGetCachedStatus(out var installed, out var cachedStatus))
-            {
-                _semanticRuntimeInstalled = installed;
-                status = cachedStatus;
-            }
-            else if (BackgroundRuntimeJobService.TryGetSnapshot(SemanticRuntimeJobKey, out var failedJob) && failedJob is { LastSucceeded: false })
-            {
-                _semanticRuntimeInstalled = false;
-                status = $"Failed: {failedJob.LastError}";
-            }
-            else
-            {
-                _semanticRuntimeInstalled = false;
-                status = LocalClipRuntimeService.IdleStatusText;
-            }
-
-            var hasActionableIssue = !_semanticRuntimeInstalled &&
-                                     !string.Equals(status, LocalClipRuntimeService.IdleStatusText, StringComparison.OrdinalIgnoreCase);
-
-            SemanticRuntimeStatusText.Text = _semanticRuntimeInstalled ? "Ready" : status;
-            SemanticRuntimeInstallBtn.Content = "Repair";
-            SemanticRuntimeInstallBtn.IsEnabled = true;
-            SemanticRuntimeProgressBar.Visibility = Visibility.Collapsed;
-            SemanticRuntimeSection.Visibility = hasActionableIssue ? Visibility.Visible : Visibility.Collapsed;
-            SetLoadingTextShimmer(SemanticRuntimeStatusText, false, 0.7, 0.45);
-            LoadImageSearchSources();
-        }
-        catch (Exception ex)
-        {
-            AppDiagnostics.LogError("settings.semantic-status", ex);
-            _semanticRuntimeInstallInProgress = false;
-            _semanticRuntimeInstalled = false;
-            SemanticRuntimeStatusText.Text = ex.Message;
-            SemanticRuntimeInstallBtn.Content = "Repair";
-            SemanticRuntimeInstallBtn.IsEnabled = true;
-            SemanticRuntimeProgressBar.Visibility = Visibility.Collapsed;
-            SemanticRuntimeSection.Visibility = Visibility.Visible;
-            SetLoadingTextShimmer(SemanticRuntimeStatusText, false, 0.7, 0.45);
-            LoadImageSearchSources();
-        }
-
-        return Task.CompletedTask;
     }
 
     private void ResetImageIndexesBtn_Click(object sender, RoutedEventArgs e)

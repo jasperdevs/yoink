@@ -405,7 +405,6 @@ public static class InstallService
     private static IEnumerable<string> GetOptionalPayloadEntries()
     {
         yield return "ffmpeg.exe";
-        yield return Path.Combine("Assets", "Clip");
     }
 
     private static void CopyFileWithRetry(string source, string destination, CancellationToken cancellationToken = default)

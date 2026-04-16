@@ -89,8 +89,7 @@ public enum ImageSearchSourceOptions
     FileName = 1 << 0,
     Ocr = 1 << 1,
     OcrText = Ocr,
-    Semantic = 1 << 2,
-    All = FileName | Ocr | Semantic
+    All = FileName | Ocr
 }
 
 public sealed class AppSettings

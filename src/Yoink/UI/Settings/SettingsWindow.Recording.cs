@@ -65,7 +65,9 @@ public partial class SettingsWindow
     private void UpdateRecordingFormatVisibility()
     {
         bool isGif = RecordingFormatCombo.SelectedIndex == 0;
-        VideoOnlySettings.Visibility = isGif ? Visibility.Collapsed : Visibility.Visible;
+        var videoOnlyVisibility = isGif ? Visibility.Collapsed : Visibility.Visible;
+        AudioSettingsLabel.Visibility = videoOnlyVisibility;
+        VideoOnlySettings.Visibility = videoOnlyVisibility;
     }
 
     private void RecordingQualityCombo_Changed(object sender, SelectionChangedEventArgs e)

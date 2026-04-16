@@ -118,7 +118,6 @@ public partial class SettingsWindow
         HistoryRetentionCombo.SelectedIndex = (int)s.HistoryRetention;
         ImageSearchFileNameCheck.IsChecked = (s.ImageSearchSources & ImageSearchSourceOptions.FileName) != 0;
         ImageSearchOcrCheck.IsChecked = (s.ImageSearchSources & ImageSearchSourceOptions.OcrText) != 0;
-        ImageSearchSemanticCheck.IsChecked = (s.ImageSearchSources & ImageSearchSourceOptions.Semantic) != 0;
         ImageSearchExactMatchCheck.IsChecked = s.ImageSearchExactMatch;
         ShowImageSearchBarCheck.IsChecked = s.ShowImageSearchBar;
         ShowImageSearchDiagnosticsCheck.IsChecked = s.ShowImageSearchDiagnostics;
@@ -166,8 +165,6 @@ public partial class SettingsWindow
         UpdateUploadSettingsVisibility();
         UpdateUploadTabVisibility();
         VersionText.Text = $"Yoink {UpdateService.GetCurrentVersionLabel()}";
-        _ = RefreshSemanticRuntimeStatusAsync();
-
         TryLoadSettingsSection("settings.populate-tool-toggles", PopulateToolToggles);
         TryLoadSettingsSection("settings.update-capture-format-controls", UpdateCaptureFormatControls);
         TryLoadSettingsSection("settings.update-recording-format-visibility", UpdateRecordingFormatVisibility);

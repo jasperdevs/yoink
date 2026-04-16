@@ -234,6 +234,8 @@ public sealed class SettingsService : IDisposable
         if (settings.CompressHistory && settings.CaptureImageFormat == CaptureImageFormat.Png)
             settings.CaptureImageFormat = CaptureImageFormat.Jpeg;
 
+        settings.ImageSearchSources &= ImageSearchSourceOptions.All;
+
         // Migrate older settings to include newly added default tools.
         if (settings.EnabledTools is { Count: > 0 })
         {
