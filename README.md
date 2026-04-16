@@ -1,5 +1,5 @@
 <h1 align="center">yoink</h1>
-<p align="center">An open-source ShareX alternative for capture, annotation, OCR, translation, stickers, recording, uploads, and searchable history.</p>
+<p align="center"> Free, open-source screenshot tool. Capture, annotate, share, search with OCR, record, scrolling captures, translations, color picker, upscale, and MUCH more </p>
 
 <p align="center">
   <a href="https://github.com/jasperdevs/yoink/releases/latest">
