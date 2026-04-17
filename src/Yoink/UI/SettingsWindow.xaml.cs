@@ -73,6 +73,7 @@ public partial class SettingsWindow : Window
         Theme.Refresh();
         Theme.ApplyTo(Application.Current.Resources);
         ApplyThemeColors();
+        LoadStaticFluentIcons();
         LoadSettings();
         Loaded += (_, _) => ApplyMicaBackdrop();
         Loaded += async (_, _) => await RefreshUpdateStatusAsync(false);
@@ -88,6 +89,7 @@ public partial class SettingsWindow : Window
         Activated += (_, _) =>
         {
             ApplyThemeColors();
+            LoadStaticFluentIcons();
             UpdateLocalEngineUi();
             UpdateUpscaleLocalEngineUi();
         };
@@ -163,6 +165,17 @@ public partial class SettingsWindow : Window
         if (IsLoaded)
             ApplyMainTabSelection();
         TryProcessPendingTrayHistoryOpen();
+    }
+
+    private void LoadStaticFluentIcons()
+    {
+        var color = Theme.IsDark
+            ? System.Drawing.Color.FromArgb(210, 255, 255, 255)
+            : System.Drawing.Color.FromArgb(170, 0, 0, 0);
+        ImageSearchIcon.Source = Helpers.StreamlineIcons.RenderWpf("search", color, 18);
+        var titleIcon = System.Drawing.Color.FromArgb(210, Theme.TextSecondary.R, Theme.TextSecondary.G, Theme.TextSecondary.B);
+        MinimizeTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("minimize", titleIcon, 18);
+        CloseTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", titleIcon, 18);
     }
 
     private void TryProcessPendingTrayHistoryOpen()

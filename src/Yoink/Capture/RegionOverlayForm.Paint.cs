@@ -54,24 +54,22 @@ public sealed partial class RegionOverlayForm
         // Select tool: draw selection highlight and handles
         if (_mode == CaptureMode.Select && _selectedAnnotationIndex >= 0 && _selectedAnnotationIndex < _undoStack.Count)
         {
-            var bounds = GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]);
+            var selected = _selectPreviewAnnotation ?? _undoStack[_selectedAnnotationIndex];
+            var bounds = GetAnnotationBounds(selected);
             if (bounds.Width > 0 && bounds.Height > 0)
             {
                 var selRect = Rectangle.Inflate(bounds, 4, 4);
                 var selPen = _selectDashPen ??= new Pen(Color.FromArgb(200, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f } };
                 g.DrawRectangle(selPen, selRect);
 
-                // Corner handles
-                int hs = SelectHandleSize;
-                var hBrush = _selectHandleBrush ??= new SolidBrush(UiChrome.SurfaceTextPrimary);
-                var hPen = _selectHandlePen ??= new Pen(Color.FromArgb(200, 255, 255, 255), 1f);
                 var corners = new[] {
-                    new Rectangle(selRect.X - hs / 2, selRect.Y - hs / 2, hs, hs),
-                    new Rectangle(selRect.Right - 1 - hs / 2, selRect.Y - hs / 2, hs, hs),
-                    new Rectangle(selRect.X - hs / 2, selRect.Bottom - 1 - hs / 2, hs, hs),
-                    new Rectangle(selRect.Right - 1 - hs / 2, selRect.Bottom - 1 - hs / 2, hs, hs),
+                    new PointF(selRect.X, selRect.Y),
+                    new PointF(selRect.Right - 1, selRect.Y),
+                    new PointF(selRect.X, selRect.Bottom - 1),
+                    new PointF(selRect.Right - 1, selRect.Bottom - 1),
                 };
-                foreach (var c in corners) { g.FillRectangle(hBrush, c); g.DrawRectangle(hPen, c); }
+                foreach (var c in corners)
+                    WindowsHandleRenderer.Paint(g, WindowsHandleRenderer.CenteredAt(c));
             }
         }
 
@@ -139,8 +137,7 @@ public sealed partial class RegionOverlayForm
     // Cached GDI objects for hot-path rendering (avoid allocation per frame).
     private static Pen? _cachedDash180, _cachedDash255, _cachedDash120, _cachedDash220;
     private static Pen? _cachedShadow30, _cachedShadow40;
-    private static Pen? _selectDashPen, _selectHandlePen;
-    private static SolidBrush? _selectHandleBrush;
+    private static Pen? _selectDashPen;
 
     // Monochrome white accent for selection borders
     private static readonly Color SelectionAccent = Color.FromArgb(255, 255, 255, 255);

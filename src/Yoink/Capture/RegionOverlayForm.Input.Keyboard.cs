@@ -11,7 +11,17 @@ public sealed partial class RegionOverlayForm
     {
         if ((keyData & Keys.KeyCode) == Keys.Escape)
         {
-            Cancel();
+            if (_flyoutOpen)
+                CloseMoreToolsDropdown();
+            else
+                Cancel();
+            return true;
+        }
+        if (_flyoutOpen && TryHandleAnnotationToolHotkey(keyData & Keys.KeyCode))
+        {
+            CloseMoreToolsDropdown();
+            RefreshToolbar();
+            Invalidate();
             return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);

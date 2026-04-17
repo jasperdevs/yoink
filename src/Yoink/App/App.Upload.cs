@@ -23,8 +23,7 @@ public partial class App
         UploadDestination.Gofile,
         UploadDestination.ImgBB,
         UploadDestination.Imgur,
-        UploadDestination.Catbox,
-        UploadDestination.FileIo
+        UploadDestination.Catbox
     };
 
     private static string CleanErrorMessage(string? msg)

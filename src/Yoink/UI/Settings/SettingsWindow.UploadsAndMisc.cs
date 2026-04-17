@@ -2,6 +2,8 @@ using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Yoink.Helpers;
 using Yoink.Models;
 using Yoink.Services;
@@ -10,6 +12,10 @@ namespace Yoink.UI;
 
 public partial class SettingsWindow
 {
+    private const double SettingsComboItemWidth = 300;
+    private const double SettingsComboTextWidth = 256;
+    private static DataTemplate? s_settingsComboItemTemplate;
+
     private Services.UploadDestination GetSelectedUploadDest()
     {
         if (UploadDestCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
@@ -22,6 +28,8 @@ public partial class SettingsWindow
     {
         if (!IsLoaded) return;
         _settingsService.Settings.ImageUploadDestination = GetSelectedUploadDest();
+        if (UploadDestCombo.SelectedItem is ComboBoxItem selected)
+            UploadDestCombo.Text = GetUploadDestinationFilterText(selected);
         if (ActiveUploadSettings.AiChatUploadDestinationSynced)
             ActiveUploadSettings.AiChatUploadDestination = Services.UploadService.NormalizeAiChatUploadDestination(GetSelectedUploadDest());
         _settingsService.Save();
@@ -88,7 +96,7 @@ public partial class SettingsWindow
                 return Services.AiChatProvider.Claude;
             return (Services.AiChatProvider)value;
         }
-        return Services.AiChatProvider.ChatGpt;
+        return Services.AiChatProvider.GoogleLens;
     }
 
     private Services.UploadDestination GetSelectedAiRedirectPanelUploadDest()
@@ -184,7 +192,7 @@ public partial class SettingsWindow
 
         uint modifiers = HotkeyFormatter.GetActiveModifiers();
         uint vk = (uint)KeyInterop.VirtualKeyFromKey(key);
-        if (vk == 0)
+        if (vk == 0 || IsUnsafeModifierlessHotkey(modifiers, vk))
             return;
 
         var conflict = FindAiRedirectConflict(modifiers, vk);
@@ -218,6 +226,9 @@ public partial class SettingsWindow
     private static bool IsModifierOnly(Key key) =>
         key is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
             or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.Escape;
+
+    private static bool IsUnsafeModifierlessHotkey(uint modifiers, uint key) =>
+        modifiers == 0 && key != Native.User32.VK_SNAPSHOT;
 
     private string? FindAiRedirectConflict(uint modifiers, uint key)
     {
@@ -540,6 +551,7 @@ public partial class SettingsWindow
         if (_uploadDestItemsCached) return;
         _uploadDestItemsCached = true;
         _uploadDestItems.Clear();
+        EnsureUploadDestinationComboIcons();
         foreach (var item in UploadDestCombo.Items.OfType<ComboBoxItem>())
             _uploadDestItems.Add(item);
     }
@@ -598,6 +610,7 @@ public partial class SettingsWindow
     {
         CacheUploadDestItems();
         AiRedirectLensUploadDestPanelCombo.Items.Clear();
+        AiRedirectLensUploadDestPanelCombo.ItemTemplate = GetSettingsComboItemTemplate();
 
         foreach (var source in _uploadDestItems)
         {
@@ -610,67 +623,257 @@ public partial class SettingsWindow
 
             AiRedirectLensUploadDestPanelCombo.Items.Add(new ComboBoxItem
             {
-                Content = source.Content,
-                Tag = source.Tag
+                Content = CloneUploadDestinationContent(source.Content),
+                ContentTemplate = GetSettingsComboItemTemplate(),
+                Tag = source.Tag,
+                HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch,
+                Padding = new Thickness(8, 5, 8, 5)
             });
         }
     }
 
-    private void UploadDestCombo_PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+    private void EnsureProviderComboIcons()
     {
-        CacheUploadDestItems();
-        UploadDestCombo.IsDropDownOpen = true;
-        Dispatcher.BeginInvoke(new Action(() =>
+        ApplyComboIcons(AiRedirectProviderCombo, raw => raw switch
         {
-            var editText = UploadDestCombo.Text?.Trim() ?? "";
-            UploadDestCombo.Items.Clear();
-
-            if (string.IsNullOrEmpty(editText))
-            {
-                foreach (var item in _uploadDestItems)
-                    UploadDestCombo.Items.Add(item);
-            }
-            else
-            {
-                var lower = editText.ToLowerInvariant();
-                foreach (var item in _uploadDestItems)
-                {
-                    var content = (item.Content as string ?? "").ToLowerInvariant();
-                    if (content.Contains(lower))
-                        UploadDestCombo.Items.Add(item);
-                }
-            }
-
-            UploadDestCombo.IsDropDownOpen = true;
-        }), System.Windows.Threading.DispatcherPriority.Background);
+            "-1" => null,
+            "0" => "chatgpt_sq.png",
+            "1" => "claude_sq.png",
+            "3" => "gemini_sq.png",
+            "4" => "googlelens_sq.png",
+            _ => null
+        });
+        ApplyComboIcons(StickerProviderCombo, raw => raw switch
+        {
+            "1" => "removebg_sq.png",
+            "2" => "photoroom_sq.png",
+            _ => null
+        });
+        ApplyComboIcons(UpscaleProviderCombo, raw => raw switch
+        {
+            "2" or "3" => "deepai_sq.png",
+            _ => null
+        });
+        ApplyTextComboIcons(StickerLocalExecutionCombo, text => text.StartsWith("CPU", StringComparison.OrdinalIgnoreCase) ? "cpu" : "gpu");
+        ApplyTextComboIcons(UpscaleLocalExecutionCombo, text => text.StartsWith("CPU", StringComparison.OrdinalIgnoreCase) ? "cpu" : "gpu");
+        ApplyTextComboIcons(StickerLocalCpuEngineCombo, _ => "sticker");
+        ApplyTextComboIcons(StickerLocalGpuEngineCombo, _ => "sticker");
+        ApplyTextComboIcons(UpscaleLocalCpuEngineCombo, _ => "upscale");
+        ApplyTextComboIcons(UpscaleLocalGpuEngineCombo, _ => "upscale");
     }
 
-    private void UploadDestCombo_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private void ApplyComboIcons(System.Windows.Controls.ComboBox combo, Func<string, string?> assetSelector)
     {
-        if (e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.Delete)
+        combo.ItemTemplate = GetSettingsComboItemTemplate();
+        for (int i = 0; i < combo.Items.Count; i++)
         {
-            CacheUploadDestItems();
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                var editText = UploadDestCombo.Text?.Trim() ?? "";
-                UploadDestCombo.Items.Clear();
-
-                if (string.IsNullOrEmpty(editText))
-                {
-                    foreach (var item in _uploadDestItems)
-                        UploadDestCombo.Items.Add(item);
-                }
-                else
-                {
-                    var lower = editText.ToLowerInvariant();
-                    foreach (var item in _uploadDestItems)
-                    {
-                        var content = (item.Content as string ?? "").ToLowerInvariant();
-                        if (content.Contains(lower))
-                            UploadDestCombo.Items.Add(item);
-                    }
-                }
-            }), System.Windows.Threading.DispatcherPriority.Background);
+            if (combo.Items[i] is not ComboBoxItem item || item.Content is not string text)
+                continue;
+            var raw = item.Tag as string ?? i.ToString();
+            item.HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch;
+            item.Padding = new Thickness(8, 5, 8, 5);
+            item.ContentTemplate = GetSettingsComboItemTemplate();
+            item.Content = BuildProviderComboItem(text, assetSelector(raw));
         }
+    }
+
+    private void ApplyTextComboIcons(System.Windows.Controls.ComboBox combo, Func<string, string> iconSelector)
+    {
+        combo.ItemTemplate = GetSettingsComboItemTemplate();
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is not ComboBoxItem item || item.Content is not string text)
+                continue;
+            item.HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch;
+            item.Padding = new Thickness(8, 5, 8, 5);
+            item.ContentTemplate = GetSettingsComboItemTemplate();
+            item.Content = BuildFallbackComboItem(text, iconSelector(text));
+        }
+    }
+
+    private object BuildProviderComboItem(string text, string? asset)
+    {
+        var source = LoadAssetIcon(asset);
+        return new SettingsComboOption(
+            text,
+            source ?? RenderFallbackIcon(GetProviderFallbackIcon(text)),
+            source is not null,
+            null,
+            asset);
+    }
+
+    private object BuildFallbackComboItem(string text, string iconId) =>
+        new SettingsComboOption(text, RenderFallbackIcon(iconId), false, null, null);
+
+    private static string GetProviderFallbackIcon(string text)
+    {
+        if (string.Equals(text, "None", StringComparison.OrdinalIgnoreCase))
+            return "close";
+        if (text.Contains("local", StringComparison.OrdinalIgnoreCase))
+            return "settings";
+        return "folder";
+    }
+
+    private void EnsureUploadDestinationComboIcons()
+    {
+        UploadDestCombo.ItemTemplate = GetSettingsComboItemTemplate();
+        foreach (var item in UploadDestCombo.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Content is not string text || item.Tag is not string tag || !int.TryParse(tag, out var raw))
+                continue;
+            item.HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch;
+            item.Padding = new Thickness(8, 5, 8, 5);
+            item.ContentTemplate = GetSettingsComboItemTemplate();
+            item.Content = BuildUploadDestinationItem((Services.UploadDestination)raw, text);
+        }
+    }
+
+    private object CloneUploadDestinationContent(object content)
+    {
+        if (content is SettingsComboOption { Destination: { } destination } option)
+            return BuildUploadDestinationItem(destination, option.Text);
+        return content;
+    }
+
+    private object BuildUploadDestinationItem(Services.UploadDestination destination, string text)
+    {
+        var (source, isBrand) = GetUploadDestinationIcon(destination);
+        return new SettingsComboOption(text, source, isBrand, destination, null);
+    }
+
+    private static DataTemplate GetSettingsComboItemTemplate()
+    {
+        if (s_settingsComboItemTemplate is not null)
+            return s_settingsComboItemTemplate;
+
+        var root = new FrameworkElementFactory(typeof(StackPanel));
+        root.SetValue(StackPanel.OrientationProperty, System.Windows.Controls.Orientation.Horizontal);
+        root.SetValue(FrameworkElement.WidthProperty, SettingsComboItemWidth);
+        root.SetValue(FrameworkElement.HeightProperty, 22.0);
+        root.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        root.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+        var iconFrame = new FrameworkElementFactory(typeof(Border));
+        iconFrame.SetValue(FrameworkElement.WidthProperty, 20.0);
+        iconFrame.SetValue(FrameworkElement.HeightProperty, 20.0);
+        iconFrame.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+        iconFrame.SetValue(Border.ClipToBoundsProperty, true);
+        iconFrame.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        iconFrame.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 8, 0));
+        iconFrame.SetBinding(Border.BackgroundProperty, new System.Windows.Data.Binding(nameof(SettingsComboOption.IconBackground)));
+
+        var icon = new FrameworkElementFactory(typeof(System.Windows.Controls.Image));
+        icon.SetValue(FrameworkElement.WidthProperty, 14.0);
+        icon.SetValue(FrameworkElement.HeightProperty, 14.0);
+        icon.SetValue(System.Windows.Controls.Image.StretchProperty, Stretch.UniformToFill);
+        icon.SetValue(FrameworkElement.ClipToBoundsProperty, true);
+        icon.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        icon.SetValue(FrameworkElement.HorizontalAlignmentProperty, System.Windows.HorizontalAlignment.Center);
+        icon.SetBinding(System.Windows.Controls.Image.SourceProperty, new System.Windows.Data.Binding(nameof(SettingsComboOption.Icon)));
+        iconFrame.AppendChild(icon);
+        root.AppendChild(iconFrame);
+
+        var label = new FrameworkElementFactory(typeof(TextBlock));
+        label.SetValue(FrameworkElement.WidthProperty, SettingsComboTextWidth);
+        label.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        label.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        label.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(SettingsComboOption.Text)));
+        root.AppendChild(label);
+
+        s_settingsComboItemTemplate = new DataTemplate
+        {
+            VisualTree = root
+        };
+        return s_settingsComboItemTemplate;
+    }
+
+    private static ImageSource? LoadAssetIcon(string? asset)
+    {
+        if (string.IsNullOrWhiteSpace(asset))
+            return null;
+        try
+        {
+            return new BitmapImage(new Uri($"pack://application:,,,/Assets/{asset}", UriKind.Absolute));
+        }
+        catch (Exception ex)
+        {
+            AppDiagnostics.LogError("settings.icon.load", ex);
+            return null;
+        }
+    }
+
+    private static ImageSource RenderFallbackIcon(string iconId)
+    {
+        var color = Theme.IsDark
+            ? System.Drawing.Color.FromArgb(220, 255, 255, 255)
+            : System.Drawing.Color.FromArgb(210, 24, 24, 24);
+        return Helpers.StreamlineIcons.RenderWpf(iconId, color, 18)
+            ?? Helpers.StreamlineIcons.RenderWpf("folder", color, 18)!;
+    }
+
+    private (ImageSource Source, bool IsBrand) GetUploadDestinationIcon(Services.UploadDestination destination)
+    {
+        string? asset = destination switch
+        {
+            Services.UploadDestination.Imgur => "imgur_sq.png",
+            Services.UploadDestination.ImgBB => "imgbb_sq.png",
+            Services.UploadDestination.ImgPile => "imgpile_sq.png",
+            Services.UploadDestination.Catbox => "catbox_sq.png",
+            Services.UploadDestination.Litterbox => "litterbox_sq.png",
+            Services.UploadDestination.Gyazo => "gyazo_sq.png",
+            Services.UploadDestination.FileIo => "fileio_sq.png",
+            Services.UploadDestination.Uguu => "uguu_sq.png",
+            Services.UploadDestination.TmpFiles => "tmpfiles_sq.png",
+            Services.UploadDestination.Gofile => "gofile_sq.png",
+            Services.UploadDestination.Dropbox => "dropbox_sq.png",
+            Services.UploadDestination.GoogleDrive => "gdrive_sq.png",
+            Services.UploadDestination.OneDrive => "onedrive_sq.png",
+            Services.UploadDestination.AzureBlob => "azure_sq.png",
+            Services.UploadDestination.GitHub => "github_sq.png",
+            Services.UploadDestination.Immich => "immich_sq.png",
+            Services.UploadDestination.S3Compatible => "aws_sq.png",
+            _ => null
+        };
+        if (asset is not null && LoadAssetIcon(asset) is { } assetIcon)
+            return (assetIcon, true);
+
+        var iconId = destination switch
+        {
+            Services.UploadDestination.None => "close",
+            Services.UploadDestination.TempHosts => "filter",
+            Services.UploadDestination.CustomHttp => "settings",
+            Services.UploadDestination.AiChat => "ai_redirect",
+            Services.UploadDestination.Ftp => "settings",
+            Services.UploadDestination.Sftp => "settings",
+            Services.UploadDestination.WebDav => "settings",
+            _ => "folder"
+        };
+        return (RenderFallbackIcon(iconId), false);
+    }
+
+    public sealed class SettingsComboOption
+    {
+        public SettingsComboOption(string text, ImageSource icon, bool isBrand, Services.UploadDestination? destination, string? asset)
+        {
+            Text = text;
+            Icon = icon;
+            IconBackground = isBrand ? System.Windows.Media.Brushes.White : System.Windows.Media.Brushes.Transparent;
+            Destination = destination;
+            Asset = asset;
+        }
+
+        public string Text { get; }
+        public ImageSource Icon { get; }
+        public System.Windows.Media.Brush IconBackground { get; }
+        public Services.UploadDestination? Destination { get; }
+        public string? Asset { get; }
+        public override string ToString() => Text;
+    }
+
+    private static string GetUploadDestinationFilterText(ComboBoxItem item)
+    {
+        if (item.Content is SettingsComboOption option)
+            return option.Text;
+        return item.Content as string ?? "";
     }
 }

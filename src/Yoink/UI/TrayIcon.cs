@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Text;
 using System.Windows.Forms;
 using Yoink.Helpers;
 using Yoink.Models;
@@ -62,56 +61,19 @@ public sealed class TrayIcon : IDisposable
     private ContextMenuStrip CreateThemedMenu()
     {
         Theme.Refresh();
-        bool dark = Theme.IsDark;
-
-        var bg  = dark ? Color.FromArgb(44, 44, 44)    : Color.FromArgb(249, 249, 249);
-        var fg  = dark ? Color.FromArgb(235, 235, 235)  : Color.FromArgb(20, 20, 20);
-        var hov = dark ? Color.FromArgb(58, 58, 58)     : Color.FromArgb(232, 232, 232);
-        var sep = dark ? Color.FromArgb(60, 60, 60)     : Color.FromArgb(218, 218, 218);
-        var mut = dark ? Color.FromArgb(115, 115, 115)  : Color.FromArgb(140, 140, 140);
-        var quitC = dark ? Color.FromArgb(230, 80, 80) : Color.FromArgb(200, 50, 50);
-        var recRed = Color.FromArgb(239, 68, 68);
-
-        var menu = new ContextMenuStrip
-        {
-            BackColor = bg,
-            ForeColor = fg,
-            ShowImageMargin = false,
-            ShowCheckMargin = false,
-            Padding = new Padding(2, 4, 2, 4),
-            Font = UiChrome.ChromeFont(9f),
-            DropShadowEnabled = true,
-        };
-        menu.Renderer = new CleanMenuRenderer(bg, hov, sep, mut, dark);
-
-        menu.HandleCreated += (s, _) =>
-        {
-            try
-            {
-                var h = ((ContextMenuStrip)s!).Handle;
-                Native.Dwm.TrySetWindowCornerPreference(h, Native.Dwm.DWMWCP_ROUND);
-                Native.Dwm.TrySetImmersiveDarkMode(h, dark);
-            }
-            catch { }
-        };
-
+        var menu = WindowsMenuRenderer.Create(showImages: true, minWidth: WindowsMenuRenderer.DefaultWidth);
         bool isRec = Capture.RecordingForm.Current != null;
 
-        ToolStripMenuItem Item(string text, string? hotkey = null, Color? color = null) => new(text)
-        {
-            ForeColor = color ?? fg,
-            Padding = new Padding(12, 5, 16, 5),
-            Tag = hotkey,
-        };
-
-        var captureItem  = Item("Screenshot", HotkeyHint("rect"));
-        var ocrItem      = Item("Text capture", HotkeyHint("ocr"));
-        var pickerItem   = Item("Color picker", HotkeyHint("picker"));
-        var recordItem   = isRec ? Item("Stop recording", color: recRed) : Item("Record", HotkeyHint("_record"));
-        var scrollItem   = Item("Scroll capture", HotkeyHint("_scrollCapture"));
-        var settingsItem = Item("Settings");
-        var historyItem  = Item("History");
-        var quitItem     = Item("Quit", color: quitC);
+        var captureItem  = WindowsMenuRenderer.Item("Screenshot", HotkeyHint("rect"), "rect");
+        var ocrItem      = WindowsMenuRenderer.Item("Text capture", HotkeyHint("ocr"), "ocr");
+        var pickerItem   = WindowsMenuRenderer.Item("Color picker", HotkeyHint("picker"), "picker");
+        var recordItem   = isRec
+            ? WindowsMenuRenderer.Item("Stop recording", null, "record", active: true, danger: true)
+            : WindowsMenuRenderer.Item("Record", HotkeyHint("_record"), "record");
+        var scrollItem   = WindowsMenuRenderer.Item("Scroll capture", HotkeyHint("_scrollCapture"), "scrollCapture");
+        var settingsItem = WindowsMenuRenderer.Item("Settings", iconId: "gear");
+        var historyItem  = WindowsMenuRenderer.Item("History", iconId: "folder");
+        var quitItem     = WindowsMenuRenderer.Item("Quit", iconId: "close", danger: true);
 
         captureItem.Click += (_, _) => OnCapture?.Invoke();
         ocrItem.Click     += (_, _) => OnOcr?.Invoke();
@@ -137,29 +99,7 @@ public sealed class TrayIcon : IDisposable
             quitItem,
         });
 
-        // Measure widest label+hint to size all items uniformly
-        int minWidth = 0;
-        using var measureG = Graphics.FromHwnd(IntPtr.Zero);
-        foreach (ToolStripItem item in menu.Items)
-        {
-            if (item is not ToolStripMenuItem mi) continue;
-            var textW = TextRenderer.MeasureText(measureG, mi.Text, mi.Font).Width;
-            var hintW = mi.Tag is string hint ? TextRenderer.MeasureText(measureG, hint, mi.Font).Width : 0;
-            var total = textW + hintW + (hintW > 0 ? 48 : 0);
-            if (total > minWidth) minWidth = total;
-        }
-        var fullWidth = minWidth + 44;
-        menu.MinimumSize = new System.Drawing.Size(fullWidth, 0);
-        // Force each item to stretch to full menu width
-        foreach (ToolStripItem item in menu.Items)
-        {
-            if (item is ToolStripMenuItem mi)
-            {
-                mi.AutoSize = false;
-                mi.Width = fullWidth;
-            }
-        }
-
+        WindowsMenuRenderer.NormalizeItemWidths(menu);
         return menu;
     }
 
@@ -321,84 +261,4 @@ public sealed class TrayIcon : IDisposable
         _defaultIcon?.Dispose();
         _recordingIcon?.Dispose();
     }
-}
-
-/// <summary>Clean Win11-style renderer. No icons, just text + right-aligned shortcuts.</summary>
-internal sealed class CleanMenuRenderer : ToolStripProfessionalRenderer
-{
-    private readonly Color _bg, _hover, _sep, _muted;
-
-    public CleanMenuRenderer(Color bg, Color hover, Color sep, Color muted, bool isDark)
-        : base(new Win11ColorTable(bg))
-    {
-        _bg = bg; _hover = hover; _sep = sep; _muted = muted;
-    }
-
-    protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
-    {
-        if (!e.Item.Selected) return;
-        var r = new Rectangle(4, 1, e.Item.Width - 8, e.Item.Height - 2);
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var brush = new SolidBrush(_hover);
-        using var path = RoundedRect(r, 6);
-        e.Graphics.FillPath(brush, path);
-    }
-
-    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
-    {
-        var g = e.Graphics;
-        g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-
-        var textRect = new Rectangle(14, 0, e.Item.Width - 28, e.Item.Height);
-        TextRenderer.DrawText(g, e.Item.Text, e.Item.Font, textRect, e.Item.ForeColor,
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-
-        // Draw hotkey hint right-aligned in muted color
-        if (e.Item.Tag is string hint && hint.Length > 0)
-        {
-            var hintRect = new Rectangle(14, 0, e.Item.Width - 28, e.Item.Height);
-            TextRenderer.DrawText(g, hint, e.Item.Font, hintRect, _muted,
-                TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-        }
-    }
-
-    protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
-    {
-        int y = e.Item.Height / 2;
-        using var pen = new Pen(_sep);
-        e.Graphics.DrawLine(pen, 10, y, e.Item.Width - 10, y);
-    }
-
-    protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
-    {
-        using var brush = new SolidBrush(_bg);
-        e.Graphics.FillRectangle(brush, e.AffectedBounds);
-    }
-
-    protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e) { }
-    protected override void OnRenderImageMargin(ToolStripRenderEventArgs e) { }
-
-    private static GraphicsPath RoundedRect(Rectangle r, int radius)
-    {
-        var path = new GraphicsPath();
-        int d = radius * 2;
-        path.AddArc(r.X, r.Y, d, d, 180, 90);
-        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-}
-
-internal sealed class Win11ColorTable : ProfessionalColorTable
-{
-    private readonly Color _bg;
-    public Win11ColorTable(Color bg) { _bg = bg; }
-    public override Color MenuBorder => Color.Transparent;
-    public override Color MenuItemBorder => Color.Transparent;
-    public override Color ToolStripDropDownBackground => _bg;
-    public override Color ImageMarginGradientBegin => _bg;
-    public override Color ImageMarginGradientMiddle => _bg;
-    public override Color ImageMarginGradientEnd => _bg;
 }

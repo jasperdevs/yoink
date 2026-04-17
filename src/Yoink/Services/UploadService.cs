@@ -44,6 +44,7 @@ public enum UploadDestination
 
 public enum AiChatProvider
 {
+    None = -1,
     ChatGpt,
     Claude,
     // Legacy saved value; normalized to Claude in current UI/runtime behavior.
@@ -79,8 +80,7 @@ public static partial class UploadService
         UploadDestination.Litterbox,
         UploadDestination.TmpFiles,
         UploadDestination.Uguu,
-        UploadDestination.Gofile,
-        UploadDestination.FileIo
+        UploadDestination.Gofile
     };
 
     private static JsonNode? TryParseJson(string text)
@@ -169,6 +169,9 @@ public static partial class UploadService
     private const string GyazoLogoPath = "Assets/gyazo_sq.png";
     private const string FileIoLogoPath = "Assets/fileio_sq.png";
     private const string UguuLogoPath = "Assets/uguu_sq.png";
+    private const string TmpFilesLogoPath = "Assets/tmpfiles_sq.png";
+    private const string GofileLogoPath = "Assets/gofile_sq.png";
+    private const string ImgPileLogoPath = "Assets/imgpile_sq.png";
     private const string TransferLogoPath = "Assets/transfer_sq.png";
     private const string DropboxLogoPath = "Assets/dropbox_sq.png";
     private const string GoogleDriveLogoPath = "Assets/gdrive_sq.png";
@@ -192,9 +195,10 @@ public static partial class UploadService
         if (provider.Equals("gyazo", StringComparison.OrdinalIgnoreCase)) return GyazoLogoPath;
         if (provider.Equals("file.io", StringComparison.OrdinalIgnoreCase)) return FileIoLogoPath;
         if (provider.Equals("uguu", StringComparison.OrdinalIgnoreCase)) return UguuLogoPath;
+        if (provider.Equals("tmpfiles.org", StringComparison.OrdinalIgnoreCase)) return TmpFilesLogoPath;
         if (provider.Equals("transfer.sh", StringComparison.OrdinalIgnoreCase)) return TransferLogoPath;
-        if (provider.Equals("gofile", StringComparison.OrdinalIgnoreCase)) return string.Empty;
-        if (provider.Equals("imgpile", StringComparison.OrdinalIgnoreCase)) return string.Empty;
+        if (provider.Equals("gofile", StringComparison.OrdinalIgnoreCase)) return GofileLogoPath;
+        if (provider.Equals("imgpile", StringComparison.OrdinalIgnoreCase)) return ImgPileLogoPath;
         if (provider.Equals("dropbox", StringComparison.OrdinalIgnoreCase)) return DropboxLogoPath;
         if (provider.Equals("google drive", StringComparison.OrdinalIgnoreCase)) return GoogleDriveLogoPath;
         if (provider.Equals("onedrive", StringComparison.OrdinalIgnoreCase)) return OneDriveLogoPath;
@@ -215,9 +219,10 @@ public static partial class UploadService
         UploadDestination.Gyazo => GyazoLogoPath,
         UploadDestination.FileIo => FileIoLogoPath,
         UploadDestination.Uguu => UguuLogoPath,
+        UploadDestination.TmpFiles => TmpFilesLogoPath,
         UploadDestination.TransferSh => TransferLogoPath,
-        UploadDestination.Gofile => string.Empty,
-        UploadDestination.ImgPile => string.Empty,
+        UploadDestination.Gofile => GofileLogoPath,
+        UploadDestination.ImgPile => ImgPileLogoPath,
         UploadDestination.Dropbox => DropboxLogoPath,
         UploadDestination.GoogleDrive => GoogleDriveLogoPath,
         UploadDestination.OneDrive => OneDriveLogoPath,
@@ -252,6 +257,7 @@ public static partial class UploadService
 
     public static string GetAiChatProviderName(AiChatProvider provider) => provider switch
     {
+        AiChatProvider.None => "None",
         AiChatProvider.ChatGpt => "ChatGPT",
         AiChatProvider.Claude => "Claude",
         AiChatProvider.ClaudeOpus => "Claude",
@@ -265,6 +271,7 @@ public static partial class UploadService
         return provider switch
         {
             AiChatProvider.ChatGpt => "https://chatgpt.com/",
+            AiChatProvider.None => "",
             AiChatProvider.Claude => "https://claude.ai/new",
             AiChatProvider.ClaudeOpus => "https://claude.ai/new",
             AiChatProvider.Gemini => "https://gemini.google.com/app",
@@ -535,7 +542,7 @@ public sealed class UploadSettings
     public string CustomHeaders { get; set; } = "";
 
     // AI Chat
-    public AiChatProvider AiChatProvider { get; set; } = AiChatProvider.ChatGpt;
+    public AiChatProvider AiChatProvider { get; set; } = AiChatProvider.GoogleLens;
     public bool AiChatUploadDestinationSynced { get; set; }
     public UploadDestination AiChatUploadDestination { get; set; } = UploadDestination.TempHosts;
 }

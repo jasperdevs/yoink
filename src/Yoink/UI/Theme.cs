@@ -67,6 +67,12 @@ public static class Theme
         resources["ChromeButtonBorderBrush"] = Brush(BorderSubtle);
         resources["ChromeButtonHoverBrush"] = Brush(AccentHover);
         resources["ChromeButtonPressedBrush"] = Brush(SelectionBg);
+        resources["ThemeTextPrimaryBrush"] = Brush(TextPrimary);
+        resources["ThemeTextSecondaryBrush"] = Brush(TextSecondary);
+        resources["ThemeInputBackgroundBrush"] = Brush(BgSecondary);
+        resources["ThemeInputBorderBrush"] = Brush(BorderSubtle);
+        resources["ThemeTabHoverBrush"] = Brush(TabHoverBg);
+        resources["ThemeTabActiveBrush"] = Brush(TabActiveBg);
     }
 
     public static void Refresh()

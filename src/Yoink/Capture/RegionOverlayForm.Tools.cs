@@ -42,54 +42,57 @@ public sealed partial class RegionOverlayForm
     /// </summary>
     private void RenderAnnotationsTo(Graphics g)
     {
-        foreach (var entry in _undoStack)
+        for (int i = 0; i < _undoStack.Count; i++)
+            RenderAnnotationTo(g, _undoStack[i]);
+    }
+
+    private void RenderAnnotationTo(Graphics g, Annotation entry)
+    {
+        switch (entry)
         {
-            switch (entry)
-            {
-                case EraserFill ef:
-                    using (var brush = new SolidBrush(ef.Color))
-                        g.FillRectangle(brush, ef.Rect);
-                    break;
-                case BlurRect br:
-                    PaintBlurRect(g, br.Rect);
-                    break;
-                case DrawStroke ds:
-                    SketchRenderer.DrawFreehandStroke(g, ds.Points, ds.Color, 6f, AnnotationStrokeShadow);
-                    break;
-                case HighlightAnnotation h:
-                    SketchRenderer.DrawHighlightRect(g, h.Rect, h.Color);
-                    break;
-                case RectShapeAnnotation rs:
-                    SketchRenderer.DrawRectShape(g, rs.Rect, rs.Color, AnnotationStrokeShadow);
-                    break;
-                case CircleShapeAnnotation cs:
-                    SketchRenderer.DrawCircleShape(g, cs.Rect, cs.Color, AnnotationStrokeShadow);
-                    break;
-                case LineAnnotation ln:
-                    SketchRenderer.DrawLine(g, ln.From, ln.To, ln.Color, ln.From.GetHashCode(), AnnotationStrokeShadow);
-                    break;
-                case RulerAnnotation ra:
-                    PaintRuler(g, ra.From, ra.To);
-                    break;
-                case ArrowAnnotation a:
-                    SketchRenderer.DrawArrow(g, a.From, a.To, a.Color, a.From.GetHashCode(), strokeShadow: AnnotationStrokeShadow);
-                    break;
-                case CurvedArrowAnnotation ca:
-                    SketchRenderer.DrawCurvedArrow(g, ca.Points, ca.Color, ca.Points.Count * 7919, AnnotationStrokeShadow);
-                    break;
-                case StepNumberAnnotation sn:
-                    PaintStepNumber(g, sn.Pos, sn.Number, sn.Color);
-                    break;
-                case TextAnnotation ta:
-                    PaintExcalidrawText(g, ta.Pos, ta.Text, ta.FontSize, ta.Color, ta.Bold, ta.Italic, ta.Stroke, ta.Shadow, ta.Background, ta.FontFamily);
-                    break;
-                case MagnifierAnnotation ma:
-                    PaintPlacedMagnifier(g, ma.Pos, ma.SrcRect);
-                    break;
-                case EmojiAnnotation ea:
-                    PaintEmojiAnnotation(g, ea.Pos, ea.Emoji, ea.Size);
-                    break;
-            }
+            case EraserFill ef:
+                using (var brush = new SolidBrush(ef.Color))
+                    g.FillRectangle(brush, ef.Rect);
+                break;
+            case BlurRect br:
+                PaintBlurRect(g, br.Rect);
+                break;
+            case DrawStroke ds:
+                SketchRenderer.DrawFreehandStroke(g, ds.Points, ds.Color, 6f, AnnotationStrokeShadow);
+                break;
+            case HighlightAnnotation h:
+                SketchRenderer.DrawHighlightRect(g, h.Rect, h.Color);
+                break;
+            case RectShapeAnnotation rs:
+                SketchRenderer.DrawRectShape(g, rs.Rect, rs.Color, AnnotationStrokeShadow);
+                break;
+            case CircleShapeAnnotation cs:
+                SketchRenderer.DrawCircleShape(g, cs.Rect, cs.Color, AnnotationStrokeShadow);
+                break;
+            case LineAnnotation ln:
+                SketchRenderer.DrawLine(g, ln.From, ln.To, ln.Color, ln.From.GetHashCode(), AnnotationStrokeShadow);
+                break;
+            case RulerAnnotation ra:
+                PaintRuler(g, ra.From, ra.To);
+                break;
+            case ArrowAnnotation a:
+                SketchRenderer.DrawArrow(g, a.From, a.To, a.Color, a.From.GetHashCode(), strokeShadow: AnnotationStrokeShadow);
+                break;
+            case CurvedArrowAnnotation ca:
+                SketchRenderer.DrawCurvedArrow(g, ca.Points, ca.Color, ca.Points.Count * 7919, AnnotationStrokeShadow);
+                break;
+            case StepNumberAnnotation sn:
+                PaintStepNumber(g, sn.Pos, sn.Number, sn.Color);
+                break;
+            case TextAnnotation ta:
+                PaintExcalidrawText(g, ta.Pos, ta.Text, ta.FontSize, ta.Color, ta.Bold, ta.Italic, ta.Stroke, ta.Shadow, ta.Background, ta.FontFamily);
+                break;
+            case MagnifierAnnotation ma:
+                PaintPlacedMagnifier(g, ma.Pos, ma.SrcRect);
+                break;
+            case EmojiAnnotation ea:
+                PaintEmojiAnnotation(g, ea.Pos, ea.Emoji, ea.Size);
+                break;
         }
     }
 }

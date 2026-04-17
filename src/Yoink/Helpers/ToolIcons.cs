@@ -7,11 +7,11 @@ namespace Yoink.Helpers;
 
 /// <summary>
 /// Shared rendering helpers for semantic tool icons.
-/// Prefers Streamline Core Flat icons when available, with Lucide font glyph fallback.
+/// Renders semantic tool icons through the shared Fluent icon facade.
 /// </summary>
 public static class ToolIcons
 {
-    /// <summary>Map from tool IDs to Streamline icon IDs (where they differ).</summary>
+    /// <summary>Map from tool IDs to shared icon IDs where they differ.</summary>
     private static readonly Dictionary<string, string> ToolToStreamlineId = new()
     {
         ["_record"] = "record",
@@ -21,13 +21,8 @@ public static class ToolIcons
     {
         var iconId = ToolToStreamlineId.TryGetValue(toolId, out var mapped) ? mapped : toolId;
 
-        if (StreamlineIcons.HasIcon(iconId))
-        {
-            var src = StreamlineIcons.RenderWpf(iconId, color, size);
-            if (src != null) return src;
-        }
-
-        return IconFont.RenderGlyphWpf(glyph, color, size);
+        return StreamlineIcons.RenderWpf(iconId, color, size)
+               ?? StreamlineIcons.RenderWpf("warning", color, size)!;
     }
 
     public static BitmapSource RenderStickerWpf(Color color, int size)
@@ -63,6 +58,11 @@ public static class ToolIcons
             else
                 DrawAiRedirect(g, size, color);
         });
+    }
+
+    public static BitmapSource RenderGoogleLensWpf(Color color, int size, bool active = false)
+    {
+        return RenderShapeWpf(size, g => DrawGoogleLens(g, size, color, active));
     }
 
     private static BitmapSource RenderShapeWpf(int size, Action<Graphics> draw)
@@ -214,6 +214,52 @@ public static class ToolIcons
             EndCap = LineCap.Round
         };
         g.DrawLine(handlePen, 6.9f * s, 6.9f * s, 9.0f * s, 9.0f * s);
+    }
+
+    private static void DrawGoogleLens(Graphics g, int size, Color color, bool active)
+    {
+        float s = size / 20f;
+        float stroke = Math.Max(1.6f, size * 0.085f);
+        using var pen = new Pen(color, stroke)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
+        using var brush = new SolidBrush(color);
+
+        if (active)
+        {
+            using var fill = new SolidBrush(Color.FromArgb(Math.Min(54, Math.Max(28, color.A / 5)), color.R, color.G, color.B));
+            using var body = new GraphicsPath();
+            body.AddRoundedRectangle(new RectangleF(4.2f * s, 4.2f * s, 11.6f * s, 11.6f * s), 3.2f * s);
+            g.FillPath(fill, body);
+        }
+
+        var left = 3.8f * s;
+        var top = 3.8f * s;
+        var right = 16.2f * s;
+        var bottom = 16.2f * s;
+        var corner = 4.2f * s;
+
+        g.DrawLine(pen, left + corner, top, left + 1.5f * corner, top);
+        g.DrawLine(pen, left, top + corner, left, top + 1.5f * corner);
+        g.DrawArc(pen, left, top, corner * 2f, corner * 2f, 180, 78);
+
+        g.DrawLine(pen, right - 1.5f * corner, top, right - corner, top);
+        g.DrawLine(pen, right, top + corner, right, top + 1.5f * corner);
+        g.DrawArc(pen, right - corner * 2f, top, corner * 2f, corner * 2f, 282, 78);
+
+        g.DrawLine(pen, right, bottom - 1.5f * corner, right, bottom - corner);
+        g.DrawLine(pen, right - 1.5f * corner, bottom, right - corner, bottom);
+        g.DrawArc(pen, right - corner * 2f, bottom - corner * 2f, corner * 2f, corner * 2f, 0, 78);
+
+        g.DrawLine(pen, left + corner, bottom, left + 1.5f * corner, bottom);
+        g.DrawLine(pen, left, bottom - 1.5f * corner, left, bottom - corner);
+        g.DrawArc(pen, left, bottom - corner * 2f, corner * 2f, corner * 2f, 102, 78);
+
+        g.DrawEllipse(pen, 7.0f * s, 7.0f * s, 6.0f * s, 6.0f * s);
+        g.FillEllipse(brush, 13.0f * s, 12.8f * s, 2.6f * s, 2.6f * s);
     }
 
     private static void AddRoundedRectangle(this GraphicsPath path, RectangleF rect, float radius)

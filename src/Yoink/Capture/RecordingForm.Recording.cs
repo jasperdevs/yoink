@@ -134,7 +134,7 @@ public sealed partial class RecordingForm
 
     private void CalcToolbarLayout()
     {
-        int tw = 340, th = 64;
+        int tw = 320, th = WindowsDockRenderer.SurfaceHeight;
         // Try to place above the recording region
         int tx = _recordRegion.X + _recordRegion.Width / 2 - tw / 2;
         int ty = _recordRegion.Y - th - 14;
@@ -147,10 +147,9 @@ public sealed partial class RecordingForm
 
         _toolbarRect = new Rectangle(tx, ty, tw, th);
 
-        int btnY = _toolbarRect.Y + 12;
-        int btnH = 40;
-        _stopBtn = new Rectangle(_toolbarRect.X + 120, btnY, 92, btnH);
-        _discardBtn = new Rectangle(_stopBtn.Right + 10, btnY, 92, btnH);
+        int btnY = _toolbarRect.Y + (_toolbarRect.Height - WindowsDockRenderer.IconButtonSize) / 2;
+        _discardBtn = new Rectangle(_toolbarRect.Right - WindowsDockRenderer.SurfacePadding - WindowsDockRenderer.IconButtonSize, btnY, WindowsDockRenderer.IconButtonSize, WindowsDockRenderer.IconButtonSize);
+        _stopBtn = new Rectangle(_discardBtn.X - WindowsDockRenderer.ButtonSpacing - WindowsDockRenderer.IconButtonSize, btnY, WindowsDockRenderer.IconButtonSize, WindowsDockRenderer.IconButtonSize);
     }
 
     private void TransitionToRecordingSurface()
@@ -158,6 +157,7 @@ public sealed partial class RecordingForm
         // Hide the style flip into transparent mode so the user does not see
         // the fullscreen surface blink before the recording chrome repaints.
         Visible = false;
+        _selectionAdorner?.Hide();
         Opacity = 1;
 
         // The selection screenshot is only needed before recording starts.
@@ -166,8 +166,7 @@ public sealed partial class RecordingForm
 
         BackColor = TransKey;
         TransparencyKey = TransKey;
-        Refresh();
-        Update();
+        Invalidate();
         Visible = true;
     }
 

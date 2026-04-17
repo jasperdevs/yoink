@@ -208,14 +208,17 @@ public partial class SettingsWindow
         layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        layout.Children.Add(new TextBlock
+        var iconColor = Theme.IsDark
+            ? System.Drawing.Color.FromArgb(210, 255, 255, 255)
+            : System.Drawing.Color.FromArgb(170, 0, 0, 0);
+        layout.Children.Add(new System.Windows.Controls.Image
         {
-            Text = "\uE721",
-            FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
-            FontSize = 14,
+            Source = Helpers.StreamlineIcons.RenderWpf("search", iconColor, 18),
+            Width = 14,
+            Height = 14,
+            Stretch = Stretch.Uniform,
             VerticalAlignment = VerticalAlignment.Center,
             Opacity = 0.35,
-            Foreground = Theme.Brush(Theme.TextPrimary)
         });
 
         var inputHost = new Grid { Margin = new Thickness(8, 0, 0, 0) };

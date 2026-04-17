@@ -47,6 +47,26 @@ public partial class SettingsWindow
     private void StickerInstallDriversBtn_Click(object sender, RoutedEventArgs e)
     {
         var executionProvider = (StickerExecutionProvider)StickerLocalExecutionCombo.SelectedIndex;
+        if (RembgRuntimeService.TryGetCachedStatus(executionProvider, out var runtimeReady, out _) && runtimeReady)
+        {
+            if (!ThemedConfirmDialog.Confirm(
+                    this,
+                    "Uninstall rembg",
+                    $"Uninstall the {RembgRuntimeService.GetSetupTargetName(executionProvider)} runtime?\n\nDownloaded models stay available, but this runtime will need to be installed again before local sticker captures can use it.",
+                    "Uninstall",
+                    "Cancel",
+                    danger: true))
+                return;
+
+            bool removed = RembgRuntimeService.RemoveRuntime(executionProvider);
+            if (removed)
+                ToastWindow.Show("Sticker runtime", "Uninstalled rembg runtime.");
+            else
+                ToastWindow.ShowError("Sticker runtime error", "Couldn't uninstall the rembg runtime.");
+            UpdateLocalEngineUi();
+            return;
+        }
+
         var started = BackgroundRuntimeJobService.Start(
             new BackgroundRuntimeJobOptions(
                 GetStickerRuntimeJobKey(executionProvider),

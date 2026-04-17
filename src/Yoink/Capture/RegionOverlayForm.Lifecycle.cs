@@ -361,23 +361,6 @@ public sealed partial class RegionOverlayForm
             Invalidate(InflateForRepaint(oldUiBounds, 20));
     }
 
-    private void SetFlyoutOpen(bool open)
-    {
-        _flyoutOpen = open;
-        _flyoutAnimStart = _flyoutAnim;
-        _flyoutAnimTarget = open ? 1f : 0f;
-        _flyoutAnimStartedAt = DateTime.UtcNow;
-        if (!open)
-            _hoveredFlyoutButton = -1;
-
-        if (!_animTimer.Enabled)
-            _animTimer.Start();
-
-        RefreshToolbar();
-        Invalidate(new Rectangle(_toolbarRect.X - 12, _toolbarRect.Y - 48,
-            _toolbarRect.Width + 24, _toolbarRect.Height + 160));
-    }
-
     private void HideToolbarImmediately()
     {
         if (_toolbarForm is null || _toolbarForm.IsDisposed)
@@ -480,10 +463,13 @@ public sealed partial class RegionOverlayForm
             WindowDetector.ClearSnapshot();
             if (_toolbarForm != null)
                 WindowDetector.UnregisterIgnoredWindow(_toolbarForm.Handle);
+            CloseMoreToolsDropdown();
+            StopMoreToolsMenuMonitor();
             CloseMagWindow();
             CloseCaptureMagnifier();
             _toolbarForm?.Close();
             _toolbarForm?.Dispose();
+            _toolbarToolTip?.Dispose();
             _animTimer.Dispose();
             _pickerTimer.Dispose();
             _autoDetectTimer.Dispose();

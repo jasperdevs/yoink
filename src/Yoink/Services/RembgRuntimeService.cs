@@ -78,6 +78,21 @@ public static class RembgRuntimeService
         }
     }
 
+    public static bool RemoveRuntime(StickerExecutionProvider provider)
+    {
+        try
+        {
+            PythonRuntimeEnvironment.TryDeleteDirectory(GetRuntimeEnvironmentDirectory(provider));
+            ClearProbeCache(provider);
+            TryDeleteDirectoryIfEmpty(RuntimeDir);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static async Task EnsureInstalledAsync(StickerExecutionProvider provider, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
         if (await IsRuntimeReadyAsync(provider, cancellationToken).ConfigureAwait(false))

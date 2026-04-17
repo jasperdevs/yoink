@@ -30,11 +30,13 @@ public partial class SettingsWindow
 
         if (isIndexing)
         {
+            ReindexAllProgressPanel.Visibility = Visibility.Visible;
             ReindexAllBtn.Content = status;
             ReindexAllBtn.IsEnabled = false;
         }
         else if (total >= HistoryVirtualizationThreshold)
         {
+            ReindexAllProgressPanel.Visibility = Visibility.Collapsed;
             ReindexAllBtn.Content = "Refresh index";
             ReindexAllBtn.IsEnabled = total > 0;
         }
@@ -43,11 +45,13 @@ public partial class SettingsWindow
             int indexed = _imageSearchIndexService.CountReadyEntries(entries, ocrTag);
             if (indexed < total)
             {
+                ReindexAllProgressPanel.Visibility = Visibility.Visible;
                 ReindexAllBtn.Content = $"Index {total - indexed} remaining";
                 ReindexAllBtn.IsEnabled = true;
             }
             else
             {
+                ReindexAllProgressPanel.Visibility = Visibility.Collapsed;
                 ReindexAllBtn.Content = $"{indexed}/{total} indexed";
                 ReindexAllBtn.IsEnabled = false;
             }

@@ -42,38 +42,36 @@
                            RenderOptions.BitmapScalingMode="HighQuality"/>
 
                     <Border x:Name="CloseBtn" Width="30" Height="30" CornerRadius="9"
-                            Background="#D6202024" BorderBrush="#30FFFFFF" BorderThickness="1" Cursor="Hand"
+                            Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Cursor="Hand"
                             MouseLeftButtonDown="CloseClick"
                             HorizontalAlignment="Right" VerticalAlignment="Top"
                             Margin="0,6,6,0" Opacity="0"
                             ToolTip="Close">
-                        <Canvas Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Line X1="0" Y1="0" X2="8" Y2="8" Stroke="White" StrokeThickness="1.4"/>
-                            <Line X1="8" Y1="0" X2="0" Y2="8" Stroke="White" StrokeThickness="1.4"/>
-                        </Canvas>
+                        <Image x:Name="CloseIcon" Width="16" Height="16" Stretch="Uniform" Opacity="1"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
 
                     <Border x:Name="PinBtn" Width="30" Height="30" CornerRadius="9"
-                            Background="#D6202024" BorderBrush="#30FFFFFF" BorderThickness="1" Cursor="Hand"
+                            Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Cursor="Hand"
                             MouseLeftButtonDown="PinClick"
                             HorizontalAlignment="Left" VerticalAlignment="Bottom"
                             Margin="6,0,0,6" Opacity="0"
                             ToolTip="Pin to screen">
-                        <Path x:Name="PinIcon"
-                              Data="M16,12V4h1V2H7V4h1v8l-2,2v2h5.2v6h1.6v-6H18v-2Z"
-                              Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image x:Name="PinIcon" Width="16" Height="16" Stretch="Uniform" Opacity="1"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
 
                     <Border x:Name="SaveBtn" Width="30" Height="30" CornerRadius="9"
-                            Background="#D6202024" BorderBrush="#30FFFFFF" BorderThickness="1" Cursor="Hand"
+                            Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Cursor="Hand"
                             MouseLeftButtonDown="SaveClick"
                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
                             Margin="0,0,6,6" Opacity="0"
                             ToolTip="Save to file">
-                        <Path Data="M19,12v7H5v-7H3v7c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2v-7H19z M13,12.67l2.59-2.58L17,11.5l-5,5l-5-5l1.41-1.41L11,12.67V3h2V12.67z"
-                              Fill="White" Stretch="Uniform" Width="11" Height="11" Opacity="0.9"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image x:Name="SaveIcon" Width="16" Height="16" Stretch="Uniform" Opacity="1"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                 </Grid>
             </Border>

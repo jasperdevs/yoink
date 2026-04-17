@@ -102,8 +102,8 @@ public sealed class AppSettings
         public ToastButtonSlot PinSlot { get; set; } = ToastButtonSlot.TopLeft;
         public bool ShowSave { get; set; } = true;
         public ToastButtonSlot SaveSlot { get; set; } = ToastButtonSlot.BottomRight;
-        public bool ShowAiRedirect { get; set; }
-        public ToastButtonSlot AiRedirectSlot { get; set; } = ToastButtonSlot.BottomInnerRight;
+        public bool ShowAiRedirect { get; set; } = true;
+        public ToastButtonSlot AiRedirectSlot { get; set; } = ToastButtonSlot.BottomLeft;
         public bool ShowDelete { get; set; }
         public ToastButtonSlot DeleteSlot { get; set; } = ToastButtonSlot.BottomLeft;
     }

@@ -264,17 +264,70 @@ public sealed class SettingsService : IDisposable
             }
         }
 
-        if (settings.StickerUploadSettings.Provider == StickerProvider.None)
-            settings.StickerUploadSettings.Provider = StickerProvider.LocalCpu;
-
-        if (settings.UpscaleUploadSettings.Provider == UpscaleProvider.None)
-            settings.UpscaleUploadSettings.Provider = UpscaleProvider.Local;
-
         if (settings.ImageUploadDestination == UploadDestination.TransferSh)
             settings.ImageUploadDestination = UploadDestination.TempHosts;
         if (settings.ImageUploadSettings.AiChatUploadDestination == UploadDestination.TransferSh)
             settings.ImageUploadSettings.AiChatUploadDestination = UploadDestination.TempHosts;
 
+        NormalizeUnsafeModifierlessHotkeys(settings);
+        NormalizeToastButtonLayout(settings.ToastButtons);
+
         return settings;
+    }
+
+    private static void NormalizeUnsafeModifierlessHotkeys(AppSettings settings)
+    {
+        if (IsUnsafeModifierlessHotkey(settings.HotkeyModifiers, settings.HotkeyKey))
+            settings.HotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.OcrHotkeyModifiers, settings.OcrHotkeyKey))
+            settings.OcrHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.PickerHotkeyModifiers, settings.PickerHotkeyKey))
+            settings.PickerHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.ScanHotkeyModifiers, settings.ScanHotkeyKey))
+            settings.ScanHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.StickerHotkeyModifiers, settings.StickerHotkeyKey))
+            settings.StickerHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.UpscaleHotkeyModifiers, settings.UpscaleHotkeyKey))
+            settings.UpscaleHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.FullscreenHotkeyModifiers, settings.FullscreenHotkeyKey))
+            settings.FullscreenHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.ActiveWindowHotkeyModifiers, settings.ActiveWindowHotkeyKey))
+            settings.ActiveWindowHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.RulerHotkeyModifiers, settings.RulerHotkeyKey))
+            settings.RulerHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.ScrollCaptureHotkeyModifiers, settings.ScrollCaptureHotkeyKey))
+            settings.ScrollCaptureHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.GifHotkeyModifiers, settings.GifHotkeyKey))
+            settings.GifHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.AiRedirectHotkeyModifiers, settings.AiRedirectHotkeyKey))
+            settings.AiRedirectHotkeyKey = 0;
+    }
+
+    private static bool IsUnsafeModifierlessHotkey(uint modifiers, uint key) =>
+        modifiers == 0 && key != 0 && key != Native.User32.VK_SNAPSHOT;
+
+    private static void NormalizeToastButtonLayout(AppSettings.ToastButtonLayoutSettings settings)
+    {
+        var used = new HashSet<ToastButtonSlot>();
+        settings.CloseSlot = TakeSlot(settings.CloseSlot, ToastButtonSlot.TopRight, used);
+        settings.PinSlot = TakeSlot(settings.PinSlot, ToastButtonSlot.TopLeft, used);
+        settings.SaveSlot = TakeSlot(settings.SaveSlot, ToastButtonSlot.BottomRight, used);
+        settings.AiRedirectSlot = TakeSlot(settings.AiRedirectSlot, ToastButtonSlot.BottomLeft, used);
+        settings.DeleteSlot = TakeSlot(settings.DeleteSlot, ToastButtonSlot.BottomInnerRight, used);
+    }
+
+    private static ToastButtonSlot TakeSlot(ToastButtonSlot requested, ToastButtonSlot fallback, HashSet<ToastButtonSlot> used)
+    {
+        if (Enum.IsDefined(requested) && used.Add(requested))
+            return requested;
+
+        if (used.Add(fallback))
+            return fallback;
+
+        foreach (ToastButtonSlot slot in Enum.GetValues<ToastButtonSlot>())
+            if (used.Add(slot))
+                return slot;
+
+        return fallback;
     }
 }

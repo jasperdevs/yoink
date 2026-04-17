@@ -194,8 +194,7 @@ public partial class ToastWindow : Window
         _isPinned = false;
         ConfigureShell();
         ProgressBar.Visibility = Visibility.Visible;
-        PinBtn.Background = new SolidColorBrush(Color.FromArgb(224, 32, 32, 36));
-        PinIcon.Source = StreamlineIcons.RenderWpf("pin", System.Drawing.Color.FromArgb(230, 255, 255, 255), 20);
+        ApplyToastOverlayButtonVisual(PinBtn, PinIcon, "pin", active: false);
 
         _savedFilePath = spec.FilePath;
 
@@ -358,6 +357,11 @@ public partial class ToastWindow : Window
         SaveIcon.Source = StreamlineIcons.RenderWpf("download", IconWhite, 20);
         AiRedirectIcon.Source = ToolIcons.RenderAiRedirectWpf(System.Drawing.Color.FromArgb(230, 255, 255, 255), 20);
         DeleteIcon.Source = StreamlineIcons.RenderWpf("trash", IconWhite, 20);
+        ApplyToastOverlayButtonVisual(CloseBtn, CloseIcon, "close", active: false);
+        ApplyToastOverlayButtonVisual(PinBtn, PinIcon, "pin", active: false);
+        ApplyToastOverlayButtonVisual(SaveBtn, SaveIcon, "download", active: false);
+        ApplyAiRedirectOverlayButtonVisual(AiRedirectBtn, AiRedirectIcon, active: false);
+        ApplyToastOverlayButtonVisual(DeleteBtn, DeleteIcon, "trash", active: false);
 
         HookOverlayHover(CloseBtn, CloseIcon, "close");
         HookOverlayHover(PinBtn, PinIcon, "pin");
@@ -371,13 +375,26 @@ public partial class ToastWindow : Window
         btn.MouseEnter += (_, _) =>
         {
             if (iconId == "pin" && _isPinned) return;
-            icon.Source = StreamlineIcons.RenderWpf(iconId, IconWhite, 20, active: true);
+            ApplyToastOverlayButtonVisual(btn, icon, iconId, active: true);
         };
         btn.MouseLeave += (_, _) =>
         {
             if (iconId == "pin" && _isPinned) return;
-            icon.Source = StreamlineIcons.RenderWpf(iconId, IconWhite, 20, active: false);
+            ApplyToastOverlayButtonVisual(btn, icon, iconId, active: false);
         };
+    }
+
+    private static void ApplyToastOverlayButtonVisual(System.Windows.Controls.Border btn, System.Windows.Controls.Image icon, string iconId, bool active)
+    {
+        btn.Background = Theme.Brush(active
+            ? (Theme.IsDark ? Color.FromRgb(70, 70, 70) : Color.FromRgb(226, 226, 226))
+            : (Theme.IsDark ? Color.FromRgb(48, 48, 48) : Color.FromRgb(246, 246, 246)));
+        btn.BorderBrush = System.Windows.Media.Brushes.Transparent;
+        btn.BorderThickness = new Thickness(0);
+        var iconColor = Theme.IsDark
+            ? System.Drawing.Color.FromArgb(255, 255, 255, 255)
+            : System.Drawing.Color.FromArgb(255, 24, 24, 24);
+        icon.Source = StreamlineIcons.RenderWpf(iconId, iconColor, 22, active);
     }
 
     private void HookOverlayButtons()
@@ -486,8 +503,9 @@ public partial class ToastWindow : Window
         try
         {
             var uploadSettings = settings.ImageUploadSettings;
-            var providerName = UploadService.GetAiChatProviderName(uploadSettings.AiChatProvider);
-            if (uploadSettings.AiChatProvider == AiChatProvider.GoogleLens)
+            var provider = uploadSettings.AiChatProvider;
+            var providerName = UploadService.GetAiChatProviderName(provider);
+            if (provider == AiChatProvider.GoogleLens)
             {
                 var hostDest = UploadService.NormalizeAiChatUploadDestination(uploadSettings.AiChatUploadDestination);
                 var result = await UploadService.UploadAsync(_savedFilePath, hostDest, uploadSettings);
@@ -505,7 +523,7 @@ public partial class ToastWindow : Window
             if (_previewBitmap is not null)
                 ClipboardService.CopyToClipboard(_previewBitmap, _savedFilePath);
 
-            var startUrl = UploadService.BuildAiChatStartUrl(uploadSettings.AiChatProvider);
+            var startUrl = UploadService.BuildAiChatStartUrl(provider);
             OpenExternalUrl(startUrl);
             _spec = _spec with { ClickActionUrl = startUrl, ClickActionLabel = providerName };
             RefreshInteractiveTooltip(_spec);
@@ -536,19 +554,26 @@ public partial class ToastWindow : Window
 
     private void HookAiRedirectHover(System.Windows.Controls.Border btn, System.Windows.Controls.Image icon)
     {
-        btn.MouseEnter += (_, _) => icon.Source = ToolIcons.RenderAiRedirectWpf(System.Drawing.Color.FromArgb(255, 255, 255, 255), 20, active: true);
-        btn.MouseLeave += (_, _) => icon.Source = ToolIcons.RenderAiRedirectWpf(System.Drawing.Color.FromArgb(230, 255, 255, 255), 20);
+        btn.MouseEnter += (_, _) => ApplyAiRedirectOverlayButtonVisual(btn, icon, active: true);
+        btn.MouseLeave += (_, _) => ApplyAiRedirectOverlayButtonVisual(btn, icon, active: false);
+    }
+
+    private static void ApplyAiRedirectOverlayButtonVisual(System.Windows.Controls.Border btn, System.Windows.Controls.Image icon, bool active)
+    {
+        btn.Background = Theme.Brush(active
+            ? (Theme.IsDark ? Color.FromRgb(70, 70, 70) : Color.FromRgb(226, 226, 226))
+            : (Theme.IsDark ? Color.FromRgb(48, 48, 48) : Color.FromRgb(246, 246, 246)));
+        btn.BorderBrush = System.Windows.Media.Brushes.Transparent;
+        btn.BorderThickness = new Thickness(0);
+        var iconColor = Theme.IsDark
+            ? System.Drawing.Color.FromArgb(255, 255, 255, 255)
+            : System.Drawing.Color.FromArgb(255, 24, 24, 24);
+        icon.Source = ToolIcons.RenderAiRedirectWpf(iconColor, 22, active);
     }
 
     private void RefreshInteractiveTooltip(ToastSpec spec)
     {
         ToolTip = null;
-        if (!string.IsNullOrWhiteSpace(spec.ClickActionUrl) && !string.IsNullOrWhiteSpace(spec.FilePath))
-            ToolTip = $"Drag to move the file or click to reopen {spec.ClickActionLabel ?? "the chat"}";
-        else if (!string.IsNullOrWhiteSpace(spec.ClickActionUrl))
-            ToolTip = $"Click to reopen {spec.ClickActionLabel ?? "the chat"}";
-        else if (!string.IsNullOrWhiteSpace(spec.FilePath))
-            ToolTip = "Drag to move the file or click to open its location";
     }
 
     private void DeleteBtn_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -579,8 +604,7 @@ public partial class ToastWindow : Window
             _timer.Stop();
             ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
             ProgressBar.Visibility = Visibility.Collapsed;
-            PinBtn.Background = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255));
-            PinIcon.Source = StreamlineIcons.RenderWpf("pin", System.Drawing.Color.FromArgb(230, 20, 20, 20), 20, active: true);
+            ApplyToastOverlayButtonVisual(PinBtn, PinIcon, "pin", active: true);
             PinBtn.Opacity = 1;
             return;
         }
@@ -591,8 +615,7 @@ public partial class ToastWindow : Window
             new DoubleAnimation { To = 0, Duration = Motion.Sec(_durationSeconds) });
         _timer.Interval = TimeSpan.FromSeconds(_durationSeconds);
         _timer.Start();
-        PinBtn.Background = new SolidColorBrush(Color.FromArgb(224, 32, 32, 36));
-        PinIcon.Source = StreamlineIcons.RenderWpf("pin", System.Drawing.Color.FromArgb(230, 255, 255, 255), 20);
+        ApplyToastOverlayButtonVisual(PinBtn, PinIcon, "pin", active: false);
     }
 
     private void AnimateOverlayButtons(double targetOpacity, double pinnedOpacity)

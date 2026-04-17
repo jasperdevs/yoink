@@ -6,7 +6,7 @@ namespace Yoink.Helpers;
 /// </summary>
 public static class ToolGlyphs
 {
-    public const char StickerGlyph = '\uE7C5';
-    public const char UpscaleGlyph = '\uE03F';
-    public const char RecordGlyph = '\uE07A';
+    public const char StickerGlyph = '\uE301';
+    public const char UpscaleGlyph = '\uE63B';
+    public const char RecordGlyph = '\uE1A4';
 }

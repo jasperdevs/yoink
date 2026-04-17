@@ -29,14 +29,7 @@
         <SolidColorBrush x:Key="ThemeWindowBorderBrush" Color="#12FFFFFF"/>
         <SolidColorBrush x:Key="ThemeAccentBrush" Color="#FFFFFFFF"/>
         <SolidColorBrush x:Key="ThemeSeparatorBrush" Color="#0CFFFFFF"/>
-        <LinearGradientBrush x:Key="TranslationShimmerBrush" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#08FFFFFF" Offset="0"/>
-            <GradientStop Color="#22FFFFFF" Offset="0.45"/>
-            <GradientStop Color="#08FFFFFF" Offset="1"/>
-            <LinearGradientBrush.RelativeTransform>
-                <TranslateTransform X="-1.2"/>
-            </LinearGradientBrush.RelativeTransform>
-        </LinearGradientBrush>
+        <SolidColorBrush x:Key="TranslationShimmerBrush" Color="#14FFFFFF"/>
 
         <Style x:Key="OcrThumbStyle" TargetType="{x:Type Thumb}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
@@ -134,17 +127,12 @@
                         <Border Width="40" Height="34" CornerRadius="0" Cursor="Hand" Background="Transparent"
                                 MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave"
                                 MouseDown="MinimizeBtn_Click">
-                            <Canvas Width="12" Height="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Line X1="0" Y1="1" X2="12" Y2="1" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
-                            </Canvas>
+                            <Image x:Name="MinimizeTitleIcon" Width="14" Height="14" Stretch="Uniform" Opacity="0.8"/>
                         </Border>
                         <Border x:Name="CloseTitleBtn" Width="40" Height="34" CornerRadius="0,11,0,0" Cursor="Hand" Background="Transparent"
                                 MouseEnter="TitleBtn_Enter" MouseLeave="TitleBtn_Leave"
                                 MouseDown="CloseBtn_Click">
-                            <Canvas Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Line X1="0" Y1="0" X2="12" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
-                                <Line X1="12" Y1="0" X2="0" Y2="12" Stroke="{DynamicResource ThemeTextSecondaryBrush}" StrokeThickness="1.4"/>
-                            </Canvas>
+                            <Image x:Name="CloseTitleIcon" Width="14" Height="14" Stretch="Uniform" Opacity="0.8"/>
                         </Border>
                     </StackPanel>
                 </Grid>

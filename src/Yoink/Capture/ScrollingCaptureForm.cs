@@ -65,6 +65,7 @@ public sealed partial class ScrollingCaptureForm : Form
     public ScrollingCaptureForm(Bitmap? screenshot, Rectangle virtualBounds, bool showCursor = false,
                                 bool showMagnifier = false)
     {
+        Yoink.UI.Theme.Refresh();
         _screenshot = screenshot;
         _virtualBounds = virtualBounds;
         _showCursor = showCursor;
@@ -191,6 +192,7 @@ public sealed partial class ScrollingCaptureForm : Form
 
     private void ShowControlBar()
     {
+        Visible = false;
         _magHelper?.Close();
         _selectionAdorner?.Close();
         _selectionAdorner?.Dispose();
@@ -204,12 +206,13 @@ public sealed partial class ScrollingCaptureForm : Form
         Opacity = 1;
         BackColor = TransKey;
         TransparencyKey = TransKey;
-        Invalidate();
 
         _controlBar = new CaptureControlBar(_screenRegion);
         _controlBar.StopClicked += () => StopCapturing();
         _controlBar.CancelClicked += () => Cancel();
         _controlBar.Show();
+        Invalidate();
+        Visible = true;
 
         // Start capturing immediately (like recording)
         _state = State.Capturing;
@@ -478,8 +481,7 @@ public sealed partial class ScrollingCaptureForm : Form
     // ═══════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Floating control bar matching the RecordingForm visual style:
-    /// dark background, subtle white border, red accent, custom painted.
+    /// Floating control bar that uses the shared dock chrome.
     /// </summary>
     private sealed class CaptureControlBar : Form
     {
@@ -487,8 +489,8 @@ public sealed partial class ScrollingCaptureForm : Form
         public event Action? CancelClicked;
 
         private const int BarWidth = 320;
-        private const int BarHeight = 48;
-        private const int CornerR = 8;
+        private const int BarHeight = WindowsDockRenderer.SurfaceHeight;
+        private const int CornerR = WindowsDockRenderer.SurfaceRadius;
 
         private int _frameCount;
         private string _status = "Scroll now";
@@ -523,8 +525,9 @@ public sealed partial class ScrollingCaptureForm : Form
             Region = CreateRoundedRegion(BarWidth, BarHeight, CornerR);
 
             // Button layout
-            _cancelBtnRect = new Rectangle(BarWidth - 82, 10, 68, 28);
-            _actionBtnRect = new Rectangle(BarWidth - 156, 10, 68, 28);
+            int btnY = (BarHeight - WindowsDockRenderer.IconButtonSize) / 2;
+            _cancelBtnRect = new Rectangle(BarWidth - WindowsDockRenderer.SurfacePadding - WindowsDockRenderer.IconButtonSize, btnY, WindowsDockRenderer.IconButtonSize, WindowsDockRenderer.IconButtonSize);
+            _actionBtnRect = new Rectangle(_cancelBtnRect.X - WindowsDockRenderer.ButtonSpacing - WindowsDockRenderer.IconButtonSize, btnY, WindowsDockRenderer.IconButtonSize, WindowsDockRenderer.IconButtonSize);
             _statusRect = new Rectangle(16, 0, _actionBtnRect.X - 24, BarHeight);
         }
 
@@ -555,44 +558,8 @@ public sealed partial class ScrollingCaptureForm : Form
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-            // Fluent 2-layer shadow: ambient + directional
             var barRect = new RectangleF(0, 0, Width, Height);
-            var ambientRect = barRect;
-            ambientRect.Inflate(8f, 8f);
-            ambientRect.Offset(0, 2.2f);
-            using (var sp = CreateRoundedPath(ambientRect, CornerR + 8f))
-            using (var sb = new SolidBrush(Color.FromArgb(6, 0, 0, 0)))
-                g.FillPath(sb, sp);
-            var dirRect = barRect;
-            dirRect.Inflate(3f, 3f);
-            dirRect.Offset(0, 5.2f);
-            using (var sp = CreateRoundedPath(dirRect, CornerR + 3f))
-            using (var sb = new SolidBrush(Color.FromArgb(12, 0, 0, 0)))
-                g.FillPath(sb, sp);
-
-            // Background
-            using (var bgBrush = new SolidBrush(UiChrome.SurfacePill))
-            {
-                using var bgPath = CreateRoundedPath(barRect, CornerR);
-                g.FillPath(bgBrush, bgPath);
-            }
-
-            // Fluent gradient highlight
-            var hlRect = new RectangleF(1f, 0.5f, Width - 2f, Height - 1f);
-            using (var hlPath = CreateRoundedPath(hlRect, CornerR - 0.5f))
-            using (var gradBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                new PointF(0, 0), new PointF(0, Height),
-                Color.FromArgb(UiChrome.IsDark ? 48 : 60, 255, 255, 255),
-                Color.FromArgb(0, 255, 255, 255)))
-            using (var hlPen = new Pen(gradBrush, 1f))
-                g.DrawPath(hlPen, hlPath);
-
-            // Border
-            using (var borderPen = new Pen(UiChrome.SurfaceBorder, 1f))
-            {
-                using var borderPath = CreateRoundedPath(new RectangleF(0.5f, 0.5f, Width - 1, Height - 1), CornerR);
-                g.DrawPath(borderPen, borderPath);
-            }
+            WindowsDockRenderer.PaintSurface(g, barRect, CornerR);
 
             // Status text — clip before buttons
             using var statusBrush = new SolidBrush(UiChrome.SurfaceTextPrimary);
@@ -601,30 +568,15 @@ public sealed partial class ScrollingCaptureForm : Form
             var statusFmt = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
             g.DrawString(_status, _statusFont, statusBrush, statusRect, statusFmt);
 
-            // Draw buttons — always Stop + Discard (starts instantly like recording)
-            DrawBtn(g, _actionBtnRect, "Stop",
-                Color.FromArgb(50, 239, 68, 68), Color.FromArgb(255, 239, 68, 68), _hoveredBtn == _actionBtnRect);
-            DrawBtn(g, _cancelBtnRect, "Discard",
-                UiChrome.SurfaceHover, UiChrome.SurfaceTextPrimary, _hoveredBtn == _cancelBtnRect);
+            DrawIconBtn(g, _actionBtnRect, "stopSquare", UiChrome.SurfaceTextPrimary, _hoveredBtn == _actionBtnRect, active: false);
+            DrawIconBtn(g, _cancelBtnRect, "close", UiChrome.SurfaceTextPrimary, _hoveredBtn == _cancelBtnRect, active: false);
         }
 
-        private void DrawBtn(Graphics g, Rectangle r, string text, Color bg, Color fg, bool hovered)
+        private void DrawIconBtn(Graphics g, Rectangle r, string iconId, Color color, bool hovered, bool active)
         {
-            int alpha = hovered ? (int)(bg.A * 2.5) : bg.A;
-            alpha = Math.Min(255, alpha);
-            using var brush = new SolidBrush(Color.FromArgb(alpha, bg.R, bg.G, bg.B));
-            using var path = CreateRoundedPath(new RectangleF(r.X, r.Y, r.Width, r.Height), 5);
-            g.FillPath(brush, path);
-
-            if (hovered)
-            {
-                using var hoverBorder = new Pen(UiChrome.SurfaceBorderSubtle, 1f);
-                g.DrawPath(hoverBorder, path);
-            }
-
-            using var textBrush = new SolidBrush(fg);
-            var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString(text, _btnFont, textBrush, r, sf);
+            WindowsDockRenderer.PaintButton(g, r, active, hovered);
+            int alpha = active ? 255 : hovered ? 240 : 200;
+            WindowsDockRenderer.PaintIcon(g, iconId, r, Color.FromArgb(alpha, color.R, color.G, color.B), active);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)

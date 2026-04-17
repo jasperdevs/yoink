@@ -1,169 +1,141 @@
+using System.Collections.Concurrent;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using System.Reflection;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows;
+using DrawingColor = System.Drawing.Color;
+using DrawingGraphics = System.Drawing.Graphics;
+using DrawingPixelFormat = System.Drawing.Imaging.PixelFormat;
+using DrawingRectangle = System.Drawing.Rectangle;
+using MediaColor = System.Windows.Media.Color;
+using MediaBrushes = System.Windows.Media.Brushes;
+using MediaRect = System.Windows.Rect;
 
 namespace Yoink.Helpers;
 
 /// <summary>
-/// Loads and caches Streamline Micro icons from embedded PNG resources.
-/// Four variants per icon: line (inactive) / solid (active) × light / dark theme.
-/// Resource names: {id}.png, {id}_dark.png, {id}_solid.png, {id}_solid_dark.png
+/// Shared icon facade backed by Microsoft Fluent UI System Icons SVG path data.
+/// Normal state uses Regular; active/hover/selected uses Filled.
 /// </summary>
 public static class StreamlineIcons
 {
-    private static readonly Dictionary<string, Bitmap?> _cache = new();
-
-    private static readonly string[] KnownIcons =
-    {
-        "rect", "free", "ocr", "sticker", "picker", "scan",
-        "upscale",
-        "ai_redirect",
-        "select", "arrow", "curvedArrow", "text", "highlight", "blur",
-        "step", "draw", "line", "ruler", "rectShape", "circleShape",
-        "emoji", "eraser", "gear", "close", "more", "record", "folder",
-        "download", "pin", "save", "trash", "copy"
-    };
+    private const int ViewBoxSize = 20;
+    private static readonly ConcurrentDictionary<string, BitmapSource?> WpfCache = new();
+    private static readonly ConcurrentDictionary<string, Geometry?> GeometryCache = new();
 
     public static void Preload()
     {
-        foreach (var id in KnownIcons)
-        {
-            LoadCached(id, "");
-            LoadCached(id, "_solid");
-        }
+        _ = FluentIconData.Icons.Count;
     }
 
-    private static Bitmap? LoadCached(string id, string suffix)
-    {
-        var cacheKey = $"{id}{suffix}";
-        if (_cache.TryGetValue(cacheKey, out var cached))
-            return cached;
-
-        var resourceName = $"Yoink.Resources.Icons.{id}{suffix}.png";
-        var asm = Assembly.GetExecutingAssembly();
-        using var stream = asm.GetManifestResourceStream(resourceName);
-        if (stream == null)
-        {
-            _cache[cacheKey] = null;
-            return null;
-        }
-
-        var bmp = new Bitmap(stream);
-        _cache[cacheKey] = bmp;
-        return bmp;
-    }
-
-    /// <summary>Gets the icon bitmap: line (inactive) or solid (active). All icons are white; tint at draw time.</summary>
     public static Bitmap? GetIcon(string id, bool active = false)
+        => RenderBitmap(id, DrawingColor.White, 32, active);
+
+    public static Bitmap? RenderBitmap(string id, DrawingColor color, int size, bool active = false)
     {
-        var suffix = active ? "_solid" : "";
-        return LoadCached(id, suffix);
+        var source = RenderWpf(id, color, size, active);
+        if (source is null)
+            return null;
+
+        var bitmap = new Bitmap(source.PixelWidth, source.PixelHeight, DrawingPixelFormat.Format32bppPArgb);
+        var rect = new DrawingRectangle(0, 0, bitmap.Width, bitmap.Height);
+        var data = bitmap.LockBits(rect, ImageLockMode.WriteOnly, DrawingPixelFormat.Format32bppPArgb);
+        try
+        {
+            source.CopyPixels(Int32Rect.Empty, data.Scan0, data.Stride * data.Height, data.Stride);
+        }
+        finally
+        {
+            bitmap.UnlockBits(data);
+        }
+
+        return bitmap;
     }
 
-    public static bool HasIcon(string id) => LoadCached(id, "") != null;
+    public static bool HasIcon(string id) => FluentIconData.Icons.ContainsKey(id);
 
-    /// <summary>
-    /// Draws a Streamline icon into the given bounds.
-    /// Uses line variant normally, solid when active. Picks light/dark based on theme.
-    /// </summary>
-    public static void DrawIcon(Graphics g, string id, RectangleF bounds, Color color, float iconInset = 7f, bool active = false)
+    public static void DrawIcon(DrawingGraphics g, string id, RectangleF bounds, DrawingColor color, float iconInset = 7f, bool active = false)
     {
-        var bmp = GetIcon(id, active);
-        if (bmp == null) return;
-
-        var prevSmooth = g.SmoothingMode;
-        var prevInterp = g.InterpolationMode;
-        var prevPixel = g.PixelOffsetMode;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        int width = Math.Max(1, (int)Math.Ceiling(bounds.Width - iconInset * 2f));
+        int height = Math.Max(1, (int)Math.Ceiling(bounds.Height - iconInset * 2f));
+        int size = Math.Max(width, height);
+        using var bitmap = RenderBitmap(id, color, size, active);
+        if (bitmap is null)
+            return;
 
         var dest = new RectangleF(
             bounds.X + iconInset,
             bounds.Y + iconInset,
             bounds.Width - iconInset * 2f,
             bounds.Height - iconInset * 2f);
-
-        // Icons are stored as white-on-transparent PNGs and tinted to the requested color.
-        float r = color.R / 255f;
-        float gr = color.G / 255f;
-        float b2 = color.B / 255f;
-        float a = color.A / 255f;
-
-        using var attrs = new ImageAttributes();
-        var cm = new ColorMatrix(new[]
-        {
-            new[] { r, 0f, 0f, 0f, 0f },
-            new[] { 0f, gr, 0f, 0f, 0f },
-            new[] { 0f, 0f, b2, 0f, 0f },
-            new[] { 0f, 0f, 0f, a,  0f },
-            new[] { 0f, 0f, 0f, 0f, 1f },
-        });
-        attrs.SetColorMatrix(cm, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
-
-        g.DrawImage(bmp,
-            new[] {
-                new PointF(dest.X, dest.Y),
-                new PointF(dest.Right, dest.Y),
-                new PointF(dest.X, dest.Bottom)
-            },
-            new RectangleF(0, 0, bmp.Width, bmp.Height),
-            GraphicsUnit.Pixel,
-            attrs);
-
-        g.SmoothingMode = prevSmooth;
-        g.InterpolationMode = prevInterp;
-        g.PixelOffsetMode = prevPixel;
+        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        g.DrawImage(bitmap, dest);
     }
 
-    /// <summary>
-    /// Renders a Streamline icon as a WPF BitmapSource for settings, wizards, and other WPF UI.
-    /// Tints the white source icon to the specified color.
-    /// </summary>
-    public static BitmapSource? RenderWpf(string id, Color color, int size, bool active = false)
+    public static BitmapSource? RenderWpf(string id, DrawingColor color, int size, bool active = false)
     {
-        var bmp = GetIcon(id, active);
-        if (bmp == null) return null;
+        var key = $"{id}|{active}|{color.ToArgb()}|{size}";
+        return WpfCache.GetOrAdd(key, _ => RenderWpfUncached(id, color, size, active));
+    }
 
-        using var result = new Bitmap(size, size);
-        using (var g = Graphics.FromImage(result))
+    private static BitmapSource? RenderWpfUncached(string id, DrawingColor color, int size, bool active)
+    {
+        if (!FluentIconData.Icons.TryGetValue(id, out var icon))
+            return null;
+
+        var pathData = active ? icon.Filled : icon.Regular;
+        if (string.IsNullOrWhiteSpace(pathData))
+            return null;
+
+        var geometryKey = $"{id}|{active}";
+        var geometry = GeometryCache.GetOrAdd(geometryKey, _ => ParseGeometry(pathData));
+        if (geometry is null)
+            return null;
+
+        var brush = new SolidColorBrush(MediaColor.FromArgb(color.A, color.R, color.G, color.B));
+        brush.Freeze();
+
+        var drawing = new GeometryDrawing(brush, null, geometry);
+        var group = new DrawingGroup();
+        group.Children.Add(drawing);
+
+        double inset = Math.Max(1.0, size * 0.06);
+        double scale = (size - inset * 2) / ViewBoxSize;
+        group.Transform = new TransformGroup
         {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.Clear(Color.Transparent);
-
-            float inset = size * 0.08f;
-            var dest = new RectangleF(inset, inset, size - inset * 2f, size - inset * 2f);
-
-            float r = color.R / 255f;
-            float gr = color.G / 255f;
-            float b = color.B / 255f;
-            float a = color.A / 255f;
-
-            using var attrs = new ImageAttributes();
-            var cm = new ColorMatrix(new[]
+            Children =
             {
-                new[] { r, 0f, 0f, 0f, 0f },
-                new[] { 0f, gr, 0f, 0f, 0f },
-                new[] { 0f, 0f, b,  0f, 0f },
-                new[] { 0f, 0f, 0f, a,  0f },
-                new[] { 0f, 0f, 0f, 0f, 1f },
-            });
-            attrs.SetColorMatrix(cm, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+                new ScaleTransform(scale, scale),
+                new TranslateTransform(inset, inset)
+            }
+        };
+        group.Freeze();
 
-            g.DrawImage(bmp,
-                new[] {
-                    new PointF(dest.X, dest.Y),
-                    new PointF(dest.Right, dest.Y),
-                    new PointF(dest.X, dest.Bottom)
-                },
-                new RectangleF(0, 0, bmp.Width, bmp.Height),
-                GraphicsUnit.Pixel,
-                attrs);
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(MediaBrushes.Transparent, null, new MediaRect(0, 0, size, size));
+            dc.DrawDrawing(group);
         }
-        return BitmapPerf.ToBitmapSource(result);
+
+        var bitmap = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private static Geometry? ParseGeometry(string pathData)
+    {
+        try
+        {
+            var geometry = Geometry.Parse(pathData);
+            geometry.Freeze();
+            return geometry;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

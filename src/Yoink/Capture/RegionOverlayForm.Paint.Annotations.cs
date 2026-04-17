@@ -105,14 +105,8 @@ public sealed partial class RegionOverlayForm
             using var dashPen = new Pen(UiChrome.SurfaceTextPrimary, 1f) { DashStyle = DashStyle.Dash };
             g.DrawRectangle(dashPen, textRect.X, textRect.Y, textRect.Width, textRect.Height);
 
-            // Corner resize handles — draw at cached handle positions with shadow outline
-            using var handleShadow = new Pen(Color.FromArgb(80, 0, 0, 0), 1f);
-            using var handleBrush = new SolidBrush(UiChrome.SurfaceTextPrimary);
             foreach (var h in _activeTextHandleCache)
-            {
-                g.FillRectangle(handleBrush, h);
-                g.DrawRectangle(handleShadow, h.X, h.Y, h.Width, h.Height);
-            }
+                WindowsHandleRenderer.Paint(g, h);
 
             if (_textBuffer.Length > 0 && selectionLength > 0)
             {
@@ -181,6 +175,9 @@ public sealed partial class RegionOverlayForm
 
         PaintGlobalSnapGuides(g);
 
+        if (_selectPreviewAnnotation is not null)
+            RenderAnnotationTo(g, _selectPreviewAnnotation);
+
         // Color/emoji/font picker popups are painted on the separate ToolbarForm
     }
 
@@ -229,9 +226,7 @@ public sealed partial class RegionOverlayForm
         {
             if (background)
             {
-                var size = TextRenderer.MeasureText(text, font, Size.Empty,
-                    TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
-                var bgRect = new RectangleF(pos.X - 8, pos.Y - 6, Math.Max(size.Width + 16, 110), size.Height + 12);
+                var bgRect = MeasureTextRect(pos, text, fontSize, fontFamily, bold, italic, background: true);
                 using var bgPath = SketchRenderer.RoundedRect(bgRect, 8f);
                 if (shadow)
                 {

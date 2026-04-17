@@ -14,6 +14,7 @@ public partial class SettingsWindow
 
     private void LoadUploadSettingsIntoUi(UploadSettings s)
     {
+        EnsureProviderComboIcons();
         RebuildAiRedirectPanelUploadDestItems();
         SelectAiRedirectPanelProviderByValue((int)s.AiChatProvider);
         SelectAiRedirectPanelUploadDestByValue((int)UploadService.NormalizeAiChatUploadDestination(s.AiChatUploadDestination));
@@ -154,7 +155,7 @@ public partial class SettingsWindow
             StickerLocalEngineStatusText.Text = $"Failed: {stickerFailure}";
             StickerInstallDriversBtn.Content = hasRuntimeFailure
                 ? RembgRuntimeService.GetSetupButtonText(executionProvider)
-                : (runtimeReady ? "Installed" : RembgRuntimeService.GetSetupButtonText(executionProvider));
+                : (runtimeReady ? "Uninstall rembg" : RembgRuntimeService.GetSetupButtonText(executionProvider));
         }
         else if (hasRuntimeStatus && !runtimeReady)
         {
@@ -166,7 +167,7 @@ public partial class SettingsWindow
             StickerLocalEngineStatusText.Text = downloaded
                 ? $"{LocalStickerEngineService.GetEngineLabel(engine)} is downloaded and ready to use for sticker captures."
                 : $"{LocalStickerEngineService.GetQualityHint(engine)}: {LocalStickerEngineService.GetEngineDescription(engine)}";
-            StickerInstallDriversBtn.Content = runtimeReady ? "Installed" : RembgRuntimeService.GetSetupButtonText(executionProvider);
+            StickerInstallDriversBtn.Content = runtimeReady ? "Uninstall rembg" : RembgRuntimeService.GetSetupButtonText(executionProvider);
         }
 
         StickerDownloadRembgBtn.Visibility = Visibility.Visible;
@@ -306,7 +307,7 @@ public partial class SettingsWindow
             UpscaleLocalEngineStatusText.Text = $"Failed: {upscaleFailure}";
             UpscaleInstallDriversBtn.Content = hasRuntimeFailure
                 ? UpscaleRuntimeService.GetSetupButtonText(executionProvider)
-                : (runtimeReady ? "Installed" : UpscaleRuntimeService.GetSetupButtonText(executionProvider));
+                : (runtimeReady ? "Uninstall runtime" : UpscaleRuntimeService.GetSetupButtonText(executionProvider));
         }
         else if (hasRuntimeStatus && !runtimeReady)
         {
@@ -318,7 +319,7 @@ public partial class SettingsWindow
             UpscaleLocalEngineStatusText.Text = downloaded
                 ? $"{LocalUpscaleEngineService.GetEngineLabel(engine)} is downloaded and ready to use for upscale captures."
                 : $"{LocalUpscaleEngineService.GetQualityHint(engine)}: {LocalUpscaleEngineService.GetEngineDescription(engine)}";
-            UpscaleInstallDriversBtn.Content = runtimeReady ? "Installed" : UpscaleRuntimeService.GetSetupButtonText(executionProvider);
+            UpscaleInstallDriversBtn.Content = runtimeReady ? "Uninstall runtime" : UpscaleRuntimeService.GetSetupButtonText(executionProvider);
         }
 
         UpscaleDownloadModelBtn.Visibility = Visibility.Visible;

@@ -23,31 +23,12 @@ public sealed partial class RegionOverlayForm
         int pw = cols * (emojiSize + pad) + pad;
         int ph = searchBarH + pad + gridH + pad;
 
-        var emojiAnchor = _flyoutOpen ? Rectangle.Union(_toolbarRect, _flyoutRect) : _toolbarRect;
-        _emojiPickerRect = PositionPopupFromAnchor(emojiAnchor, pw, ph);
+        _emojiPickerRect = PositionPopupFromAnchor(_toolbarRect, pw, ph);
         int px = _emojiPickerRect.X;
         int py = _emojiPickerRect.Y;
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        PaintShadow(g, _emojiPickerRect, 10f, 55, 1.2f);
-        using (var bgPath = RRect(_emojiPickerRect, UiChrome.PopupRadius))
-        {
-            using var bg = new SolidBrush(UiChrome.SurfaceElevated);
-            g.FillPath(bg, bgPath);
-
-            // Fluent gradient highlight (matches toolbar)
-            var hlRect = new RectangleF(px + 1f, py + 0.5f, pw - 2f, ph - 1f);
-            using var hlPath = RRect(hlRect, UiChrome.PopupRadius - 0.5f);
-            using var gradBrush = new LinearGradientBrush(
-                new PointF(px, py), new PointF(px, py + ph),
-                Color.FromArgb(UiChrome.IsDark ? 40 : 50, 255, 255, 255),
-                Color.FromArgb(0, 255, 255, 255));
-            using var hlPen = new Pen(gradBrush, 1f);
-            g.DrawPath(hlPen, hlPath);
-
-            using var border = new Pen(UiChrome.SurfaceBorder, 1f);
-            g.DrawPath(border, bgPath);
-        }
+        WindowsDockRenderer.PaintSurface(g, _emojiPickerRect);
 
         // Search bar
         var searchRect = new Rectangle(px + pad, py + pad, pw - pad * 2, searchBarH);
@@ -142,33 +123,14 @@ public sealed partial class RegionOverlayForm
         }
         else
         {
-            var fontAnchor = _flyoutOpen ? Rectangle.Union(_toolbarRect, _flyoutRect) : _toolbarRect;
-            var popupRect = PositionPopupFromAnchor(fontAnchor, pw, ph);
+            var popupRect = PositionPopupFromAnchor(_toolbarRect, pw, ph);
             px = popupRect.X;
             py = popupRect.Y;
         }
         _fontPickerRect = new Rectangle(px, py, pw, ph);
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        PaintShadow(g, _fontPickerRect, 10f, 55, 1.2f);
-        using (var bgPath = RRect(_fontPickerRect, UiChrome.PopupRadius))
-        {
-            using var bg = new SolidBrush(UiChrome.SurfaceElevated);
-            g.FillPath(bg, bgPath);
-
-            // Fluent gradient highlight
-            var hlRect = new RectangleF(px + 1f, py + 0.5f, pw - 2f, ph - 1f);
-            using var hlPath = RRect(hlRect, UiChrome.PopupRadius - 0.5f);
-            using var gradBrush = new LinearGradientBrush(
-                new PointF(px, py), new PointF(px, py + ph),
-                Color.FromArgb(UiChrome.IsDark ? 40 : 50, 255, 255, 255),
-                Color.FromArgb(0, 255, 255, 255));
-            using var hlPen = new Pen(gradBrush, 1f);
-            g.DrawPath(hlPen, hlPath);
-
-            using var border = new Pen(UiChrome.SurfaceBorder, 1f);
-            g.DrawPath(border, bgPath);
-        }
+        WindowsDockRenderer.PaintSurface(g, _fontPickerRect);
 
         // Search bar
         var searchRect = new Rectangle(px + pad, py + pad, pw - pad * 2, searchBarH);
@@ -281,25 +243,7 @@ public sealed partial class RegionOverlayForm
         float tx = _textToolbarRect.X;
         float ty = _textToolbarRect.Y;
 
-        PaintShadow(g, _textToolbarRect, 8f, 55, 1.2f);
-        using (var bgPath = RRect(_textToolbarRect, UiChrome.ToolbarCornerRadius))
-        {
-            using var bg = new SolidBrush(UiChrome.SurfacePill);
-            g.FillPath(bg, bgPath);
-
-            // Fluent gradient highlight (matches toolbar)
-            var hlRect = new RectangleF(tx + 1f, ty + 0.5f, totalW - 2f, totalH - 1f);
-            using var hlPath = RRect(hlRect, UiChrome.ToolbarCornerRadius - 0.5f);
-            using var gradBrush = new LinearGradientBrush(
-                new PointF(tx, ty), new PointF(tx, ty + totalH),
-                Color.FromArgb(UiChrome.IsDark ? 48 : 60, 255, 255, 255),
-                Color.FromArgb(0, 255, 255, 255));
-            using var hlPen = new Pen(gradBrush, 1f);
-            g.DrawPath(hlPen, hlPath);
-
-            using var border = new Pen(UiChrome.SurfaceBorder, 1f);
-            g.DrawPath(border, bgPath);
-        }
+        WindowsDockRenderer.PaintSurface(g, _textToolbarRect);
 
         float cx = tx + pad;
         float cy = ty + pad;
@@ -309,16 +253,7 @@ public sealed partial class RegionOverlayForm
         {
             rect = new RectangleF(x, cy, btnW, btnH);
             bool hovered = _hoveredTextBtn == btnIdx;
-            using var btnPath = RRect(rect, 5);
-            int bgAlpha = active ? 50 : hovered ? 30 : 12;
-            var bgColor = UiChrome.SurfaceTextPrimary;
-            using var btnBg = new SolidBrush(Color.FromArgb(bgAlpha, bgColor.R, bgColor.G, bgColor.B));
-            g.FillPath(btnBg, btnPath);
-            if (hovered || active)
-            {
-                using var btnBorder = new Pen(Color.FromArgb(active ? 30 : 18, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), 1f);
-                g.DrawPath(btnBorder, btnPath);
-            }
+            WindowsDockRenderer.PaintButton(g, rect, active, hovered);
             int textAlpha = active ? 255 : hovered ? 210 : 130;
             using var brush = new SolidBrush(Color.FromArgb(textAlpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
             g.DrawString(label, f, brush, rect, _iconFmt);
@@ -349,44 +284,11 @@ public sealed partial class RegionOverlayForm
         _textFontBtnRect = new RectangleF(cx, cy, fontW, btnH);
         {
             bool fontHovered = _hoveredTextBtn == 5;
-            using var btnPath = RRect(_textFontBtnRect, 5);
-            int bgAlpha = _fontPickerOpen ? 40 : fontHovered ? 30 : 12;
-            var bgColor = UiChrome.SurfaceTextPrimary;
-            using var btnBg = new SolidBrush(Color.FromArgb(bgAlpha, bgColor.R, bgColor.G, bgColor.B));
-            g.FillPath(btnBg, btnPath);
-            if (fontHovered || _fontPickerOpen)
-            {
-                using var btnBorder = new Pen(Color.FromArgb(_fontPickerOpen ? 30 : 18, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B), 1f);
-                g.DrawPath(btnBorder, btnPath);
-            }
+            WindowsDockRenderer.PaintButton(g, _textFontBtnRect, _fontPickerOpen, fontHovered);
         }
         int fontTextAlpha = _hoveredTextBtn == 5 || _fontPickerOpen ? 255 : 190;
         using var fontBrush = new SolidBrush(Color.FromArgb(fontTextAlpha, UiChrome.SurfaceTextPrimary.R, UiChrome.SurfaceTextPrimary.G, UiChrome.SurfaceTextPrimary.B));
         g.DrawString(fontLabel, uiFont, fontBrush, _textFontBtnRect, _iconFmt);
-
-        // Tooltip for hovered text button
-        if (_hoveredTextBtn >= 0 && _textBtnTooltip.Length > 0)
-        {
-            var hovRect = _hoveredTextBtn switch
-            {
-                0 => _textBoldBtnRect, 1 => _textItalicBtnRect,
-                2 => _textStrokeBtnRect, 3 => _textShadowBtnRect, 4 => _textBackgroundBtnRect,
-                _ => _textFontBtnRect
-            };
-            var tipFont = UiChrome.ChromeFont(8.5f);
-            var tipSize = g.MeasureString(_textBtnTooltip, tipFont);
-            float tipX = hovRect.X + hovRect.Width / 2f - tipSize.Width / 2f - 8;
-            float tipY = _textToolbarRect.Y - tipSize.Height - 12;
-            var tipRect = new RectangleF(tipX, tipY, tipSize.Width + 16, tipSize.Height + 8);
-            PaintShadow(g, tipRect, 6f, 40, 1f);
-            using var tipPath = RRect(tipRect, 6);
-            using var tipBg = new SolidBrush(UiChrome.SurfaceTooltip);
-            g.FillPath(tipBg, tipPath);
-            using var tipBorder = new Pen(UiChrome.SurfaceBorderSubtle, 1f);
-            g.DrawPath(tipBorder, tipPath);
-            using var tipBrush = new SolidBrush(UiChrome.SurfaceTextPrimary);
-            g.DrawString(_textBtnTooltip, tipFont, tipBrush, tipX + 8, tipY + 4);
-        }
 
         g.TextRenderingHint = TextRenderingHint.SystemDefault;
         g.SmoothingMode = SmoothingMode.Default;

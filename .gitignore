@@ -42,5 +42,6 @@ src/Yoink/yoink_*.png
 ## Release zips
 *.zip
 .omx/
+.claude/
 site/node_modules/
 *.tsbuildinfo

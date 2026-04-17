@@ -63,13 +63,16 @@ public sealed class HotkeyService : IDisposable
             registeredFlag = false;
         }
 
-        if (key == 0)
+        if (key == 0 || IsUnsafeModifierlessHotkey(modifiers, key))
             return true;
 
         registeredFlag = User32.RegisterHotKey(
             IntPtr.Zero, id, modifiers | User32.MOD_NOREPEAT, key);
         return registeredFlag;
     }
+
+    private static bool IsUnsafeModifierlessHotkey(uint modifiers, uint key) =>
+        modifiers == 0 && key != User32.VK_SNAPSHOT;
 
     /// <summary>Force-unregister all hotkey IDs to clear any stale registrations from previous instances.</summary>
     public void UnregisterAll()

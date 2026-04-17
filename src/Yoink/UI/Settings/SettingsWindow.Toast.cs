@@ -77,15 +77,39 @@ public partial class SettingsWindow
 
         bool selected = button == _selectedToastButton;
         border.Background = selected
-            ? Theme.Brush(Color.FromArgb(210, 32, 32, 32))
-            : new SolidColorBrush(Color.FromArgb(122, 11, 13, 16));
-        border.BorderBrush = selected
-            ? Theme.Brush(Color.FromArgb(160, 255, 255, 255))
-            : new SolidColorBrush(Color.FromArgb(48, 255, 255, 255));
-        border.BorderThickness = selected ? new Thickness(1.6) : new Thickness(1);
+            ? Theme.Brush(Theme.IsDark ? Color.FromRgb(70, 70, 70) : Color.FromRgb(226, 226, 226))
+            : Theme.Brush(Theme.IsDark ? Color.FromRgb(48, 48, 48) : Color.FromRgb(246, 246, 246));
+        border.BorderBrush = System.Windows.Media.Brushes.Transparent;
+        border.BorderThickness = new Thickness(0);
         border.Opacity = ToastButtonLayout.IsVisible(ToastButtons, button)
             ? (_toastButtonDragActive && button == _toastDragButton ? 0.18 : 1)
             : 0.45;
+        UpdateToastEditorIcon(button, selected);
+    }
+
+    private void UpdateToastEditorIcon(ToastButtonKind button, bool active)
+    {
+        var color = Theme.IsDark
+            ? System.Drawing.Color.FromArgb(active ? 255 : 220, 255, 255, 255)
+            : System.Drawing.Color.FromArgb(active ? 255 : 210, 24, 24, 24);
+        switch (button)
+        {
+            case ToastButtonKind.Close:
+                ToastEditorCloseIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", color, 22, active);
+                break;
+            case ToastButtonKind.Pin:
+                ToastEditorPinIcon.Source = Helpers.StreamlineIcons.RenderWpf("pin", color, 22, active);
+                break;
+            case ToastButtonKind.Save:
+                ToastEditorSaveIcon.Source = Helpers.StreamlineIcons.RenderWpf("download", color, 22, active);
+                break;
+            case ToastButtonKind.AiRedirect:
+                ToastEditorAiRedirectIcon.Source = Helpers.ToolIcons.RenderAiRedirectWpf(color, 22, active);
+                break;
+            case ToastButtonKind.Delete:
+                ToastEditorDeleteIcon.Source = Helpers.StreamlineIcons.RenderWpf("trash", color, 22, active);
+                break;
+        }
     }
 
     private void UpdateToastEditorSlot(Border slotBorder, ToastButtonSlot slot)

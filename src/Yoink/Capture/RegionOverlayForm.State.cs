@@ -115,18 +115,22 @@ public sealed partial class RegionOverlayForm
 
     private bool IsPointInOverlayUi(Point p)
     {
+        if (IsPointInToolbarChrome(p)) return true;
+        if (_emojiPickerOpen && _emojiPickerRect.Contains(p)) return true;
+        if (_fontPickerOpen && _fontPickerRect.Contains(p)) return true;
+        if (_colorPickerOpen && _colorPickerRect.Contains(p)) return true;
+        return false;
+    }
+
+    private bool IsPointInToolbarChrome(Point p)
+    {
         var tbBounds = _toolbarRect;
         tbBounds.Inflate(8, 8);
         if (IsVerticalDock)
             tbBounds.Width += 10;
         else
             tbBounds.Height += 10;
-        if (tbBounds.Contains(p)) return true;
-        if (_flyoutOpen) { var fb = _flyoutRect; fb.Inflate(8, 8); if (fb.Contains(p)) return true; }
-        if (_emojiPickerOpen && _emojiPickerRect.Contains(p)) return true;
-        if (_fontPickerOpen && _fontPickerRect.Contains(p)) return true;
-        if (_colorPickerOpen && _colorPickerRect.Contains(p)) return true;
-        return false;
+        return tbBounds.Contains(p);
     }
 
     private Rectangle PositionPopupFromAnchor(Rectangle anchor, int width, int height, int gap = 8)
@@ -353,8 +357,7 @@ public sealed partial class RegionOverlayForm
         };
         for (int i = 0; i < 4; i++)
         {
-            var hr = new Rectangle(corners[i].X - SelectHandleHitSize / 2, corners[i].Y - SelectHandleHitSize / 2,
-                SelectHandleHitSize, SelectHandleHitSize);
+            var hr = WindowsHandleRenderer.HitRect(corners[i]);
             if (hr.Contains(p)) return i;
         }
         return -1;
@@ -398,6 +401,19 @@ public sealed partial class RegionOverlayForm
         if (removed)
             MarkCommittedAnnotationsDirty();
         return removed;
+    }
+
+    private void CommitSelectTransform()
+    {
+        if (_selectedAnnotationIndex >= 0 &&
+            _selectedAnnotationIndex < _undoStack.Count &&
+            _selectPreviewAnnotation is not null)
+        {
+            _undoStack[_selectedAnnotationIndex] = _selectPreviewAnnotation;
+            MarkCommittedAnnotationsDirty();
+        }
+
+        _selectPreviewAnnotation = null;
     }
 
     private Annotation RemoveLastAnnotation()

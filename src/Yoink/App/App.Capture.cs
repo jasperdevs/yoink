@@ -28,6 +28,7 @@ public partial class App
         {
             try
             {
+                Theme.Refresh();
                 bool showCursor = _settingsService!.Settings.ShowCursor;
                 var bounds = ScreenCapture.GetVirtualScreenBounds();
                 var s = _settingsService!.Settings;
@@ -155,6 +156,7 @@ public partial class App
         {
             try
             {
+                Theme.Refresh();
                 bool showCursor = _settingsService!.Settings.ShowCursor;
                 var bounds = ScreenCapture.GetVirtualScreenBounds();
                 var form = new ScrollingCaptureForm(null, bounds, showCursor,
@@ -277,6 +279,7 @@ public partial class App
             Bitmap? screenshot = null;
             try
             {
+                Theme.Refresh();
                 bool showCursor = _settingsService!.Settings.ShowCursor;
                 var (bmp, bounds) = _settingsService.Settings.OverlayCaptureAllMonitors
                     ? ScreenCapture.CaptureAllScreens(showCursor)

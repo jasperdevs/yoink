@@ -77,19 +77,13 @@ public sealed partial class RecordingForm : Form
     private readonly SolidBrush _textLabelBrush = new(UiChrome.SurfaceTextPrimary);
     private readonly Pen _borderPen = new(Color.FromArgb(200, 239, 68, 68), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
     private readonly SolidBrush _cornerBrush = new(Color.FromArgb(220, 239, 68, 68));
-    private readonly SolidBrush _shadowBrush = new(Color.FromArgb(60, 0, 0, 0));
-    private readonly SolidBrush _toolbarBgBrush = new(UiChrome.SurfacePill);
-    private readonly Pen _toolbarBorderPen = new(UiChrome.SurfaceBorder, 1f);
     private readonly SolidBrush _dotBrush = new(Color.FromArgb(240, 239, 68, 68));
     private readonly Pen _ringPen = new(Color.FromArgb(80, 239, 68, 68), 1.5f);
     private readonly Font _timeFont = UiChrome.ChromeFont(UiChrome.ChromeTitleSize, FontStyle.Bold);
     private readonly SolidBrush _timeBrush = new(UiChrome.SurfaceTextPrimary);
-    private readonly Font _btnFont = UiChrome.ChromeFont(9.5f, FontStyle.Bold);
     private readonly Font _encFont = UiChrome.ChromeFont(10f, FontStyle.Bold);
     private readonly SolidBrush _encTextBrush = new(UiChrome.SurfaceTextSecondary);
     private readonly SolidBrush _spinBrush = new(Color.FromArgb(200, 239, 68, 68));
-    private readonly SolidBrush _encBgBrush = new(UiChrome.SurfacePill);
-    private readonly Pen _encBorderPen = new(UiChrome.SurfaceBorderSubtle, 1f);
 
     public RecordingForm(Bitmap? screenshot, Rectangle virtualBounds, int fps, string savePath,
                          Models.RecordingFormat format = Models.RecordingFormat.GIF, int maxHeight = 0,
@@ -98,6 +92,7 @@ public sealed partial class RecordingForm : Form
                          bool recordDesktop = false, string? desktopDeviceId = null,
                          bool showMagnifier = false)
     {
+        Yoink.UI.Theme.Refresh();
         _screenshot = screenshot;
         _virtualBounds = virtualBounds;
         _fps = fps;
@@ -339,38 +334,8 @@ public sealed partial class RecordingForm : Form
         g.FillRectangle(_cornerBrush, borderRect.X - cm / 2, borderRect.Bottom - cm / 2, cm, cm);
         g.FillRectangle(_cornerBrush, borderRect.Right - cm / 2, borderRect.Bottom - cm / 2, cm, cm);
 
-        // Fluent 2-layer shadow: ambient + directional
         var tbRectF = new RectangleF(_toolbarRect.X, _toolbarRect.Y, _toolbarRect.Width, _toolbarRect.Height);
-        var ambient = tbRectF;
-        ambient.Inflate(8f, 8f);
-        ambient.Offset(0, 2.2f);
-        using (var shadowPath = RRect(ambient, 8f + 8f))
-        using (var shadowBrush = new SolidBrush(Color.FromArgb(6, 0, 0, 0)))
-            g.FillPath(shadowBrush, shadowPath);
-        var directional = tbRectF;
-        directional.Inflate(3f, 3f);
-        directional.Offset(0, 5.2f);
-        using (var shadowPath = RRect(directional, 8f + 3f))
-        using (var shadowBrush = new SolidBrush(Color.FromArgb(12, 0, 0, 0)))
-            g.FillPath(shadowBrush, shadowPath);
-
-        using (var tbPath = RRect(_toolbarRect, 8f))
-        {
-            g.FillPath(_toolbarBgBrush, tbPath);
-
-            // Fluent gradient highlight
-            var hlRect = new RectangleF(_toolbarRect.X + 1f, _toolbarRect.Y + 0.5f, _toolbarRect.Width - 2f, _toolbarRect.Height - 1f);
-            using var hlPath = RRect(hlRect, 7.5f);
-            using var gradBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                new PointF(_toolbarRect.X, _toolbarRect.Y),
-                new PointF(_toolbarRect.X, _toolbarRect.Bottom),
-                Color.FromArgb(UiChrome.IsDark ? 48 : 60, 255, 255, 255),
-                Color.FromArgb(0, 255, 255, 255));
-            using var hlPen = new Pen(gradBrush, 1f);
-            g.DrawPath(hlPen, hlPath);
-
-            g.DrawPath(_toolbarBorderPen, tbPath);
-        }
+        WindowsDockRenderer.PaintSurface(g, tbRectF);
 
         var elapsed = _recorder?.Elapsed ?? _videoRecorder?.Elapsed ?? TimeSpan.Zero;
 
@@ -382,44 +347,36 @@ public sealed partial class RecordingForm : Form
         g.DrawEllipse(_ringPen, dotX, dotY, 10, 10);
 
         string time = $"{(int)elapsed.TotalMinutes:D2}:{elapsed.Seconds:D2}";
-        g.DrawString(time, _timeFont, _timeBrush, dotX + 18, _toolbarRect.Y + 21);
+        var timeRect = new RectangleF(dotX + 18, _toolbarRect.Y, _stopBtn.X - (dotX + 24), _toolbarRect.Height);
+        using (var timeFormat = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
+            g.DrawString(time, _timeFont, _timeBrush, timeRect, timeFormat);
 
-        DrawBtn(g, _stopBtn, "\u25A0  Stop", _hoveredBtn == 0,
-            Color.FromArgb(255, 239, 68, 68), Color.FromArgb(50, 239, 68, 68));
-        DrawBtn(g, _discardBtn, "Discard", _hoveredBtn == 1,
-            UiChrome.SurfaceTextPrimary, UiChrome.SurfaceHover);
+        DrawIconBtn(g, _stopBtn, "stopSquare", _hoveredBtn == 0,
+            UiChrome.SurfaceTextPrimary, active: false);
+        DrawIconBtn(g, _discardBtn, "close", _hoveredBtn == 1,
+            UiChrome.SurfaceTextPrimary, active: false);
 
         if (_state == State.Encoding)
         {
-            using var encPath = RRect(_toolbarRect, 8);
-            g.FillPath(_encBgBrush, encPath);
-            g.DrawPath(_encBorderPen, encPath);
+            WindowsDockRenderer.PaintSurface(g, _toolbarRect);
 
             float spinX = _toolbarRect.X + 14;
             float spinY = _toolbarRect.Y + _toolbarRect.Height / 2f - 4;
             g.FillEllipse(_spinBrush, spinX, spinY, 8, 8);
 
             string encLabel = _format == Models.RecordingFormat.GIF ? "Encoding GIF..." : "Saving...";
-            g.DrawString(encLabel, _encFont, _encTextBrush, spinX + 16, _toolbarRect.Y + 22);
+            var encRect = new RectangleF(spinX + 16, _toolbarRect.Y, _toolbarRect.Width - 30, _toolbarRect.Height);
+            using var encFormat = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
+            g.DrawString(encLabel, _encFont, _encTextBrush, encRect, encFormat);
         }
     }
 
-    private void DrawBtn(Graphics g, Rectangle rect, string text, bool hovered,
-        Color textColor, Color bgColor)
+    private void DrawIconBtn(Graphics g, Rectangle rect, string iconId, bool hovered,
+        Color iconColor, bool active)
     {
-        using var path = RRect(rect, 5);
-        int alpha = hovered ? Math.Clamp((int)(bgColor.A * 2.5), 0, 255) : bgColor.A;
-        using var bg = new SolidBrush(Color.FromArgb(alpha, bgColor.R, bgColor.G, bgColor.B));
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.FillPath(bg, path);
-        if (hovered)
-        {
-            using var hBorder = new Pen(UiChrome.SurfaceBorderSubtle, 1f);
-            g.DrawPath(hBorder, path);
-        }
-        using var brush = new SolidBrush(textColor);
-        var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString(text, _btnFont, brush, rect, fmt);
+        WindowsDockRenderer.PaintButton(g, rect, active, hovered);
+        int alpha = active ? 255 : hovered ? 240 : 200;
+        WindowsDockRenderer.PaintIcon(g, iconId, rect, Color.FromArgb(alpha, iconColor.R, iconColor.G, iconColor.B), active);
     }
 
     private static GraphicsPath RRect(RectangleF r, float radius)
@@ -464,11 +421,9 @@ public sealed partial class RecordingForm : Form
             _selPen.Dispose(); _labelFont.Dispose();
             _hintFont.Dispose(); _hintBrush.Dispose(); _bgLabelBrush.Dispose();
             _textLabelBrush.Dispose(); _borderPen.Dispose(); _cornerBrush.Dispose();
-            _shadowBrush.Dispose(); _toolbarBgBrush.Dispose(); _toolbarBorderPen.Dispose();
             _dotBrush.Dispose(); _ringPen.Dispose(); _timeFont.Dispose();
-            _timeBrush.Dispose(); _btnFont.Dispose(); _encFont.Dispose();
-            _encTextBrush.Dispose(); _spinBrush.Dispose(); _encBgBrush.Dispose();
-            _encBorderPen.Dispose();
+            _timeBrush.Dispose(); _encFont.Dispose();
+            _encTextBrush.Dispose(); _spinBrush.Dispose();
         }
         base.Dispose(disposing);
     }

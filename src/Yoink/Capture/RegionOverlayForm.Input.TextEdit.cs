@@ -1,5 +1,7 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using Yoink.Helpers;
 using Yoink.Models;
 
 namespace Yoink.Capture;
@@ -25,18 +27,40 @@ public sealed partial class RegionOverlayForm
         Invalidate();
     }
 
-    private RectangleF MeasureTextRect(Point pos, string text, float fontSize, string fontFamily, bool bold, bool italic, bool background = false)
+    private static RectangleF MeasureTextRect(Point pos, string text, float fontSize, string fontFamily, bool bold, bool italic, bool background = false)
     {
         var style = FontStyle.Regular;
         if (bold) style |= FontStyle.Bold;
         if (italic) style |= FontStyle.Italic;
         var font = GetAnnotationFont(fontFamily, fontSize, style);
         string display = text.Length > 0 ? text : "Type here...";
-        var size = TextRenderer.MeasureText(display, font, Size.Empty,
-            TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
-        int padX = background ? 16 : 12;
+        using var path = new GraphicsPath();
+        using var format = new StringFormat(StringFormat.GenericTypographic)
+        {
+            FormatFlags = StringFormatFlags.NoClip | StringFormatFlags.MeasureTrailingSpaces
+        };
+        path.AddString(
+            display,
+            font.FontFamily,
+            (int)font.Style,
+            font.SizeInPoints * 96f / 72f,
+            new PointF(pos.X, pos.Y),
+            format);
+        var bounds = path.GetBounds();
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            var size = TextRenderer.MeasureText(display, font, Size.Empty,
+                TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
+            bounds = new RectangleF(pos.X, pos.Y, Math.Max(1, size.Width), Math.Max(1, size.Height));
+        }
+
+        int padX = background ? 16 : 8;
         int padY = background ? 12 : 8;
-        return new RectangleF(pos.X - (padX / 2f), pos.Y - (padY / 2f), Math.Max(size.Width + padX, background ? 110 : 100), size.Height + padY);
+        return new RectangleF(
+            bounds.X - (padX / 2f),
+            bounds.Y - (padY / 2f),
+            bounds.Width + padX,
+            bounds.Height + padY);
     }
 
     private RectangleF GetActiveTextRect()
@@ -53,11 +77,10 @@ public sealed partial class RegionOverlayForm
                 TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
             _activeTextRectCache = MeasureTextRect(_textPos, _textBuffer, _textFontSize, _textFontFamily, _textBold, _textItalic, _textBackground);
             _activeTextMeasureWidth = measured.Width;
-            const int hs = 12;
-            _activeTextHandleCache[0] = new RectangleF(_activeTextRectCache.X - hs / 2f, _activeTextRectCache.Y - hs / 2f, hs, hs);
-            _activeTextHandleCache[1] = new RectangleF(_activeTextRectCache.Right - hs / 2f, _activeTextRectCache.Y - hs / 2f, hs, hs);
-            _activeTextHandleCache[2] = new RectangleF(_activeTextRectCache.X - hs / 2f, _activeTextRectCache.Bottom - hs / 2f, hs, hs);
-            _activeTextHandleCache[3] = new RectangleF(_activeTextRectCache.Right - hs / 2f, _activeTextRectCache.Bottom - hs / 2f, hs, hs);
+            _activeTextHandleCache[0] = WindowsHandleRenderer.CenteredAt(new PointF(_activeTextRectCache.X, _activeTextRectCache.Y));
+            _activeTextHandleCache[1] = WindowsHandleRenderer.CenteredAt(new PointF(_activeTextRectCache.Right, _activeTextRectCache.Y));
+            _activeTextHandleCache[2] = WindowsHandleRenderer.CenteredAt(new PointF(_activeTextRectCache.X, _activeTextRectCache.Bottom));
+            _activeTextHandleCache[3] = WindowsHandleRenderer.CenteredAt(new PointF(_activeTextRectCache.Right, _activeTextRectCache.Bottom));
             _activeTextLayoutDirty = false;
         }
         return _activeTextRectCache;
@@ -70,7 +93,7 @@ public sealed partial class RegionOverlayForm
         for (int i = 0; i < _activeTextHandleCache.Length; i++)
         {
             var h = Rectangle.Round(_activeTextHandleCache[i]);
-            h.Inflate((TextHandleHitSize - h.Width) / 2, (TextHandleHitSize - h.Height) / 2);
+            h.Inflate((WindowsHandleRenderer.HitSize - h.Width) / 2, (WindowsHandleRenderer.HitSize - h.Height) / 2);
             if (h.Contains(p)) return i;
         }
         return -1;

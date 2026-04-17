@@ -9,19 +9,11 @@ public sealed partial class RegionOverlayForm
     protected override void OnMouseDown(MouseEventArgs e)
     {
         Focus();
+        if (DateTime.UtcNow < _suppressOverlayClickUntilUtc)
+            return;
+
         if (e.Button == MouseButtons.Right) { Cancel(); return; }
         if (e.Button != MouseButtons.Left) return;
-
-        // Flyout button click
-        if (_flyoutOpen && _flyoutTools.Length > 0)
-        {
-            int fb = GetFlyoutButtonAt(e.Location);
-            if (fb >= 0 && _flyoutTools[fb].Mode.HasValue)
-            {
-                SetMode(_flyoutTools[fb].Mode!.Value);
-                return;
-            }
-        }
 
         int btn = GetToolbarButtonAt(e.Location);
         if (btn >= 0)
@@ -30,11 +22,20 @@ public sealed partial class RegionOverlayForm
             if (btn == BtnCount - 2) { ToggleColorPicker(); return; } // color dot
             if (_moreButtonIndex >= 0 && btn == _moreButtonIndex)
             {
-                SetFlyoutOpen(!_flyoutOpen);
+                if (_flyoutOpen)
+                    CloseMoreToolsDropdown();
+                else
+                    ShowMoreToolsDropdown();
                 return;
             }
             if (btn < _mainBarTools.Length && _mainBarTools[btn].Mode.HasValue)
                 SetMode(_mainBarTools[btn].Mode!.Value);
+            return;
+        }
+
+        if (_flyoutOpen)
+        {
+            CloseMoreToolsDropdown();
             return;
         }
 
@@ -136,6 +137,9 @@ public sealed partial class RegionOverlayForm
                 _textResizeHandle = handle;
                 _textResizing = true;
                 _textResizeStart = e.Location;
+                _textResizeStartFontSize = _textFontSize;
+                _lastTextDragLocation = Point.Empty;
+                _lastTextDragFrameUtc = default;
                 Invalidate();
                 return;
             }
@@ -144,6 +148,8 @@ public sealed partial class RegionOverlayForm
             if (textBox.Contains(e.Location))
             {
                 _textDragging = true;
+                _lastTextDragLocation = Point.Empty;
+                _lastTextDragFrameUtc = default;
                 _textDragOffset = new Point(e.Location.X - _textPos.X, e.Location.Y - _textPos.Y);
                 ClearCrosshairGuides();
                 Invalidate();
@@ -177,6 +183,8 @@ public sealed partial class RegionOverlayForm
                 InvalidateActiveTextLayout();
                 ShowTextBox();
                 _textDragging = true;
+                _lastTextDragLocation = Point.Empty;
+                _lastTextDragFrameUtc = default;
                 _textDragOffset = new Point(e.Location.X - _textPos.X, e.Location.Y - _textPos.Y);
                 RefreshOverlayUiChrome();
                 Invalidate();
@@ -195,6 +203,8 @@ public sealed partial class RegionOverlayForm
                 _selectResizeHandle = handle;
                 _selectDragStart = e.Location;
                 _selectHandleBounds = GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]);
+                _selectResizeOriginalAnnotation = _undoStack[_selectedAnnotationIndex];
+                _selectPreviewAnnotation = _selectResizeOriginalAnnotation;
                 ClearCrosshairGuides();
                 Invalidate();
                 return;
@@ -206,6 +216,7 @@ public sealed partial class RegionOverlayForm
                 _selectedAnnotationIndex = hit;
                 _isSelectDragging = true;
                 var bounds = GetAnnotationBounds(_undoStack[hit]);
+                _selectPreviewAnnotation = _undoStack[hit];
                 _selectDragStart = e.Location;
                 _selectDragOffset = new Point(e.Location.X - bounds.X, e.Location.Y - bounds.Y);
                 ClearCrosshairGuides();

@@ -110,11 +110,7 @@ public partial class PreviewWindow : Window
         if (_autoPin)
         {
             _isPinned = true;
-            // Match manual pin visual: white bg, dark icon
-            PinBtn.Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(180, 255, 255, 255));
-            PinIcon.Fill = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(20, 20, 20));
+            ApplyOverlayButtonVisual(PinBtn, PinIcon, "pin", active: true);
             PinBtn.Opacity = 1;
             PinIcon.Opacity = 1;
             ProgressBar.Visibility = System.Windows.Visibility.Collapsed;
@@ -122,6 +118,10 @@ public partial class PreviewWindow : Window
 
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_duration) };
         _fadeTimer.Tick += (_, _) => { _fadeTimer.Stop(); if (!_isHovered && !_isPinned) AnimateDismiss(); };
+
+        HookOverlayHover(CloseBtn, CloseIcon, "close");
+        HookOverlayHover(PinBtn, PinIcon, "pin");
+        HookOverlayHover(SaveBtn, SaveIcon, "download");
 
         SourceInitialized += (_, _) => PopupWindowHelper.ApplyNoActivateChrome(this);
         Loaded += OnLoaded;
@@ -141,6 +141,36 @@ public partial class PreviewWindow : Window
         Theme.Refresh();
         ImageBorder.BorderBrush = Theme.Brush(System.Windows.Media.Color.FromArgb(188, 255, 255, 255));
         PreviewFrame.Background = Theme.Brush(Theme.BgElevated);
+        ApplyOverlayButtonVisual(CloseBtn, CloseIcon, "close", active: false);
+        ApplyOverlayButtonVisual(PinBtn, PinIcon, "pin", active: _isPinned);
+        ApplyOverlayButtonVisual(SaveBtn, SaveIcon, "download", active: false);
+    }
+
+    private static void ApplyOverlayButtonVisual(System.Windows.Controls.Border button, System.Windows.Controls.Image icon, string iconId, bool active)
+    {
+        button.Background = Theme.Brush(active
+            ? (Theme.IsDark ? System.Windows.Media.Color.FromRgb(70, 70, 70) : System.Windows.Media.Color.FromRgb(226, 226, 226))
+            : (Theme.IsDark ? System.Windows.Media.Color.FromRgb(48, 48, 48) : System.Windows.Media.Color.FromRgb(246, 246, 246)));
+        button.BorderBrush = System.Windows.Media.Brushes.Transparent;
+        button.BorderThickness = new Thickness(0);
+        var iconColor = Theme.IsDark
+            ? System.Drawing.Color.FromArgb(255, 255, 255, 255)
+            : System.Drawing.Color.FromArgb(255, 24, 24, 24);
+        icon.Source = StreamlineIcons.RenderWpf(iconId, iconColor, 22, active);
+    }
+
+    private void HookOverlayHover(System.Windows.Controls.Border button, System.Windows.Controls.Image icon, string iconId)
+    {
+        button.MouseEnter += (_, _) =>
+        {
+            if (iconId == "pin" && _isPinned) return;
+            ApplyOverlayButtonVisual(button, icon, iconId, active: true);
+        };
+        button.MouseLeave += (_, _) =>
+        {
+            if (iconId == "pin" && _isPinned) return;
+            ApplyOverlayButtonVisual(button, icon, iconId, active: false);
+        };
     }
 
     private void FitToImage()

@@ -162,12 +162,12 @@ internal sealed class ThemedConfirmDialog : Window
             CornerRadius = new CornerRadius(6),
             Background = WpfBrushes.Transparent,
             Cursor = WpfCursors.Hand,
-            Child = new TextBlock
+            Child = new System.Windows.Controls.Image
             {
-                Text = "\uE8BB",
-                FontFamily = new WpfFontFamily("Segoe MDL2 Assets"),
-                FontSize = 10,
-                Foreground = Theme.Brush(Theme.TextSecondary),
+                Source = StreamlineIcons.RenderWpf("close", ToDrawingColor(Theme.TextSecondary, 220), 16),
+                Width = 12,
+                Height = 12,
+                Stretch = Stretch.Uniform,
                 HorizontalAlignment = WpfHorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             }
@@ -205,17 +205,20 @@ internal sealed class ThemedConfirmDialog : Window
             Background = Theme.Brush(WpfColor.FromArgb(28, accent.R, accent.G, accent.B)),
             BorderBrush = Theme.Brush(WpfColor.FromArgb(42, accent.R, accent.G, accent.B)),
             BorderThickness = new Thickness(1),
-            Child = new TextBlock
+            Child = new System.Windows.Controls.Image
             {
-                Text = "\uE7BA",
-                FontFamily = new WpfFontFamily("Segoe MDL2 Assets"),
-                FontSize = 17,
-                Foreground = Theme.Brush(accent),
+                Source = StreamlineIcons.RenderWpf("warning", ToDrawingColor(accent, 230), 22),
+                Width = 18,
+                Height = 18,
+                Stretch = Stretch.Uniform,
                 HorizontalAlignment = WpfHorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             }
         };
     }
+
+    private static System.Drawing.Color ToDrawingColor(WpfColor color, byte alpha) =>
+        System.Drawing.Color.FromArgb(alpha, color.R, color.G, color.B);
 
     private Button BuildButton(string text, bool isPrimary, bool danger, Action click)
     {

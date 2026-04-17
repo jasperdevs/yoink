@@ -40,14 +40,6 @@ public sealed partial class RegionOverlayForm
         return -1;
     }
 
-    private int GetFlyoutButtonAt(Point p)
-    {
-        if (!_flyoutOpen || _flyoutButtonRects == null) return -1;
-        for (int i = 0; i < _flyoutButtonRects.Length; i++)
-            if (_flyoutButtonRects[i].Contains(p)) return i;
-        return -1;
-    }
-
     private static Rectangle GetSquareSelectionRect(Point start, Point current)
     {
         int dx = current.X - start.X;
@@ -63,7 +55,7 @@ public sealed partial class RegionOverlayForm
         if (_isTyping) CommitText();
         bool wasEmoji = _mode == CaptureMode.Emoji && _emojiPickerOpen;
         if (_flyoutOpen)
-            SetFlyoutOpen(false);
+            CloseMoreToolsDropdown();
         _colorPickerOpen = false;
         _fontPickerOpen = false;
         HideFontSearchBox();
@@ -121,8 +113,7 @@ public sealed partial class RegionOverlayForm
             int searchBarH = 28;
             int pw = cols * (emojiSize + pad) + pad;
             int ph = searchBarH + pad + visibleRows * (emojiSize + pad) + pad;
-            var emojiAnchor = _flyoutOpen ? Rectangle.Union(_toolbarRect, _flyoutRect) : _toolbarRect;
-            _emojiPickerRect = PositionPopupFromAnchor(emojiAnchor, pw, ph);
+            _emojiPickerRect = PositionPopupFromAnchor(_toolbarRect, pw, ph);
             ShowEmojiSearchBox();
             _emojiWarmupIndex = 0;
             _emojiWarmupPending = true;

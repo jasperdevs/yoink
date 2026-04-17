@@ -12,7 +12,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>yoink.ico</ApplicationIcon>
-    <Version>0.8.22</Version>
+    <Version>0.8.23</Version>
     <RuntimeIdentifiers>win-x64;win-x86;win-arm64</RuntimeIdentifiers>
     <Authors>jasperdevs</Authors>
     <Description>Screenshot, annotation, OCR, sticker, and recording tool for Windows</Description>
@@ -35,13 +35,20 @@
     <Resource Include="Assets\amazon.png" />
     <Resource Include="Assets\aws_sq.png" />
     <Resource Include="Assets\aws_official.svg" />
+    <Resource Include="Assets\azure_sq.png" />
     <Resource Include="Assets\catbox.png" />
+    <Resource Include="Assets\chatgpt_sq.png" />
+    <Resource Include="Assets\claude_sq.png" />
+    <Resource Include="Assets\deepai_sq.png" />
     <Resource Include="Assets\catbox_sq.png" />
     <Resource Include="Assets\dropbox_sq.png" />
     <Resource Include="Assets\catbox_official.png" />
     <Resource Include="Assets\fileio.png" />
     <Resource Include="Assets\fileio_sq.png" />
     <Resource Include="Assets\gdrive_sq.png" />
+    <Resource Include="Assets\gemini_sq.png" />
+    <Resource Include="Assets\gofile_sq.png" />
+    <Resource Include="Assets\googlelens_sq.png" />
     <Resource Include="Assets\gyazo.png" />
     <Resource Include="Assets\gyazo_sq.png" />
     <Resource Include="Assets\gyazo_official.png" />
@@ -52,16 +59,18 @@
     <Resource Include="Assets\imgur.png" />
     <Resource Include="Assets\imgur_sq.png" />
     <Resource Include="Assets\imgur_official.png" />
+    <Resource Include="Assets\imgpile_sq.png" />
     <Resource Include="Assets\immich_sq.png" />
     <Resource Include="Assets\litterbox_sq.png" />
     <Resource Include="Assets\litterbox_official.png" />
     <Resource Include="Assets\onedrive_sq.png" />
+    <Resource Include="Assets\photoroom_sq.png" />
+    <Resource Include="Assets\removebg_sq.png" />
     <Resource Include="Assets\transfer.png" />
     <Resource Include="Assets\transfer_sq.png" />
+    <Resource Include="Assets\tmpfiles_sq.png" />
     <Resource Include="Assets\uguu.png" />
     <Resource Include="Assets\uguu_sq.png" />
-    <EmbeddedResource Include="lucide.ttf" LogicalName="Yoink.lucide.ttf" />
-    <EmbeddedResource Include="Resources\Icons\*.png" />
   </ItemGroup>
 
   <ItemGroup>

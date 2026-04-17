@@ -44,8 +44,7 @@ public partial class SettingsWindow
             ? System.Drawing.Color.FromArgb(160, 255, 255, 255)
             : System.Drawing.Color.FromArgb(170, 0, 0, 0);
 
-        StickerUploadsPanel.IconSource = ToolIcons.RenderStickerWpf(iconColor, 16);
-        UpscaleUploadsPanel.IconSource = ToolIcons.RenderToolIconWpf("upscale", ToolGlyphs.UpscaleGlyph, iconColor, 16);
+        _ = iconColor;
     }
 
     private void ApplyThemeToVisualTree(DependencyObject root)

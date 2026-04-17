@@ -65,6 +65,26 @@ public partial class SettingsWindow
     private void UpscaleInstallDriversBtn_Click(object sender, RoutedEventArgs e)
     {
         var executionProvider = (UpscaleExecutionProvider)UpscaleLocalExecutionCombo.SelectedIndex;
+        if (UpscaleRuntimeService.TryGetCachedStatus(executionProvider, out var runtimeReady, out _) && runtimeReady)
+        {
+            if (!ThemedConfirmDialog.Confirm(
+                    this,
+                    "Uninstall runtime",
+                    $"Uninstall the {UpscaleRuntimeService.GetSetupTargetName(executionProvider)} runtime?\n\nDownloaded models stay available, but this runtime will need to be installed again before local upscale captures can use it.",
+                    "Uninstall",
+                    "Cancel",
+                    danger: true))
+                return;
+
+            bool removed = UpscaleRuntimeService.RemoveRuntime(executionProvider);
+            if (removed)
+                ToastWindow.Show("Upscale runtime", "Uninstalled the upscale runtime.");
+            else
+                ToastWindow.ShowError("Upscale runtime error", "Couldn't uninstall the upscale runtime.");
+            UpdateUpscaleLocalEngineUi();
+            return;
+        }
+
         var started = BackgroundRuntimeJobService.Start(
             new BackgroundRuntimeJobOptions(
                 GetUpscaleRuntimeJobKey(executionProvider),

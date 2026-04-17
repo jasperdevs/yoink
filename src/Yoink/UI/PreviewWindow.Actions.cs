@@ -186,10 +186,7 @@ public partial class PreviewWindow
         if (_isPinned)
         {
             _fadeTimer.Stop();
-            PinBtn.Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(180, 255, 255, 255));
-            PinIcon.Fill = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(20, 20, 20));
+            ApplyOverlayButtonVisual(PinBtn, PinIcon, "pin", active: true);
             PinBtn.Opacity = 1;
             // Stop and hide progress bar
             ProgressScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, null);
@@ -197,9 +194,7 @@ public partial class PreviewWindow
         }
         else
         {
-            PinBtn.Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(112, 0, 0, 0));
-            PinIcon.Fill = System.Windows.Media.Brushes.White;
+            ApplyOverlayButtonVisual(PinBtn, PinIcon, "pin", active: false);
             // Restart progress bar and timer
             ProgressBar.Visibility = System.Windows.Visibility.Visible;
             ProgressScale.ScaleX = 1;

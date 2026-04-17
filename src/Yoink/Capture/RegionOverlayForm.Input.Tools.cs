@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Windows.Forms;
+using Yoink.Helpers;
 using Yoink.Models;
 
 namespace Yoink.Capture;
@@ -80,6 +81,18 @@ public sealed partial class RegionOverlayForm
 
         if (_textDragging && _isTyping)
         {
+            var now = DateTime.UtcNow;
+            if (_lastTextDragLocation != Point.Empty &&
+                Math.Abs(e.Location.X - _lastTextDragLocation.X) < 2 &&
+                Math.Abs(e.Location.Y - _lastTextDragLocation.Y) < 2)
+                return;
+
+            if (_lastTextDragFrameUtc != default &&
+                (now - _lastTextDragFrameUtc).TotalMilliseconds < UiChrome.FrameIntervalMs)
+                return;
+
+            _lastTextDragLocation = e.Location;
+            _lastTextDragFrameUtc = now;
             ClearCrosshairGuides();
             SetSnapGuides(false, false);
             var oldRect = Rectangle.Round(GetActiveTextRect());
@@ -90,10 +103,7 @@ public sealed partial class RegionOverlayForm
             InvalidateActiveTextLayout();
             var newRect = Rectangle.Round(GetActiveTextRect());
             var newToolbarRect = Rectangle.Round(GetTextToolbarBounds());
-            RefreshOverlayUiChrome();
-            Invalidate(Rectangle.Union(
-                Rectangle.Union(InflateForRepaint(oldRect, 16), InflateForRepaint(newRect, 16)),
-                Rectangle.Union(InflateForRepaint(oldToolbarRect, 16), InflateForRepaint(newToolbarRect, 16))));
+            InvalidateLiveTransform();
             return;
         }
 
@@ -104,26 +114,21 @@ public sealed partial class RegionOverlayForm
             SetSnapGuides(false, false);
             var oldRect = Rectangle.Round(GetActiveTextRect());
             var oldToolbarRect = Rectangle.Round(GetTextToolbarBounds());
-            float dx = e.Location.X - _textResizeStart.X;
-            float dy = e.Location.Y - _textResizeStart.Y;
-            // Scale factor depends on which corner: outward = bigger, inward = smaller
+            float totalDx = e.Location.X - _textResizeStart.X;
+            float totalDy = e.Location.Y - _textResizeStart.Y;
             float delta = _textResizeHandle switch
             {
-                0 => (-dx - dy) * 0.15f, // TL: pull up-left = bigger
-                1 => (dx - dy) * 0.15f,  // TR: pull up-right = bigger
-                2 => (-dx + dy) * 0.15f, // BL: pull down-left = bigger
-                3 => (dx + dy) * 0.15f,  // BR: pull down-right = bigger
+                0 => (-totalDx - totalDy) * 0.15f,
+                1 => (totalDx - totalDy) * 0.15f,
+                2 => (-totalDx + totalDy) * 0.15f,
+                3 => (totalDx + totalDy) * 0.15f,
                 _ => 0
             };
-            _textFontSize = Math.Clamp(_textFontSize + delta, 10f, 120f);
-            _textResizeStart = e.Location;
+            _textFontSize = Math.Clamp(_textResizeStartFontSize + delta, 10f, 120f);
             InvalidateActiveTextLayout();
             var newRect = Rectangle.Round(GetActiveTextRect());
             var newToolbarRect = Rectangle.Round(GetTextToolbarBounds());
-            RefreshOverlayUiChrome();
-            Invalidate(Rectangle.Union(
-                Rectangle.Union(InflateForRepaint(oldRect, 16), InflateForRepaint(newRect, 16)),
-                Rectangle.Union(InflateForRepaint(oldToolbarRect, 16), InflateForRepaint(newToolbarRect, 16))));
+            InvalidateLiveTransform();
             return;
         }
 
@@ -132,22 +137,7 @@ public sealed partial class RegionOverlayForm
         {
             _hoveredButton = btn;
             toolbarDirty = true;
-        }
-
-        // Flyout hover tracking
-        if (_flyoutOpen && _flyoutTools.Length > 0)
-        {
-            int fb = GetFlyoutButtonAt(e.Location);
-            if (fb != _hoveredFlyoutButton)
-            {
-                _hoveredFlyoutButton = fb;
-                toolbarDirty = true;
-            }
-        }
-        else if (_hoveredFlyoutButton >= 0)
-        {
-            _hoveredFlyoutButton = -1;
-            toolbarDirty = true;
+            UpdateToolbarTooltip(e.Location);
         }
 
         // Text toolbar button hover tracking
@@ -172,11 +162,11 @@ public sealed partial class RegionOverlayForm
         }
 
         // Select tool resize
-        if (_isSelectResizing && _selectedAnnotationIndex >= 0 && _selectedAnnotationIndex < _undoStack.Count)
+        if (_isSelectResizing && _selectedAnnotationIndex >= 0 && _selectedAnnotationIndex < _undoStack.Count && _selectResizeOriginalAnnotation is not null)
         {
             ClearCrosshairGuides();
             SetSnapGuides(false, false);
-            var oldBounds = GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]);
+            var oldBounds = GetAnnotationBounds(_selectPreviewAnnotation ?? _undoStack[_selectedAnnotationIndex]);
             int dx = e.Location.X - _selectDragStart.X;
             int dy = e.Location.Y - _selectDragStart.Y;
             var ob = _selectHandleBounds;
@@ -190,13 +180,10 @@ public sealed partial class RegionOverlayForm
             };
             if (nb.Width > 5 && nb.Height > 5)
             {
-                var scaled = ScaleAnnotation(_undoStack[_selectedAnnotationIndex], ob, nb);
-                _undoStack[_selectedAnnotationIndex] = scaled;
-                _selectHandleBounds = nb;
-                _selectDragStart = e.Location;
-                MarkCommittedAnnotationsDirty();
+                var scaled = ScaleAnnotation(_selectResizeOriginalAnnotation, ob, nb);
+                _selectPreviewAnnotation = scaled;
                 var newBounds = GetAnnotationBounds(scaled);
-                Invalidate(Rectangle.Union(InflateForRepaint(oldBounds, 18), InflateForRepaint(newBounds, 18)));
+                InvalidateLiveTransform();
             }
             return;
         }
@@ -205,7 +192,8 @@ public sealed partial class RegionOverlayForm
         if (_isSelectDragging && _selectedAnnotationIndex >= 0 && _selectedAnnotationIndex < _undoStack.Count)
         {
             ClearCrosshairGuides();
-            var currentBounds = GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]);
+            var current = _selectPreviewAnnotation ?? _undoStack[_selectedAnnotationIndex];
+            var currentBounds = GetAnnotationBounds(current);
             var desiredTopLeft = new Point(e.Location.X - _selectDragOffset.X, e.Location.Y - _selectDragOffset.Y);
             var snappedTopLeft = SnapPointToGlobalCenter(
                 new Rectangle(desiredTopLeft, currentBounds.Size),
@@ -214,10 +202,9 @@ public sealed partial class RegionOverlayForm
             int dy = snappedTopLeft.Y - currentBounds.Y;
             if (Math.Abs(dx) > 0 || Math.Abs(dy) > 0)
             {
-                var moved = MoveAnnotation(_undoStack[_selectedAnnotationIndex], dx, dy);
-                _undoStack[_selectedAnnotationIndex] = moved;
-                MarkCommittedAnnotationsDirty();
-                Invalidate(Rectangle.Union(InflateForRepaint(currentBounds, 18), InflateForRepaint(GetAnnotationBounds(moved), 18)));
+                var moved = MoveAnnotation(current, dx, dy);
+                _selectPreviewAnnotation = moved;
+                InvalidateLiveTransform();
             }
             else
                 SetSnapGuides(false, false);
@@ -246,8 +233,6 @@ public sealed partial class RegionOverlayForm
         }
         else if (_colorPickerOpen && _colorPickerRect.Contains(e.Location))
             target = IsPointInColorPickerSwatch(e.Location) ? Cursors.Hand : Cursors.Default;
-        else if (_flyoutOpen && _flyoutRect.Contains(e.Location))
-            target = GetFlyoutButtonAt(e.Location) >= 0 ? Cursors.Hand : Cursors.Default;
         else if (_toolbarRect.Contains(e.Location))
             target = btn >= 0 ? Cursors.Hand : Cursors.Default;
         else if (_isTyping && _hoveredTextBtn >= 0)
@@ -431,18 +416,23 @@ public sealed partial class RegionOverlayForm
             RefreshToolbar();
     }
 
+    private void InvalidateLiveTransform()
+    {
+        Invalidate();
+    }
+
     protected override void OnMouseUp(MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left) return;
         SetSnapGuides(false, false);
 
         // End select drag/resize
-        if (_isSelectResizing) { _isSelectResizing = false; _selectResizeHandle = -1; Invalidate(); return; }
-        if (_isSelectDragging) { _isSelectDragging = false; Invalidate(); return; }
+        if (_isSelectResizing) { CommitSelectTransform(); _isSelectResizing = false; _selectResizeHandle = -1; _selectResizeOriginalAnnotation = null; Invalidate(); return; }
+        if (_isSelectDragging) { CommitSelectTransform(); _isSelectDragging = false; Invalidate(); return; }
         // End text move/resize
         if (_textSelecting) { _textSelecting = false; return; }
-        if (_textDragging) { _textDragging = false; return; }
-        if (_textResizing) { _textResizing = false; _textResizeHandle = -1; return; }
+        if (_textDragging) { _textDragging = false; RefreshOverlayUiChrome(); return; }
+        if (_textResizing) { _textResizing = false; _textResizeHandle = -1; RefreshOverlayUiChrome(); return; }
         switch (_mode)
         {
             case CaptureMode.Highlight when _isHighlighting:

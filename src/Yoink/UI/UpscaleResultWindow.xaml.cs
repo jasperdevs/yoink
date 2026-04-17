@@ -63,6 +63,9 @@ public partial class UpscaleResultWindow : Window
 
     private void LoadIcons()
     {
+        var titleIcon = System.Drawing.Color.FromArgb(210, Theme.TextSecondary.R, Theme.TextSecondary.G, Theme.TextSecondary.B);
+        MinimizeTitleIcon.Source = StreamlineIcons.RenderWpf("minimize", titleIcon, 18);
+        CloseTitleIcon.Source = StreamlineIcons.RenderWpf("close", titleIcon, 18);
         UseResultIcon.Source = StreamlineIcons.RenderWpf("download", System.Drawing.Color.FromArgb(245, 255, 255, 255), 18);
     }
 

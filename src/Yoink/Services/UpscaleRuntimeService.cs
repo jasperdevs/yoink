@@ -76,6 +76,20 @@ public static class UpscaleRuntimeService
         }
     }
 
+    public static bool RemoveRuntime(UpscaleExecutionProvider provider)
+    {
+        try
+        {
+            PythonRuntimeEnvironment.TryDeleteDirectory(GetRuntimeEnvironmentDirectory(provider));
+            ClearProbeCache(provider);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static async Task EnsureInstalledAsync(UpscaleExecutionProvider provider, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
         if (await IsRuntimeReadyAsync(provider, cancellationToken).ConfigureAwait(false))

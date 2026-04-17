@@ -86,6 +86,9 @@ public partial class OcrResultWindow : Window
         Resources["ThemeWindowBorderBrush"] = Theme.Brush(Theme.WindowBorder);
         Resources["ThemeAccentBrush"] = Theme.Brush(Theme.Accent);
         Resources["ThemeSeparatorBrush"] = Theme.Brush(Theme.Separator);
+        var titleIcon = System.Drawing.Color.FromArgb(210, Theme.TextSecondary.R, Theme.TextSecondary.G, Theme.TextSecondary.B);
+        MinimizeTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("minimize", titleIcon, 18);
+        CloseTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", titleIcon, 18);
     }
 
     private void ApplyMicaBackdrop()
@@ -294,7 +297,6 @@ public partial class OcrResultWindow : Window
 
     private System.Windows.Threading.DispatcherTimer? _translateTimer;
     private DateTime _translateStartTime;
-    private DoubleAnimation? _translationShimmerAnimation;
 
     private void StartTranslateTimer()
     {
@@ -333,29 +335,11 @@ public partial class OcrResultWindow : Window
         TranslateStatus.Text = GetTranslationStatusLabel(model, 0);
         LoadingTextShimmer.Start(TranslateStatus, Colors.White, opacity: 0.7);
 
-        if (TranslationShimmerRect.Fill is LinearGradientBrush shimmerBrush &&
-            shimmerBrush.RelativeTransform is TranslateTransform shimmerTransform)
-        {
-            _translationShimmerAnimation ??= new DoubleAnimation
-            {
-                From = -1.2,
-                To = 1.2,
-                Duration = Motion.Sec(1.25),
-                RepeatBehavior = RepeatBehavior.Forever
-            };
-            shimmerTransform.BeginAnimation(TranslateTransform.XProperty, _translationShimmerAnimation);
-        }
     }
 
     private void StopTranslationLoading(bool keepStatusVisible)
     {
         StopTranslateTimer();
-        if (TranslationShimmerRect.Fill is LinearGradientBrush shimmerBrush &&
-            shimmerBrush.RelativeTransform is TranslateTransform shimmerTransform)
-        {
-            shimmerTransform.BeginAnimation(TranslateTransform.XProperty, null);
-            shimmerTransform.X = -1.2;
-        }
         TranslationLoadingOverlay.Visibility = Visibility.Collapsed;
         TranslateProgressBar.IsIndeterminate = false;
         TranslateBtn.IsEnabled = true;

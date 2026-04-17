@@ -34,7 +34,7 @@ public static class ToolListBuilder
         var s = settingsService.Settings;
         var enabled = s.EnabledTools ?? ToolDef.DefaultEnabledIds();
         var defaultDisabled = ToolDef.DefaultToolbarDisabledIds();
-        // Icon color for rendering lucide glyphs to bitmaps
+        // Icon color for rendering Fluent glyphs to bitmaps
         var iconColor = Theme.IsDark ? System.Drawing.Color.FromArgb(160, 255, 255, 255) : System.Drawing.Color.FromArgb(170, 0, 0, 0);
         var segoe = new System.Windows.Media.FontFamily(UiChrome.PreferredFamilyName);
 
@@ -198,7 +198,7 @@ public static class ToolListBuilder
 
             uint mod = HotkeyFormatter.GetActiveModifiers();
             uint vk = (uint)KeyInterop.VirtualKeyFromKey(rawKey);
-            if (vk == 0) return;
+            if (vk == 0 || IsUnsafeModifierlessHotkey(mod, vk)) return;
 
             svc.Settings.SetToolHotkey(toolId, mod, vk);
             svc.Save();
@@ -207,6 +207,9 @@ public static class ToolListBuilder
             Keyboard.ClearFocus();
             hotkeyChanged?.Invoke();
         }
+
+        static bool IsUnsafeModifierlessHotkey(uint mod, uint vk) =>
+            mod == 0 && vk != Native.User32.VK_SNAPSHOT;
 
         box.PreviewKeyDown += (_, e) =>
         {
