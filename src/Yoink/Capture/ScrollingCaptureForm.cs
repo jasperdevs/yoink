@@ -102,21 +102,41 @@ public sealed partial class ScrollingCaptureForm : Form
         User32.SetWindowPos(Handle, User32.HWND_TOPMOST, 0, 0, 0, 0,
             User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_SHOWWINDOW);
         User32.SetForegroundWindow(Handle);
+        Activate();
+        Focus();
     }
 
     // ─── Input ───────────────────────────────────────────────────────
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (keyData == Keys.Escape)
+        if ((keyData & Keys.KeyCode) == Keys.Escape)
         {
-            if (_state == State.Capturing)
-                StopCapturing();
-            else
-                Cancel();
+            HandleEscape();
             return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Escape)
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            HandleEscape();
+            return;
+        }
+
+        base.OnKeyDown(e);
+    }
+
+    private void HandleEscape()
+    {
+        if (_state == State.Capturing && _frames.Count > 1)
+            StopCapturing();
+        else
+            Cancel();
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
@@ -617,9 +637,12 @@ public sealed partial class ScrollingCaptureForm : Form
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            if (keyData == Keys.Escape)
+            if ((keyData & Keys.KeyCode) == Keys.Escape)
             {
-                StopClicked?.Invoke();
+                if (_frameCount > 1)
+                    StopClicked?.Invoke();
+                else
+                    CancelClicked?.Invoke();
                 return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);

@@ -144,24 +144,48 @@ public sealed partial class RecordingForm : Form
         User32.SetWindowPos(Handle, User32.HWND_TOPMOST, 0, 0, 0, 0,
             User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_SHOWWINDOW);
         User32.SetForegroundWindow(Handle);
+        Activate();
+        Focus();
     }
 
     // ─── Selection phase ──────────────────────────────────────────────
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (keyData == Keys.Escape)
+        if ((keyData & Keys.KeyCode) == Keys.Escape)
         {
-            if (_state == State.Recording)
-            {
-                DiscardRecording();
-                return true;
-            }
-            RecordingCancelled?.Invoke();
-            Close();
+            CancelFromEscape();
             return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Escape)
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            CancelFromEscape();
+            return;
+        }
+
+        base.OnKeyDown(e);
+    }
+
+    private void CancelFromEscape()
+    {
+        if (_state == State.Recording)
+        {
+            DiscardRecording();
+            return;
+        }
+
+        if (_state == State.Encoding)
+            return;
+
+        RecordingCancelled?.Invoke();
+        Close();
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
