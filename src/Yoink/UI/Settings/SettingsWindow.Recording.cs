@@ -102,11 +102,13 @@ public partial class SettingsWindow
     {
         MicDeviceCombo.Items.Clear();
         var mics = AudioService.GetMicrophones();
+        var preferredMicId = _settingsService.Settings.MicrophoneDeviceId
+            ?? AudioService.GetDefaultMicrophoneId();
         foreach (var mic in mics)
         {
             var item = new ComboBoxItem { Content = mic.Name, Tag = mic.Id };
             MicDeviceCombo.Items.Add(item);
-            if (mic.Id == _settingsService.Settings.MicrophoneDeviceId)
+            if (mic.Id == preferredMicId)
                 MicDeviceCombo.SelectedItem = item;
         }
         if (MicDeviceCombo.SelectedIndex < 0 && MicDeviceCombo.Items.Count > 0)
@@ -114,11 +116,13 @@ public partial class SettingsWindow
 
         DesktopAudioDeviceCombo.Items.Clear();
         var outputs = AudioService.GetDesktopAudioDevices();
+        var preferredDesktopAudioId = _settingsService.Settings.DesktopAudioDeviceId
+            ?? AudioService.GetDefaultDesktopAudioId();
         foreach (var dev in outputs)
         {
             var item = new ComboBoxItem { Content = dev.Name, Tag = dev.Id };
             DesktopAudioDeviceCombo.Items.Add(item);
-            if (dev.Id == _settingsService.Settings.DesktopAudioDeviceId)
+            if (dev.Id == preferredDesktopAudioId)
                 DesktopAudioDeviceCombo.SelectedItem = item;
         }
         if (DesktopAudioDeviceCombo.SelectedIndex < 0 && DesktopAudioDeviceCombo.Items.Count > 0)

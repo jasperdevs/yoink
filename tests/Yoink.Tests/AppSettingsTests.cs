@@ -99,4 +99,13 @@ public sealed class AppSettingsTests
         Assert.Equal(ToastButtonSlot.BottomRight, settings.ToastButtons.SaveSlot);
         Assert.Equal(ToastButtonSlot.BottomLeft, settings.ToastButtons.DeleteSlot);
     }
+
+    [Fact]
+    public void RecordingDefaults_EnableDesktopAudio()
+    {
+        var settings = new AppSettings();
+
+        Assert.True(settings.RecordDesktopAudio);
+        Assert.False(settings.RecordMicrophone);
+    }
 }

@@ -211,7 +211,7 @@ public sealed class AppSettings
     public RecordingQuality RecordingQuality { get; set; } = RecordingQuality.Original;
     public int RecordingFps { get; set; } = 30;
     public bool RecordMicrophone { get; set; }
-    public bool RecordDesktopAudio { get; set; }
+    public bool RecordDesktopAudio { get; set; } = true;
     public string? MicrophoneDeviceId { get; set; }
     public string? DesktopAudioDeviceId { get; set; }
 
