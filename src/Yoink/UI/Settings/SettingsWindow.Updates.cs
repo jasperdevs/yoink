@@ -147,7 +147,7 @@ public partial class SettingsWindow
 
     private static UpdateManager CreateVelopackUpdateManager()
     {
-        var source = new GithubSource("jasperdevs", "yoink", prerelease: false);
+        var source = new GithubSource("https://github.com/jasperdevs/yoink", accessToken: null, prerelease: false);
         return new UpdateManager(source);
     }
 }
