@@ -141,6 +141,7 @@ public partial class SettingsWindow
         RecordingFormatCombo.SelectedIndex = (int)s.RecordingFormat;
         RecordingQualityCombo.SelectedIndex = (int)s.RecordingQuality;
         RecordingFpsCombo.SelectedIndex = s.RecordingFps switch { 15 => 0, 24 => 1, 30 => 2, 60 => 3, _ => 2 };
+        RecordShowCursorCheck.IsChecked = s.ShowCursor;
         RecordMicCheck.IsChecked = s.RecordMicrophone;
         RecordDesktopAudioCheck.IsChecked = s.RecordDesktopAudio;
         TryLoadSettingsSection("settings.populate-audio-devices", PopulateAudioDevices);

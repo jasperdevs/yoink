@@ -20,6 +20,9 @@ public sealed partial class RecordingForm
     private void StartRecording()
     {
         _magHelper?.Close();
+        _selectionAdorner?.Close();
+        _selectionAdorner?.Dispose();
+        _selectionAdorner = null;
         _recordRegion = _selection;
 
         // Convert selection from form coords to screen coords
@@ -155,6 +158,7 @@ public sealed partial class RecordingForm
         // Hide the style flip into transparent mode so the user does not see
         // the fullscreen surface blink before the recording chrome repaints.
         Visible = false;
+        Opacity = 1;
 
         // The selection screenshot is only needed before recording starts.
         _screenshot?.Dispose();

@@ -29,7 +29,7 @@ public partial class App
             try
             {
                 bool showCursor = _settingsService!.Settings.ShowCursor;
-                var (bmp, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
+                var bounds = ScreenCapture.GetVirtualScreenBounds();
                 var s = _settingsService!.Settings;
                 var fmt = s.RecordingFormat;
 
@@ -45,7 +45,7 @@ public partial class App
 
                 bool recMic = fmt != RecordingFormat.GIF && s.RecordMicrophone;
                 bool recDesktop = fmt != RecordingFormat.GIF && s.RecordDesktopAudio;
-                var form = new RecordingForm(bmp, bounds, fps, savePath, fmt, maxH,
+                var form = new RecordingForm(null, bounds, fps, savePath, fmt, maxH,
                     showCursor, recMic, s.MicrophoneDeviceId, recDesktop, s.DesktopAudioDeviceId,
                     _settingsService!.Settings.ShowCaptureMagnifier);
 
@@ -156,8 +156,8 @@ public partial class App
             try
             {
                 bool showCursor = _settingsService!.Settings.ShowCursor;
-                var (bmp, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
-                var form = new ScrollingCaptureForm(bmp, bounds, showCursor,
+                var bounds = ScreenCapture.GetVirtualScreenBounds();
+                var form = new ScrollingCaptureForm(null, bounds, showCursor,
                     _settingsService!.Settings.ShowCaptureMagnifier);
 
                 form.CaptureCompleted += result =>

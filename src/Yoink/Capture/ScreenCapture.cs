@@ -9,6 +9,16 @@ namespace Yoink.Capture;
 
 public static class ScreenCapture
 {
+    public static Rectangle GetVirtualScreenBounds()
+    {
+        int left = User32.GetSystemMetrics(User32.SM_XVIRTUALSCREEN);
+        int top = User32.GetSystemMetrics(User32.SM_YVIRTUALSCREEN);
+        int width = User32.GetSystemMetrics(User32.SM_CXVIRTUALSCREEN);
+        int height = User32.GetSystemMetrics(User32.SM_CYVIRTUALSCREEN);
+
+        return new Rectangle(left, top, width, height);
+    }
+
     public static (Bitmap Bitmap, Rectangle Bounds) CaptureAllScreens(bool includeCursor = false)
     {
         try
@@ -79,13 +89,11 @@ public static class ScreenCapture
 
     private static (Bitmap Bitmap, Rectangle Bounds) CaptureAllScreensLegacy(bool includeCursor)
     {
-        // Use GetSystemMetrics for physical pixel bounds (DPI-unaware coordinates)
-        int left = User32.GetSystemMetrics(User32.SM_XVIRTUALSCREEN);
-        int top = User32.GetSystemMetrics(User32.SM_YVIRTUALSCREEN);
-        int width = User32.GetSystemMetrics(User32.SM_CXVIRTUALSCREEN);
-        int height = User32.GetSystemMetrics(User32.SM_CYVIRTUALSCREEN);
-
-        var bounds = new Rectangle(left, top, width, height);
+        var bounds = GetVirtualScreenBounds();
+        int left = bounds.Left;
+        int top = bounds.Top;
+        int width = bounds.Width;
+        int height = bounds.Height;
         var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
         try

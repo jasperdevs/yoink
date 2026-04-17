@@ -614,6 +614,9 @@
                                     <ComboBoxItem Content="30" Tag="30"/><ComboBoxItem Content="60" Tag="60"/>
                                 </ComboBox>
                             </Grid>
+                            <Border Height="1" Background="{DynamicResource ThemeSeparatorBrush}" Margin="0,10,0,10"/>
+                            <CheckBox x:Name="RecordShowCursorCheck" Content="Show cursor in recordings" FontSize="13"
+                                      Checked="RecordShowCursorCheck_Changed" Unchecked="RecordShowCursorCheck_Changed"/>
                         </StackPanel>
                     </Border>
 

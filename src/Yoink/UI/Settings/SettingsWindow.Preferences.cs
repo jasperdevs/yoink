@@ -118,7 +118,10 @@ public partial class SettingsWindow
     private void ShowCursorCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
-        _settingsService.Settings.ShowCursor = ShowCursorCheck.IsChecked == true;
+        bool showCursor = ShowCursorCheck.IsChecked == true;
+        _settingsService.Settings.ShowCursor = showCursor;
+        if (RecordShowCursorCheck.IsChecked != showCursor)
+            RecordShowCursorCheck.IsChecked = showCursor;
         _settingsService.Save();
     }
 

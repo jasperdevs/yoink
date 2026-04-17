@@ -26,7 +26,7 @@ public sealed partial class ScrollingCaptureForm : Form
 
     private enum State { Selecting, Capturing, Stitching, Done }
 
-    private readonly Bitmap _screenshot;
+    private readonly Bitmap? _screenshot;
     private readonly Rectangle _virtualBounds;
     private readonly bool _showCursor;
     private State _state = State.Selecting;
@@ -52,6 +52,7 @@ public sealed partial class ScrollingCaptureForm : Form
     // Magnifier
     private readonly bool _showMagnifier;
     private readonly CaptureMagnifierHelper? _magHelper;
+    private LiveSelectionAdornerForm? _selectionAdorner;
 
     // Cached GDI objects for selection overlay
     private readonly Pen _selPen = new(Color.FromArgb(255, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
@@ -61,14 +62,14 @@ public sealed partial class ScrollingCaptureForm : Form
     private readonly SolidBrush _bgLabelBrush = new(UiChrome.SurfacePill);
     private readonly SolidBrush _textLabelBrush = new(UiChrome.SurfaceTextPrimary);
 
-    public ScrollingCaptureForm(Bitmap screenshot, Rectangle virtualBounds, bool showCursor = false,
+    public ScrollingCaptureForm(Bitmap? screenshot, Rectangle virtualBounds, bool showCursor = false,
                                 bool showMagnifier = false)
     {
         _screenshot = screenshot;
         _virtualBounds = virtualBounds;
         _showCursor = showCursor;
         _showMagnifier = showMagnifier;
-        if (_showMagnifier)
+        if (_showMagnifier && screenshot is not null)
         {
             _magHelper = new CaptureMagnifierHelper();
             _magHelper.CachePixelData(screenshot);
@@ -81,6 +82,11 @@ public sealed partial class ScrollingCaptureForm : Form
         Bounds = new Rectangle(virtualBounds.X, virtualBounds.Y, virtualBounds.Width, virtualBounds.Height);
         Cursor = Cursors.Cross;
         BackColor = UiChrome.SurfaceWindowBackground;
+        if (screenshot is null)
+        {
+            Opacity = 0.01;
+            _selectionAdorner = new LiveSelectionAdornerForm(_virtualBounds, "Drag to select scrolling area");
+        }
         KeyPreview = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque, true);
@@ -104,6 +110,7 @@ public sealed partial class ScrollingCaptureForm : Form
         User32.SetForegroundWindow(Handle);
         Activate();
         Focus();
+        _selectionAdorner?.Show(this);
     }
 
     // ─── Input ───────────────────────────────────────────────────────
@@ -146,6 +153,7 @@ public sealed partial class ScrollingCaptureForm : Form
             _isDragging = true;
             _dragStart = e.Location;
             _selection = Rectangle.Empty;
+            UpdateLiveSelectionAdorner();
         }
     }
 
@@ -156,6 +164,7 @@ public sealed partial class ScrollingCaptureForm : Form
             if (_isDragging)
             {
                 _selection = NormRect(_dragStart, e.Location);
+                UpdateLiveSelectionAdorner();
                 Invalidate();
             }
             _magHelper?.Update(e.Location, this, _virtualBounds);
@@ -168,6 +177,7 @@ public sealed partial class ScrollingCaptureForm : Form
         {
             _isDragging = false;
             _selection = NormRect(_dragStart, e.Location);
+            UpdateLiveSelectionAdorner();
             if (_selection.Width > 20 && _selection.Height > 20)
                 ShowControlBar();
             else
@@ -182,12 +192,16 @@ public sealed partial class ScrollingCaptureForm : Form
     private void ShowControlBar()
     {
         _magHelper?.Close();
+        _selectionAdorner?.Close();
+        _selectionAdorner?.Dispose();
+        _selectionAdorner = null;
         _screenRegion = new Rectangle(
             _selection.X + _virtualBounds.X,
             _selection.Y + _virtualBounds.Y,
             _selection.Width, _selection.Height);
 
         // Make the overlay transparent so the user can see content, but keep the border visible.
+        Opacity = 1;
         BackColor = TransKey;
         TransparencyKey = TransKey;
         Invalidate();
@@ -362,11 +376,15 @@ public sealed partial class ScrollingCaptureForm : Form
 
     private void PaintSelectionPhase(Graphics g)
     {
-        g.DrawImage(_screenshot, 0, 0);
+        if (_screenshot is null)
+            g.Clear(UiChrome.SurfaceWindowBackground);
+        else
+            g.DrawImage(_screenshot, 0, 0);
 
         if (_selection.Width > 2 && _selection.Height > 2)
         {
-            g.DrawImage(_screenshot, _selection, _selection, GraphicsUnit.Pixel);
+            if (_screenshot is not null)
+                g.DrawImage(_screenshot, _selection, _selection, GraphicsUnit.Pixel);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.DrawRectangle(_selPen, _selection);
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
@@ -389,6 +407,17 @@ public sealed partial class ScrollingCaptureForm : Form
                 Width / 2f - hintSz.Width / 2f, Height / 2f - hintSz.Height / 2f);
         }
 
+    }
+
+    private void UpdateLiveSelectionAdorner()
+    {
+        if (_selectionAdorner is null)
+            return;
+
+        var label = _selection.Width > 2 && _selection.Height > 2
+            ? $"Scroll  {_selection.Width} x {_selection.Height}"
+            : "";
+        _selectionAdorner.SetSelection(_selection, label);
     }
 
     private static GraphicsPath RRect(RectangleF r, float radius)
@@ -427,11 +456,13 @@ public sealed partial class ScrollingCaptureForm : Form
         if (disposing)
         {
             _magHelper?.Dispose();
+            _selectionAdorner?.Dispose();
+            _selectionAdorner = null;
             _captureTimer?.Stop();
             _captureTimer?.Dispose();
             _controlBar?.Dispose();
             DisposeFrames();
-            _screenshot.Dispose();
+            _screenshot?.Dispose();
             _selPen.Dispose();
             _labelFont.Dispose();
             _hintFont.Dispose();

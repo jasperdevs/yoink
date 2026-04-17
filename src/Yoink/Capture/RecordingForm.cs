@@ -52,6 +52,7 @@ public sealed partial class RecordingForm : Form
     private readonly string? _desktopDeviceId;
     private readonly bool _showMagnifier;
     private readonly CaptureMagnifierHelper? _magHelper;
+    private LiveSelectionAdornerForm? _selectionAdorner;
     private System.Windows.Forms.Timer? _tickTimer;
     private readonly string _savePath;
 
@@ -90,7 +91,7 @@ public sealed partial class RecordingForm : Form
     private readonly SolidBrush _encBgBrush = new(UiChrome.SurfacePill);
     private readonly Pen _encBorderPen = new(UiChrome.SurfaceBorderSubtle, 1f);
 
-    public RecordingForm(Bitmap screenshot, Rectangle virtualBounds, int fps, string savePath,
+    public RecordingForm(Bitmap? screenshot, Rectangle virtualBounds, int fps, string savePath,
                          Models.RecordingFormat format = Models.RecordingFormat.GIF, int maxHeight = 0,
                          bool showCursor = false,
                          bool recordMic = false, string? micDeviceId = null,
@@ -110,7 +111,7 @@ public sealed partial class RecordingForm : Form
         _recordDesktop = recordDesktop;
         _desktopDeviceId = desktopDeviceId;
         _showMagnifier = showMagnifier;
-        if (_showMagnifier)
+        if (_showMagnifier && screenshot is not null)
         {
             _magHelper = new CaptureMagnifierHelper();
             _magHelper.CachePixelData(screenshot);
@@ -123,6 +124,11 @@ public sealed partial class RecordingForm : Form
         Bounds = new Rectangle(virtualBounds.X, virtualBounds.Y, virtualBounds.Width, virtualBounds.Height);
         Cursor = Cursors.Cross;
         BackColor = UiChrome.SurfaceWindowBackground;
+        if (screenshot is null)
+        {
+            Opacity = 0.01;
+            _selectionAdorner = new LiveSelectionAdornerForm(_virtualBounds, "Drag to select recording area");
+        }
         KeyPreview = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque, true);
@@ -146,6 +152,7 @@ public sealed partial class RecordingForm : Form
         User32.SetForegroundWindow(Handle);
         Activate();
         Focus();
+        _selectionAdorner?.Show(this);
     }
 
     // ─── Selection phase ──────────────────────────────────────────────
@@ -195,6 +202,7 @@ public sealed partial class RecordingForm : Form
             _isDragging = true;
             _dragStart = e.Location;
             _selection = Rectangle.Empty;
+            UpdateLiveSelectionAdorner();
         }
         else if (_state == State.Recording && e.Button == MouseButtons.Left)
         {
@@ -212,6 +220,7 @@ public sealed partial class RecordingForm : Form
             if (_isDragging)
             {
                 _selection = NormRect(_dragStart, e.Location);
+                UpdateLiveSelectionAdorner();
                 Invalidate();
             }
             _magHelper?.Update(e.Location, this, _virtualBounds);
@@ -234,6 +243,7 @@ public sealed partial class RecordingForm : Form
         {
             _isDragging = false;
             _selection = NormRect(_dragStart, e.Location);
+            UpdateLiveSelectionAdorner();
             if (_selection.Width > 10 && _selection.Height > 10)
                 StartRecording();
             else
@@ -266,13 +276,14 @@ public sealed partial class RecordingForm : Form
 
         var screenshot = _screenshot;
         if (screenshot is null)
-            return;
-
-        g.DrawImage(screenshot, 0, 0);
+            g.Clear(UiChrome.SurfaceWindowBackground);
+        else
+            g.DrawImage(screenshot, 0, 0);
 
         if (_selection.Width > 2 && _selection.Height > 2)
         {
-            g.DrawImage(screenshot, _selection, _selection, GraphicsUnit.Pixel);
+            if (screenshot is not null)
+                g.DrawImage(screenshot, _selection, _selection, GraphicsUnit.Pixel);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.DrawRectangle(_selPen, _selection);
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
@@ -295,6 +306,17 @@ public sealed partial class RecordingForm : Form
                 Width / 2f - hintSz.Width / 2f, Height / 2f - hintSz.Height / 2f);
         }
 
+    }
+
+    private void UpdateLiveSelectionAdorner()
+    {
+        if (_selectionAdorner is null)
+            return;
+
+        var label = _selection.Width > 2 && _selection.Height > 2
+            ? $"{GetRecordingFormatLabel()}  {_selection.Width} x {_selection.Height}  {_fps} FPS"
+            : "";
+        _selectionAdorner.SetSelection(_selection, label);
     }
 
     private void PaintRecordingPhase(Graphics g)
@@ -435,6 +457,8 @@ public sealed partial class RecordingForm : Form
             _recorder?.Dispose();
             _videoRecorder?.Dispose();
             _magHelper?.Dispose();
+            _selectionAdorner?.Dispose();
+            _selectionAdorner = null;
             _screenshot?.Dispose();
             _screenshot = null;
             _selPen.Dispose(); _labelFont.Dispose();

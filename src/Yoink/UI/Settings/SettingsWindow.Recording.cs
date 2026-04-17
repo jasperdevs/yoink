@@ -88,6 +88,16 @@ public partial class SettingsWindow
             }
     }
 
+    private void RecordShowCursorCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        bool showCursor = RecordShowCursorCheck.IsChecked == true;
+        _settingsService.Settings.ShowCursor = showCursor;
+        if (ShowCursorCheck.IsChecked != showCursor)
+            ShowCursorCheck.IsChecked = showCursor;
+        _settingsService.Save();
+    }
+
     private void PopulateAudioDevices()
     {
         MicDeviceCombo.Items.Clear();
