@@ -12,9 +12,12 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>oddsnap.ico</ApplicationIcon>
-    <Version>0.8.24</Version>
+    <Version>0.8.25</Version>
     <RuntimeIdentifiers>win-x64;win-x86;win-arm64</RuntimeIdentifiers>
     <Authors>jasperdevs</Authors>
+    <AssemblyName>OddSnap</AssemblyName>
+    <Product>OddSnap</Product>
+    <Title>OddSnap</Title>
     <Description>Screenshot, annotation, OCR, sticker, and recording tool for Windows</Description>
     <RepositoryUrl>https://github.com/jasperdevs/odd-snap</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -33,6 +36,7 @@
     <Page Include="App.xaml" />
     <Resource Include="oddsnap.ico" />
     <Resource Include="Assets\amazon.png" />
+    <Resource Include="Assets\oddsnap_square.png" />
     <Resource Include="Assets\oddsnap_wordmark.png" />
     <Resource Include="Assets\aws_sq.png" />
     <Resource Include="Assets\aws_official.svg" />

@@ -1,5 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Windows;
+using System.Windows.Media.Imaging;
 using System.Windows.Forms;
 using OddSnap.Helpers;
 using OddSnap.Models;
@@ -147,34 +149,65 @@ public sealed class TrayIcon : IDisposable
     {
         Theme.Refresh();
         var tint = Theme.IsDark ? Color.White : Color.Black;
-        try
-        {
-            var exe = Environment.ProcessPath;
-            if (!string.IsNullOrEmpty(exe) && System.IO.File.Exists(exe))
-            {
-                var icon = Icon.ExtractAssociatedIcon(exe);
-                if (icon != null) return ToMonochromeIcon(icon, tint);
-            }
-        }
-        catch { }
-        return CreateFallbackIcon(false, tint);
+        return CreateLogoIcon(tint, recording: false);
     }
 
     private static Icon CreateRecordingIcon()
     {
         Theme.Refresh();
         var tint = Theme.IsDark ? Color.White : Color.Black;
+        return CreateLogoIcon(tint, recording: true);
+    }
+
+    private static Icon CreateLogoIcon(Color tint, bool recording)
+    {
         try
         {
-            var exe = Environment.ProcessPath;
-            if (!string.IsNullOrEmpty(exe) && System.IO.File.Exists(exe))
+            using var source = LoadLogoBitmap();
+            var size = Math.Max(16, source.Width);
+            var mono = new Bitmap(size, size);
+            for (int y = 0; y < source.Height; y++)
             {
-                var icon = Icon.ExtractAssociatedIcon(exe);
-                if (icon != null) return OverlayRecordingDot(ToMonochromeIcon(icon, tint));
+                for (int x = 0; x < source.Width; x++)
+                {
+                    var px = source.GetPixel(x, y);
+                    mono.SetPixel(x, y, Color.FromArgb(px.A, tint.R, tint.G, tint.B));
+                }
+            }
+
+            var icon = CreateOwnedIcon(mono);
+            return recording ? OverlayRecordingDot(icon) : icon;
+        }
+        catch
+        {
+            return CreateFallbackIcon(recording, tint);
+        }
+    }
+
+    private static Bitmap LoadLogoBitmap()
+    {
+        var info = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/oddsnap_square.png", UriKind.Absolute));
+        if (info == null)
+            throw new InvalidOperationException("OddSnap logo resource was not found.");
+
+        var decoder = BitmapDecoder.Create(info.Stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        var frame = decoder.Frames[0];
+        var stride = frame.PixelWidth * 4;
+        var pixels = new byte[stride * frame.PixelHeight];
+        var converted = new FormatConvertedBitmap(frame, System.Windows.Media.PixelFormats.Bgra32, null, 0);
+        converted.CopyPixels(pixels, stride, 0);
+
+        var bitmap = new Bitmap(frame.PixelWidth, frame.PixelHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        for (int y = 0; y < frame.PixelHeight; y++)
+        {
+            for (int x = 0; x < frame.PixelWidth; x++)
+            {
+                int i = y * stride + x * 4;
+                bitmap.SetPixel(x, y, Color.FromArgb(pixels[i + 3], pixels[i + 2], pixels[i + 1], pixels[i]));
             }
         }
-        catch { }
-        return CreateFallbackIcon(true, tint);
+
+        return bitmap;
     }
 
     private static Icon OverlayRecordingDot(Icon baseIcon)
@@ -213,22 +246,6 @@ public sealed class TrayIcon : IDisposable
             g.FillEllipse(red, 21, 22, 10, 10);
         }
         return CreateOwnedIcon(bmp);
-    }
-
-    private static Icon ToMonochromeIcon(Icon icon, Color tint)
-    {
-        using var bmp = icon.ToBitmap();
-        var mono = new Bitmap(bmp.Width, bmp.Height);
-        for (int y = 0; y < bmp.Height; y++)
-        {
-            for (int x = 0; x < bmp.Width; x++)
-            {
-                var px = bmp.GetPixel(x, y);
-                mono.SetPixel(x, y, Color.FromArgb(px.A, tint.R, tint.G, tint.B));
-            }
-        }
-
-        return CreateOwnedIcon(mono);
     }
 
     private void RefreshTrayIconTheme()

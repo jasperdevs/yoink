@@ -283,6 +283,7 @@ public partial class SetupWizard : Window
             ? System.Windows.Media.Color.FromArgb(128, 0, 0, 0)
             : System.Windows.Media.Color.FromArgb(72, 0, 0, 0);
         Foreground = Theme.Brush(Theme.TextPrimary);
+        Icon = ThemedLogo.Square(32);
     }
 
     private void OpenSettings_Click(object sender, RoutedEventArgs e)

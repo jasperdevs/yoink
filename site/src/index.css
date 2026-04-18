@@ -98,6 +98,47 @@ code, kbd, samp, pre {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 
+.page-edge-fade {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.page-edge-fade-top {
+  top: 0;
+  height: calc(4.75rem + env(safe-area-inset-top));
+  background: linear-gradient(
+    to bottom,
+    rgba(246, 246, 246, 0.92) 0%,
+    rgba(246, 246, 246, 0.74) 42%,
+    rgba(246, 246, 246, 0.26) 78%,
+    rgba(246, 246, 246, 0) 100%
+  );
+}
+
+.page-edge-fade-bottom {
+  bottom: 0;
+  height: calc(2.75rem + env(safe-area-inset-bottom));
+  background: linear-gradient(
+    to top,
+    rgba(246, 246, 246, 0.88) 0%,
+    rgba(246, 246, 246, 0.32) 58%,
+    rgba(246, 246, 246, 0) 100%
+  );
+}
+
+@media (max-width: 639px) {
+  .page-edge-fade-top {
+    height: calc(4.25rem + env(safe-area-inset-top));
+  }
+
+  .page-edge-fade-bottom {
+    height: calc(2.25rem + env(safe-area-inset-bottom));
+  }
+}
+
 /* Inverted selection — black bg, light text */
 ::selection { background: #000000; color: #F6F6F6; }
 ::-moz-selection { background: #000000; color: #F6F6F6; }

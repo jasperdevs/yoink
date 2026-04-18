@@ -89,6 +89,7 @@ public partial class OcrResultWindow : Window
         var titleIcon = System.Drawing.Color.FromArgb(210, Theme.TextSecondary.R, Theme.TextSecondary.G, Theme.TextSecondary.B);
         MinimizeTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("minimize", titleIcon, 18);
         CloseTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", titleIcon, 18);
+        Icon = ThemedLogo.Square(32);
     }
 
     private void ApplyMicaBackdrop()

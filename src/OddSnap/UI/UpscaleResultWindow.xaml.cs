@@ -122,6 +122,7 @@ public partial class UpscaleResultWindow : Window
         RootBorder.Background = Theme.Brush(Theme.BgPrimary);
         RootBorder.BorderBrush = Theme.Brush(Theme.WindowBorder);
         RootBorder.BorderThickness = new Thickness(1);
+        Icon = ThemedLogo.Square(32);
     }
 
     private void UpdateScaleText()

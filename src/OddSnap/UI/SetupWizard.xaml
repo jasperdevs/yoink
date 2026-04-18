@@ -76,9 +76,6 @@
         <Grid x:Name="Page1" Grid.Row="0" Margin="36,28,36,0">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
                 <StackPanel>
-                    <Image Source="pack://application:,,,/oddsnap.ico" Width="44" Height="44"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           HorizontalAlignment="Center" Margin="0,0,0,12"/>
                     <TextBlock Text="Welcome to OddSnap" FontSize="24" FontWeight="SemiBold"
                                FontFamily="Segoe UI Variable Display"
                                Foreground="{DynamicResource WizFg}" HorizontalAlignment="Center"/>
@@ -157,9 +154,6 @@
 
         <Grid x:Name="Page3" Grid.Row="0" Margin="40,32,40,0" Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <Image Source="pack://application:,,,/oddsnap.ico" Width="56" Height="56"
-                       RenderOptions.BitmapScalingMode="HighQuality"
-                       HorizontalAlignment="Center" Margin="0,0,0,20"/>
                 <TextBlock Text="You're all set!" FontSize="26" FontWeight="SemiBold"
                            FontFamily="Segoe UI Variable Display"
                            Foreground="{DynamicResource WizFg}" HorizontalAlignment="Center"/>

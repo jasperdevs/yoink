@@ -199,34 +199,34 @@ export default function Home() {
 
   return (
     <div className="space-y-2">
-      <section className="pt-36 pb-40 flex flex-col items-center text-center">
+      <section className="pt-40 pb-44 flex flex-col items-center text-center">
+        <img
+          src={base + "oddsnap-square.png"}
+          alt=""
+          className="h-36 w-36 mb-10"
+        />
         <img
           src={base + "oddsnap.png"}
           alt="OddSnap"
-          className="w-80 max-w-full mb-10"
+          className="w-[30rem] max-w-full mb-12"
           style={{ filter: "invert(1)" }}
         />
-        <p className="text-black/70 leading-relaxed mb-12 max-w-[55ch] text-[15px]">
-          capture, annotate, ocr, translate, upscale, make stickers, record video, and upload. all in one open-source tool for windows.
+        <p className="text-black/70 leading-relaxed mb-14 max-w-[60ch] text-[19px]">
+          your new favorite, free, and open source screenshot tool.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           {downloadUrl ? (
-            <Button asChild size="lg" variant="primary">
+            <Button asChild size="lg" variant="primary" className="h-12 px-8 text-[17px] gap-2">
               <a href={downloadUrl}>
                 <WindowsIcon />
                 download for windows
               </a>
             </Button>
           ) : (
-            <Button size="lg" variant="primary" loading>
+            <Button size="lg" variant="primary" className="h-12 px-8 text-[17px]" loading>
               loading
             </Button>
           )}
-          <Button asChild size="lg" variant="tertiary">
-            <a href="https://github.com/jasperdevs/odd-snap" target="_blank" rel="noopener noreferrer">
-              source code
-            </a>
-          </Button>
         </div>
       </section>
 

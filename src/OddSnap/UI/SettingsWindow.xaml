@@ -322,12 +322,12 @@
         </Grid.RowDefinitions>
 
         <!-- Custom title bar -->
-        <Border x:Name="TitleBarBorder" Grid.Row="0" Padding="16,8,0,0"
+        <Border x:Name="TitleBarBorder" Grid.Row="0" MinHeight="40" Padding="16,0,0,0"
                 CornerRadius="11,11,0,0"
                 MouseLeftButtonDown="TitleBar_MouseDown">
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Image Source="pack://application:,,,/Assets/oddsnap_wordmark.png"
+                    <Image x:Name="TitleLogo"
                            Height="17"
                            Width="92"
                            Stretch="Uniform"

@@ -31,6 +31,8 @@ public partial class SettingsWindow
         OuterBorder.BorderBrush = Theme.Brush(Theme.WindowBorder);
         TitleBarBorder.Background = Theme.Brush(Theme.TitleBar);
         TitleText.Foreground = Theme.Brush(Theme.TextPrimary);
+        TitleLogo.Source = ThemedLogo.Wordmark(92, 17);
+        Icon = ThemedLogo.Square(32);
         Foreground = Theme.Brush(Theme.TextPrimary);
 
         ApplyThemeToVisualTree(OuterBorder);
