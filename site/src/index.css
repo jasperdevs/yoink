@@ -98,6 +98,10 @@ code, kbd, samp, pre {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 
+/* Inverted selection — black bg, light text */
+::selection { background: #000000; color: #F6F6F6; }
+::-moz-selection { background: #000000; color: #F6F6F6; }
+
 /* Interactive elements should have a pointer cursor */
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useLayoutEffect, type RefObject } from "reac
 import { useReleases } from "../hooks/useReleases";
 import type { Release, ReleaseAsset } from "../hooks/useReleases";
 import { Button } from "@/components/ui/button";
+import { InputCopy } from "@/components/ui/input-copy";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
@@ -267,22 +268,17 @@ function ReleaseCard({
 
   return (
     <div className="border-t border-[#EBEBEB] py-6">
-      <div className="flex items-baseline gap-2 mb-4 flex-wrap">
-        <h2 className="text-[16px] text-black">
-          {release.tag_name}
-          <span className="text-black/40 mx-2">//</span>
-          <span className="text-black/60 text-[14px]">{formatDate(release.published_at)}</span>
-        </h2>
+      <h2 className="text-[16px] text-black mb-4">
+        {release.tag_name}
+        <span className="text-black/40 mx-2">//</span>
+        <span className="text-black/60 text-[14px]">{formatDate(release.published_at)}</span>
         {isLatest && (
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-black/70">
-            <span
-              className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"
-              style={{ boxShadow: "0 0 0 3px rgba(34,197,94,0.15)" }}
-            />
-            latest
-          </span>
+          <>
+            <span className="text-black/40 mx-2">//</span>
+            <span className="text-[14px]" style={{ color: "#22c55e" }}>latest</span>
+          </>
         )}
-      </div>
+      </h2>
 
       <div className="flex flex-col gap-2">
         {sortedExeAssets.map((asset) => {
@@ -415,6 +411,11 @@ export default function Downloads() {
     <div className="py-12">
       <div className="mb-8">
         <h1 className="text-[28px] text-black">downloads</h1>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 mb-10">
+        <InputCopy label="winget install" value="winget install JasperDevs.Yoink" />
+        <InputCopy label="winget upgrade" value="winget upgrade JasperDevs.Yoink" />
       </div>
 
       {loading ? (
