@@ -5,7 +5,6 @@ const navLinks = [
   { to: "/", label: "home" },
   { to: "/downloads", label: "downloads" },
   { to: "/changelog", label: "changelog" },
-  { to: "/hotkeys", label: "hotkeys" },
   { to: "/donate", label: "donate" },
 ];
 
@@ -14,9 +13,9 @@ export default function Layout() {
   const location = useLocation();
 
   return (
-    <div className="relative min-h-screen bg-white text-black">
+    <div className="relative min-h-screen bg-[#F6F6F6] text-black">
       <header
-        className="sticky top-0 z-50 bg-white border-b border-[#EBEBEB]"
+        className="sticky top-0 z-50 bg-[#F6F6F6]"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto max-w-[800px] px-6 sm:px-8 h-14 flex items-center justify-between">
@@ -71,7 +70,7 @@ export default function Layout() {
         className="sticky z-40 h-10 pointer-events-none"
         style={{
           top: "calc(3.5rem + env(safe-area-inset-top))",
-          background: "linear-gradient(to bottom, #FFFFFF 0%, rgba(255,255,255,0) 100%)",
+          background: "linear-gradient(to bottom, #F6F6F6 0%, rgba(246,246,246,0) 100%)",
           marginBottom: "-2.5rem",
         }}
       />
@@ -90,13 +89,13 @@ export default function Layout() {
       <div
         className="fixed bottom-0 left-0 right-0 z-40 h-16 pointer-events-none"
         style={{
-          background: "linear-gradient(to top, #FFFFFF 0%, rgba(255,255,255,0) 100%)",
+          background: "linear-gradient(to top, #F6F6F6 0%, rgba(246,246,246,0) 100%)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       />
 
       <footer
-        className="mt-20 border-t border-[#EBEBEB]"
+        className="mt-20"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="mx-auto max-w-[800px] px-6 sm:px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[13px] text-black/50">

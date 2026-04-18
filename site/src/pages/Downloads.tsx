@@ -197,10 +197,7 @@ export default function Downloads() {
   return (
     <div className="py-12">
       <div className="mb-8">
-        <h1 className="text-[28px] font-bold text-black mb-2">downloads</h1>
-        <p className="text-black/70 leading-relaxed max-w-[60ch]">
-          download yoink for windows. your architecture ({userArch}) is detected automatically.
-        </p>
+        <h1 className="text-[28px] font-bold text-black">downloads</h1>
       </div>
 
       {loading ? (

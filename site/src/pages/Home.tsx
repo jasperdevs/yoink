@@ -1,5 +1,6 @@
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import StarChart from "../components/StarChart";
+import { useReleases } from "../hooks/useReleases";
 import {
   AccordionGroup,
   AccordionItem,
@@ -8,22 +9,30 @@ import {
 } from "@/components/ui/accordion";
 
 const features = [
-  { name: "Region capture", desc: "rectangle, freeform, fullscreen, active window, and scrolling capture with delay timer and window detection" },
-  { name: "Annotation tools", desc: "arrows, curved arrows, text, shapes, highlights, blur, freehand, step numbers, emoji, ruler, magnifier, and eraser with undo/redo" },
-  { name: "OCR & Translate", desc: "extract text from your screen with Windows OCR, translate with Argos (offline) or Google Translate across 35+ languages" },
-  { name: "Screen recording", desc: "record as GIF, MP4, WebM, or MKV with mic and desktop audio at 15/24/30/60 FPS" },
-  { name: "Stickers", desc: "remove backgrounds with 5 local AI models or cloud providers, add shadow and stroke effects" },
-  { name: "Color picker", desc: "pick colors from anywhere on screen with magnified preview, hex/RGB values, and color history" },
-  { name: "QR/Barcode scanner", desc: "scan QR codes, Aztec, Data Matrix, PDF-417, CODE-128, EAN, UPC, and more" },
-  { name: "Search history", desc: "find past screenshots by filename, OCR text, or AI-powered semantic similarity" },
-  { name: "Upload anywhere", desc: "19 destinations including Imgur, S3, Dropbox, GitHub, OneDrive, and custom HTTP" },
-  { name: "Hotkeys", desc: "fully configurable global hotkeys for every action with modifier key support" },
-  { name: "Image formats", desc: "save as PNG, JPEG, or BMP with configurable quality and custom naming patterns" },
-  { name: "After-capture actions", desc: "auto-copy, auto-save, auto-upload, auto-pin previews, or prompt for filename" },
-  { name: "Settings import/export", desc: "save and load your settings as JSON, reset to defaults anytime" },
-  { name: "Start with Windows", desc: "auto-launch on startup, runs quietly in the system tray" },
-  { name: "Multiple monitors", desc: "full multi-monitor support for capture, recording, and color picking" },
-  { name: "Auto-updates", desc: "background update checking keeps Yoink up to date" },
+  "region capture",
+  "annotation tools",
+  "ocr & translate",
+  "screen recording",
+  "sticker maker",
+  "color picker",
+  "qr/barcode scanner",
+  "search history",
+  "19 upload destinations",
+  "global hotkeys",
+  "png, jpeg, bmp",
+  "multi-monitor",
+  "start with windows",
+  "auto-updates",
+  "gpl-3.0 licensed",
+];
+
+const showcase = [
+  { title: "annotate", desc: "arrows, text, shapes, blur, highlights, freehand, step numbers, emoji, ruler.", img: "annotations.png" },
+  { title: "make stickers", desc: "remove backgrounds locally with 5 ai models, save as transparent png.", img: "sticker-showcase.png" },
+  { title: "ocr & translate", desc: "extract text from any region and translate across 35+ languages.", img: "ocr-screenshot.png" },
+  { title: "search history", desc: "find screenshots by filename, ocr text, or ai semantic match.", img: "search-screenshot.png" },
+  { title: "color picker", desc: "pick any color on screen with a magnified preview. hex and rgb.", img: "color-picker.png" },
+  { title: "record", desc: "save as gif, mp4, webm, or mkv. microphone and desktop audio.", img: "recording.png" },
 ];
 
 const faq = [
@@ -36,7 +45,6 @@ const faq = [
   { q: "where are screenshots saved?", a: "by default in your pictures/yoink folder. you can change this in settings along with the file format and naming pattern." },
   { q: "what recording formats are supported?", a: "gif, mp4, webm, and mkv. you can record with microphone audio, desktop audio, or both. frame rate and quality are configurable." },
   { q: "what translation services are supported?", a: "yoink supports argos translate (fully offline, no api key needed) and google translate (requires internet). both support 35+ languages." },
-  { q: "what models does the sticker maker use?", a: "yoink supports local background removal with 5 ai models: bria rmbg (recommended), birefnet lite, isnet general use, u2net, and u2netp. you can also use cloud providers remove.bg and photoroom." },
   { q: "how is yoink different from sharex?", a: "yoink has a modern, clean interface with built-in sticker creation, semantic image search, and uses windows native ocr instead of tesseract. it focuses on being simple to use while still being powerful." },
   { q: "can i customize hotkeys?", a: "yes. every action has a configurable global hotkey. you can set hotkeys for screenshot, ocr, color picker, recording, stickers, and more in settings." },
   { q: "does yoink have a portable version?", a: "yes. the downloads page includes both a windows installer (recommended) and a portable zip." },
@@ -44,39 +52,119 @@ const faq = [
   { q: "does yoink support multiple monitors?", a: "yes. yoink fully supports multi-monitor setups for capture, recording, and color picking. you can capture regions across monitors or target a specific screen." },
 ];
 
-function Btn({
-  to,
-  href,
-  variant = "primary",
-  children,
-}: {
-  to?: string;
-  href?: string;
-  variant?: "primary" | "outline";
-  children: React.ReactNode;
-}) {
-  const cls =
-    variant === "primary"
-      ? "inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-black text-white text-[14px] font-medium hover:bg-black/85 transition-colors"
-      : "inline-flex items-center justify-center px-5 py-2.5 rounded-md border border-black text-black text-[14px] font-medium hover:bg-[#EBEBEB] transition-colors";
+function detectArch(): "arm64" | "x64" {
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("arm64") || ua.includes("aarch64")) return "arm64";
+  return "x64";
+}
 
-  if (href) {
-    return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
-        {children}
-      </a>
-    );
-  }
+function pickInstaller(release: { assets: { name: string; browser_download_url: string }[] }, arch: "arm64" | "x64") {
+  const exes = release.assets.filter((a) => a.name.toLowerCase().endsWith(".exe"));
+  const match = exes.find((a) => a.name.toLowerCase().includes(arch));
+  const installer = exes.find((a) => a.name.toLowerCase().includes("setup"));
+  return (match ?? installer ?? exes[0])?.browser_download_url ?? null;
+}
+
+function Showcase() {
+  const base = import.meta.env.BASE_URL;
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+
+  const scrollTo = (i: number) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const card = el.children[i] as HTMLElement | undefined;
+    if (card) el.scrollTo({ left: card.offsetLeft - el.offsetLeft, behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const children = Array.from(el.children) as HTMLElement[];
+      if (children.length === 0) return;
+      const centerX = el.scrollLeft + el.clientWidth / 2;
+      let closest = 0;
+      let closestDist = Infinity;
+      children.forEach((child, i) => {
+        const mid = child.offsetLeft + child.offsetWidth / 2 - el.offsetLeft;
+        const dist = Math.abs(mid - centerX);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = i;
+        }
+      });
+      setActive(closest);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <Link to={to ?? "/"} className={cls}>
-      {children}
-    </Link>
+    <div>
+      <div
+        ref={scrollerRef}
+        className="no-scrollbar flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-6 px-6 sm:-mx-8 sm:px-8 pb-1"
+        style={{ scrollSnapType: "x mandatory" }}
+      >
+        {showcase.map((s) => (
+          <div
+            key={s.title}
+            className="snap-center shrink-0 w-full"
+          >
+            <div className="rounded-md overflow-hidden border border-[#EBEBEB] bg-white">
+              <img
+                loading="lazy"
+                src={base + s.img}
+                alt={s.title}
+                className="w-full h-auto block"
+              />
+            </div>
+            <div className="mt-3">
+              <h3 className="text-[15px] font-bold text-black">{s.title}</h3>
+              <p className="text-[14px] text-black/70 leading-relaxed mt-1 max-w-[60ch]">{s.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-1.5">
+          {showcase.map((s, i) => (
+            <button
+              key={s.title}
+              onClick={() => scrollTo(i)}
+              aria-label={`go to ${s.title}`}
+              className={`h-1.5 rounded-full transition-all ${
+                active === i ? "w-6 bg-black" : "w-1.5 bg-black/20 hover:bg-black/40"
+              }`}
+            />
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => scrollTo(Math.max(0, active - 1))}
+            aria-label="previous"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-[#EBEBEB] text-black/70 hover:text-black hover:bg-[#EBEBEB] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+          <button
+            onClick={() => scrollTo(Math.min(showcase.length - 1, active + 1))}
+            aria-label="next"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-[#EBEBEB] text-black/70 hover:text-black hover:bg-[#EBEBEB] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-t border-[#EBEBEB] pt-10 pb-4">
+    <section className="pt-10 pb-4">
       <h2 className="text-[18px] font-bold mb-3 text-black">{title}</h2>
       {children}
     </section>
@@ -85,78 +173,59 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function Home() {
   const base = import.meta.env.BASE_URL;
+  const { releases } = useReleases();
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (releases.length === 0) return;
+    const arch = detectArch();
+    const latest = releases[0];
+    setDownloadUrl(pickInstaller(latest, arch));
+  }, [releases]);
 
   return (
     <div className="py-12 space-y-2">
-      <section className="pb-10">
-        <img src={base + "banner.svg"} alt="yoink" className="w-64 mb-8" />
-        <h1 className="text-[28px] font-bold mb-4 text-black">yoink</h1>
-        <p className="text-black/70 leading-relaxed mb-8 max-w-[60ch]">
+      <section className="pb-10 flex flex-col items-center text-center">
+        <img src={base + "banner.svg"} alt="yoink" className="w-60 mb-6" />
+        <p className="text-black/70 leading-relaxed mb-8 max-w-[55ch] text-[15px]">
           capture, annotate, ocr, translate, make stickers, record video, and upload. all in one open-source tool for windows.
         </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Btn to="/downloads" variant="primary">download for windows</Btn>
-          <Btn href="https://github.com/jasperdevs/yoink" variant="outline">source code</Btn>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-black text-white text-[14px] font-medium hover:bg-black/85 transition-colors"
+            >
+              download
+            </a>
+          ) : (
+            <span className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-black/40 text-white text-[14px] font-medium cursor-wait">
+              loading...
+            </span>
+          )}
+          <a
+            href="https://github.com/jasperdevs/yoink"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-md border border-black text-black text-[14px] font-medium hover:bg-[#EBEBEB] transition-colors"
+          >
+            source code
+          </a>
         </div>
       </section>
 
-      <Section title="what is yoink?">
-        <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch]">
-          yoink is an open-source screen capture and productivity toolkit for windows. it handles everything from quick screenshots to annotated recordings, ocr, translation, and one-click uploads.
-        </p>
-        <div className="space-y-2">
+      <Section title="everything in one tool">
+        <Showcase />
+      </Section>
+
+      <Section title="also included">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
           {features.map((f) => (
-            <p key={f.name} className="text-black/70 leading-relaxed max-w-[75ch]">
-              <strong className="text-black font-semibold">{f.name}</strong>{" "}
-              <span>{f.desc}</span>
-            </p>
+            <span key={f} className="text-[14px] text-black/70 leading-snug">
+              {f}
+            </span>
           ))}
         </div>
-        <div className="mt-6">
-          <Btn to="/downloads" variant="outline">download &rarr;</Btn>
-        </div>
-      </Section>
-
-      <Section title="powerful annotation tools">
-        <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch]">
-          arrows, text, shapes, blur, highlights, freehand drawing, step numbers, emoji, ruler, and more. everything you need to mark up screenshots before sharing.
-        </p>
-        <img loading="lazy" src={base + "annotations.png"} alt="annotation tools" className="w-full rounded border border-[#EBEBEB]" />
-      </Section>
-
-      <Section title="built-in sticker maker">
-        <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch]">
-          turn any screenshot into a sticker by removing the background, then save, copy, or upload it like a normal image.
-        </p>
-        <img loading="lazy" src={base + "sticker-showcase.png"} alt="sticker showcase" className="w-full rounded border border-[#EBEBEB]" />
-      </Section>
-
-      <Section title="ocr and translate">
-        <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch]">
-          extract text from any region of your screen. results open in a dedicated window where you can edit, copy, or translate the text instantly.
-        </p>
-        <img loading="lazy" src={base + "ocr-screenshot.png"} alt="ocr result window" className="w-full rounded border border-[#EBEBEB]" />
-      </Section>
-
-      <Section title="search your history">
-        <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch]">
-          search your image history by filename, ocr text, and semantic matching, so you can find screenshots by what they say or by what they show.
-        </p>
-        <img loading="lazy" src={base + "search-screenshot.png"} alt="search history" className="w-full rounded border border-[#EBEBEB]" style={{ marginBottom: "-20%", clipPath: "inset(0 0 20% 0)" }} />
-      </Section>
-
-      <Section title="color picker">
-        <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch]">
-          pick any color from your screen with a magnified preview. copies hex and rgb values to your clipboard instantly.
-        </p>
-        <img loading="lazy" src={base + "color-picker.png"} alt="color picker" className="w-full rounded border border-[#EBEBEB]" />
-      </Section>
-
-      <Section title="screen recording">
-        <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch]">
-          record your screen as gif, mp4, webm, or mkv. capture microphone and desktop audio simultaneously with configurable frame rate and quality.
-        </p>
-        <img loading="lazy" src={base + "recording.png"} alt="screen recording" className="w-full rounded border border-[#EBEBEB]" />
       </Section>
 
       <Section title="built for privacy">

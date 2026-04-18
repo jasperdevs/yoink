@@ -8,7 +8,6 @@ import Home from "./pages/Home";
 import Downloads from "./pages/Downloads";
 import Changelog from "./pages/Changelog";
 import Donate from "./pages/Donate";
-import Hotkeys from "./pages/Hotkeys";
 import NotFound from "./pages/NotFound";
 
 createRoot(document.getElementById("root")!).render(
@@ -20,7 +19,6 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/" element={<Home />} />
           <Route path="/downloads" element={<Downloads />} />
           <Route path="/changelog" element={<Changelog />} />
-          <Route path="/hotkeys" element={<Hotkeys />} />
           <Route path="/donate" element={<Donate />} />
           <Route path="*" element={<NotFound />} />
         </Route>

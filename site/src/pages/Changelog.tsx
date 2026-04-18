@@ -67,10 +67,7 @@ export default function Changelog() {
   return (
     <div className="py-12">
       <div className="mb-8">
-        <h1 className="text-[28px] font-bold text-black mb-2">changelog</h1>
-        <p className="text-black/70 leading-relaxed max-w-[60ch]">
-          release notes for every version of yoink.
-        </p>
+        <h1 className="text-[28px] font-bold text-black">changelog</h1>
       </div>
 
       {loading ? (
