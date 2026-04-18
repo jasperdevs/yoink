@@ -114,8 +114,11 @@ function getArchLabel(name: string): string {
 
 function PrimaryBtn({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Button asChild size="md" variant="primary">
-      <a href={href}>{children}</a>
+    <Button asChild size="md" variant="primary" className="pl-[10px]">
+      <a href={href}>
+        <DownloadIcon />
+        {children}
+      </a>
     </Button>
   );
 }
@@ -148,11 +151,40 @@ function ChevronDown({ open }: { open: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="transition-transform duration-150"
+      className="transition-transform duration-300 ease-out"
       style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
     >
       <path d="M6 9l6 6 6-6" />
     </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+    </svg>
+  );
+}
+
+function OutlineDownloadBtn({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Button asChild size="md" variant="tertiary" className="pl-[10px]">
+      <a href={href}>
+        <DownloadIcon />
+        {children}
+      </a>
+    </Button>
   );
 }
 
@@ -235,6 +267,39 @@ function ReleaseCard({
 
       {hasExtras && (
         <div className="mt-3">
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-out"
+            style={{ gridTemplateRows: extrasOpen ? "1fr" : "0fr" }}
+          >
+            <div
+              className="overflow-hidden min-h-0 transition-opacity duration-300 ease-out"
+              style={{ opacity: extrasOpen ? 1 : 0 }}
+              aria-hidden={!extrasOpen}
+            >
+              <div className="flex flex-col gap-2 pt-1 pb-3">
+                {sortedZipAssets.map((asset) => {
+                  const assetArch = getAssetArch(asset.name);
+                  const isRecommended = assetArch === userArch;
+                  return (
+                    <div key={asset.name} className="flex items-center gap-3 flex-wrap">
+                      <span className="text-[14px] text-black flex-1 min-w-0">
+                        {getArchLabel(asset.name)} (.zip)
+                        <span className="ml-2 text-black/60 text-[12px]">{formatSize(asset.size)}</span>
+                        {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
+                      </span>
+                      <OutlineDownloadBtn href={asset.browser_download_url}>download</OutlineDownloadBtn>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-[14px] text-black flex-1 min-w-0">source code</span>
+                  <OutlineBtn href={release.html_url} external>
+                    view on github
+                  </OutlineBtn>
+                </div>
+              </div>
+            </div>
+          </div>
           <button
             onClick={() => setExtrasOpen((v) => !v)}
             aria-label={extrasOpen ? "hide more downloads" : "show more downloads"}
@@ -245,30 +310,6 @@ function ReleaseCard({
             <ChevronDown open={extrasOpen} />
             <span className="h-px flex-1 bg-[#EBEBEB] group-hover:bg-black/20 transition-colors" />
           </button>
-          {extrasOpen && (
-            <div className="flex flex-col gap-2 mt-3">
-              {sortedZipAssets.map((asset) => {
-                const assetArch = getAssetArch(asset.name);
-                const isRecommended = assetArch === userArch;
-                return (
-                  <div key={asset.name} className="flex items-center gap-3 flex-wrap">
-                    <span className="text-[14px] text-black flex-1 min-w-0">
-                      {getArchLabel(asset.name)} (.zip)
-                      <span className="ml-2 text-black/60 text-[12px]">{formatSize(asset.size)}</span>
-                      {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
-                    </span>
-                    <OutlineBtn href={asset.browser_download_url}>download</OutlineBtn>
-                  </div>
-                );
-              })}
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-[14px] text-black flex-1 min-w-0">source code</span>
-                <OutlineBtn href={release.html_url} external>
-                  view on github
-                </OutlineBtn>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -281,17 +322,18 @@ function ReleaseCard({
             <div className="rounded-md border border-[#EBEBEB] bg-white overflow-hidden">
               <div className="relative">
                 <div
-                  className="px-4 py-3 font-mono changelog-body [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 overflow-hidden"
+                  className="px-4 py-3 font-mono changelog-body [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 overflow-hidden transition-[max-height] duration-500 ease-out"
                   style={{
                     fontFamily: "Consolas, 'Cascadia Mono', 'Fira Code', monospace",
-                    maxHeight: collapsed ? 260 : "none",
+                    maxHeight: isLong ? (changelogExpanded ? 5000 : 260) : undefined,
                   }}
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(release.body) }}
                 />
-                {collapsed && (
+                {isLong && (
                   <div
-                    className="pointer-events-none absolute inset-x-0 bottom-0 h-16"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-16 transition-opacity duration-300 ease-out"
                     style={{
+                      opacity: collapsed ? 1 : 0,
                       background:
                         "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.9) 55%, rgba(255,255,255,1) 100%)",
                     }}
