@@ -17,11 +17,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jasperdevs/odd-snap/releases/latest">
-    <img src="https://img.shields.io/badge/Windows-download-4c71f2?style=flat&logo=windows&logoColor=white" alt="Download oddsnap for Windows" />
+  <a href="https://jasperdevs.github.io/odd-snap/">
+    <img src="https://img.shields.io/badge/Explore%20the%20website-features%2C%20screenshots%2C%20downloads-000?style=for-the-badge" alt="Explore the OddSnap website" />
   </a>
-  <img src="https://img.shields.io/badge/macOS%20planned-555?logo=apple" alt="macOS planned" />
-  <img src="https://img.shields.io/badge/Linux%20planned-555?logo=linux" alt="Linux planned" />
 </p>
 
 <p align="center">
