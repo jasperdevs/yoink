@@ -224,11 +224,10 @@ function ReleaseCard({
             <div key={asset.name} className="flex items-center gap-3 flex-wrap">
               <span className="text-[14px] text-black flex-1 min-w-0">
                 {getArchLabel(asset.name)}
+                <span className="ml-2 text-black/60 text-[12px]">{formatSize(asset.size)}</span>
                 {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
               </span>
-              <PrimaryBtn href={asset.browser_download_url}>
-                download {formatSize(asset.size)}
-              </PrimaryBtn>
+              <PrimaryBtn href={asset.browser_download_url}>download</PrimaryBtn>
             </div>
           );
         })}
@@ -240,12 +239,14 @@ function ReleaseCard({
             onClick={() => setExtrasOpen((v) => !v)}
             aria-label={extrasOpen ? "hide more downloads" : "show more downloads"}
             aria-expanded={extrasOpen}
-            className="inline-flex items-center justify-center h-7 w-7 text-black/60 hover:text-black transition-colors"
+            className="group flex items-center gap-3 w-full text-black/50 hover:text-black transition-colors"
           >
+            <span className="h-px flex-1 bg-[#EBEBEB] group-hover:bg-black/20 transition-colors" />
             <ChevronDown open={extrasOpen} />
+            <span className="h-px flex-1 bg-[#EBEBEB] group-hover:bg-black/20 transition-colors" />
           </button>
           {extrasOpen && (
-            <div className="flex flex-col gap-2 mt-2">
+            <div className="flex flex-col gap-2 mt-3">
               {sortedZipAssets.map((asset) => {
                 const assetArch = getAssetArch(asset.name);
                 const isRecommended = assetArch === userArch;
@@ -253,11 +254,10 @@ function ReleaseCard({
                   <div key={asset.name} className="flex items-center gap-3 flex-wrap">
                     <span className="text-[14px] text-black flex-1 min-w-0">
                       {getArchLabel(asset.name)} (.zip)
+                      <span className="ml-2 text-black/60 text-[12px]">{formatSize(asset.size)}</span>
                       {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
                     </span>
-                    <OutlineBtn href={asset.browser_download_url}>
-                      download {formatSize(asset.size)}
-                    </OutlineBtn>
+                    <OutlineBtn href={asset.browser_download_url}>download</OutlineBtn>
                   </div>
                 );
               })}
@@ -304,9 +304,11 @@ function ReleaseCard({
                 onClick={() => setChangelogExpanded((v) => !v)}
                 aria-label={changelogExpanded ? "show less changelog" : "show more changelog"}
                 aria-expanded={changelogExpanded}
-                className="inline-flex items-center justify-center h-7 w-7 text-black/60 hover:text-black transition-colors mt-2"
+                className="group flex items-center gap-3 w-full text-black/50 hover:text-black transition-colors mt-3"
               >
+                <span className="h-px flex-1 bg-[#EBEBEB] group-hover:bg-black/20 transition-colors" />
                 <ChevronDown open={changelogExpanded} />
+                <span className="h-px flex-1 bg-[#EBEBEB] group-hover:bg-black/20 transition-colors" />
               </button>
             )}
           </div>
