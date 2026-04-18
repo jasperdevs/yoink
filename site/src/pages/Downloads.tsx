@@ -2,7 +2,6 @@ import { useState, useMemo, useRef, useLayoutEffect, type RefObject } from "reac
 import { useReleases } from "../hooks/useReleases";
 import type { Release, ReleaseAsset } from "../hooks/useReleases";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
@@ -268,16 +267,20 @@ function ReleaseCard({
 
   return (
     <div className="border-t border-[#EBEBEB] py-6">
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      <div className="flex items-baseline gap-2 mb-4 flex-wrap">
         <h2 className="text-[16px] text-black">
           {release.tag_name}
           <span className="text-black/40 mx-2">//</span>
           <span className="text-black/60 text-[14px]">{formatDate(release.published_at)}</span>
         </h2>
         {isLatest && (
-          <Badge variant="dot" size="sm" color="green">
+          <span className="inline-flex items-center gap-1.5 text-[13px] text-black/70">
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"
+              style={{ boxShadow: "0 0 0 3px rgba(34,197,94,0.15)" }}
+            />
             latest
-          </Badge>
+          </span>
         )}
       </div>
 
