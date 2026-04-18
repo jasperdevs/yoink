@@ -158,12 +158,12 @@ export default function StarChart() {
     ctx.clearRect(0, 0, w, h);
 
     // Grid lines and Y labels
-    ctx.strokeStyle = "rgba(0,0,0,0.08)";
+    ctx.strokeStyle = "rgba(0,0,0,0.06)";
     ctx.lineWidth = 1;
     ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.font = "11px 'Segoe UI Variable', 'Segoe UI', ui-sans-serif, system-ui, sans-serif";
     ctx.textAlign = "right";
-    const yTicks = 5;
+    const yTicks = 4;
     for (let i = 0; i <= yTicks; i++) {
       const val = Math.round((niceMax / yTicks) * i);
       const y = padT + plotH - (i / yTicks) * plotH;
@@ -183,7 +183,7 @@ export default function StarChart() {
       const parts = data[idx].date.split("-");
       const moIdx = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
-      const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][moIdx];
+      const mo = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'][moIdx];
       const label = `${mo} ${day}`;
       ctx.fillText(label, x, h - padB + 16);
     }
@@ -194,40 +194,24 @@ export default function StarChart() {
       padT + plotH - (d.stars / niceMax) * plotH,
     ]);
 
-    // Hatching fill
-    ctx.save();
+    // Area fill (subtle vertical gradient)
+    const gradient = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+    gradient.addColorStop(0, "rgba(0,0,0,0.08)");
+    gradient.addColorStop(1, "rgba(0,0,0,0)");
     ctx.beginPath();
     ctx.moveTo(points[0][0], padT + plotH);
     points.forEach(([x, y]) => ctx.lineTo(x, y));
     ctx.lineTo(points[points.length - 1][0], padT + plotH);
     ctx.closePath();
-    ctx.clip();
-
-    ctx.strokeStyle = "rgba(0,0,0,0.08)";
-    ctx.lineWidth = 1;
-    const step = 6;
-    for (let i = -h; i < w + h; i += step) {
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i + h, h);
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // Glow line
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
-    ctx.strokeStyle = "rgba(0,0,0,0.12)";
-    ctx.lineWidth = 4;
-    ctx.stroke();
+    ctx.fillStyle = gradient;
+    ctx.fill();
 
     // Main line
     ctx.beginPath();
     ctx.moveTo(points[0][0], points[0][1]);
     for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
-    ctx.strokeStyle = "rgba(0,0,0,0.75)";
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(0,0,0,0.85)";
+    ctx.lineWidth = 1.25;
     ctx.stroke();
 
     // Hover crosshair + dot
@@ -283,7 +267,7 @@ export default function StarChart() {
   const label =
     total !== null
       ? total >= 1000
-        ? `${(total / 1000).toFixed(1)}K`
+        ? `${(total / 1000).toFixed(1)}k`
         : total.toString()
       : "...";
 
@@ -294,7 +278,7 @@ export default function StarChart() {
         const moIdx = parseInt(parts[1], 10) - 1;
         const day = parseInt(parts[2], 10);
         const year = parts[0];
-        const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][moIdx];
+        const mo = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'][moIdx];
         return `${mo} ${day}, ${year}`;
       })()
     : "";

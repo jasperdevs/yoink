@@ -183,21 +183,24 @@ function ReleaseCard({
 
       {hasBody && (
         <div className="mb-5">
-          <div className="relative">
-            <div
-              className="max-w-none overflow-hidden"
-              style={{ maxHeight: changelogOpen ? "none" : 120 }}
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(release.body) }}
-            />
-            {!changelogOpen && (
+          <div className="text-[12px] text-black/50 mb-1.5">changelog</div>
+          <div className="rounded-md border border-[#EBEBEB] bg-white overflow-hidden">
+            <div className="relative">
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-16"
-                style={{
-                  background:
-                    "linear-gradient(to bottom, rgba(246,246,246,0) 0%, rgba(246,246,246,0.6) 50%, rgba(246,246,246,1) 100%)",
-                }}
+                className="px-4 py-3 overflow-hidden [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                style={{ maxHeight: changelogOpen ? "none" : 110 }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(release.body) }}
               />
-            )}
+              {!changelogOpen && (
+                <div
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-14"
+                  style={{
+                    background:
+                      "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, rgba(255,255,255,1) 100%)",
+                  }}
+                />
+              )}
+            </div>
           </div>
           <button
             onClick={() => setChangelogOpen((v) => !v)}

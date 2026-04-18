@@ -91,3 +91,13 @@ code, kbd, samp, pre {
 /* Hide scrollbar for carousel */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
+
+/* Interactive elements should have a pointer cursor */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary,
+a[href],
+label[for],
+select {
+  cursor: pointer;
+}
