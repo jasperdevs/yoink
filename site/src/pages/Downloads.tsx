@@ -267,7 +267,7 @@ function ReleaseCard({
   const hasExtras = zipAssets.length > 0 || !!release.zipball_url;
 
   return (
-    <div className="border-t border-[#EBEBEB] pt-8 pb-10">
+    <div className="border-t border-[#EBEBEB] pt-12 pb-16">
       <h2 className="text-[16px] text-black mb-4">
         {release.tag_name}
         <span className="text-black/40 mx-2">//</span>
@@ -414,8 +414,8 @@ export default function Downloads() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 mb-10">
-        <InputCopy label="winget install" value="winget install JasperDevs.Yoink" />
-        <InputCopy label="winget upgrade" value="winget upgrade JasperDevs.Yoink" />
+        <InputCopy align="left" label="winget install" value="winget install JasperDevs.Yoink" />
+        <InputCopy align="left" label="winget upgrade" value="winget upgrade JasperDevs.Yoink" />
       </div>
 
       {loading ? (
