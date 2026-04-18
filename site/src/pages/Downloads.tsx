@@ -1,9 +1,6 @@
 import { useState, useMemo } from "react";
 import { useReleases } from "../hooks/useReleases";
 import type { Release, ReleaseAsset } from "../hooks/useReleases";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Download, Monitor } from "lucide-react";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
@@ -52,12 +49,35 @@ function isWindowsAsset(asset: ReleaseAsset): boolean {
 function getArchLabel(name: string): string {
   const arch = getAssetArch(name);
   const lower = name.toLowerCase();
-  const flavor = lower.includes("setup") ? "Installer" : lower.includes("portable") ? "Portable" : "";
+  const flavor = lower.includes("setup") ? "installer" : lower.includes("portable") ? "portable" : "";
   const suffix = flavor ? ` ${flavor}` : "";
-  if (arch === "arm64") return "Windows (arm64)" + suffix;
-  if (arch === "x64") return "Windows (x64)" + suffix;
-  if (arch === "x86") return "Windows (x86)" + suffix;
-  return "Windows" + suffix;
+  if (arch === "arm64") return "windows (arm64)" + suffix;
+  if (arch === "x64") return "windows (x64)" + suffix;
+  if (arch === "x86") return "windows (x86)" + suffix;
+  return "windows" + suffix;
+}
+
+function PrimaryBtn({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-black text-white text-[13px] font-medium hover:bg-black/85 transition-colors"
+    >
+      {children}
+    </a>
+  );
+}
+
+function OutlineBtn({ href, external, children }: { href: string; external?: boolean; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      className="inline-flex items-center justify-center px-4 py-2 rounded-md border border-black text-black text-[13px] font-medium hover:bg-[#EBEBEB] transition-colors"
+    >
+      {children}
+    </a>
+  );
 }
 
 function ReleaseCard({
@@ -91,31 +111,32 @@ function ReleaseCard({
   }, [zipAssets, userArch]);
 
   return (
-    <div className="rounded-lg border border-[#EBEBEB] bg-white overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-[#EBEBEB]">
-        <h2 className="text-base font-semibold text-black">{release.tag_name}</h2>
-        {isLatest && <Badge size="sm">Latest</Badge>}
-        <span className="text-sm text-black/60 ml-auto">
+    <div className="border-t border-[#EBEBEB] py-6">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <h2 className="text-[16px] font-bold text-black">{release.tag_name}</h2>
+        {isLatest && (
+          <span className="px-2 py-0.5 rounded-full border border-black text-[11px] font-medium text-black">
+            latest
+          </span>
+        )}
+        <span className="text-[13px] text-black/60 ml-auto">
           {formatDate(release.published_at)}
         </span>
       </div>
 
-      <div className="divide-y divide-[#EBEBEB]">
+      <div className="flex flex-col gap-2">
         {sortedExeAssets.map((asset) => {
           const assetArch = getAssetArch(asset.name);
           const isRecommended = assetArch === userArch;
 
           return (
-            <div key={asset.name} className="flex items-center gap-4 px-5 py-3">
-              <Monitor className="w-5 h-5 text-black" />
-              <span className="text-sm font-medium flex-1 text-black">
+            <div key={asset.name} className="flex items-center gap-3 flex-wrap">
+              <span className="text-[14px] text-black flex-1 min-w-0">
                 {getArchLabel(asset.name)}
+                {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
               </span>
-              {isRecommended && <Badge size="sm">Recommended</Badge>}
-              <span className="text-sm text-black/60">{formatSize(asset.size)}</span>
-              <Button asChild variant="primary" size="sm" leadingIcon={Download}>
-                <a href={asset.browser_download_url}>Download</a>
-              </Button>
+              <span className="text-[12px] text-black/60">{formatSize(asset.size)}</span>
+              <PrimaryBtn href={asset.browser_download_url}>download</PrimaryBtn>
             </div>
           );
         })}
@@ -123,48 +144,41 @@ function ReleaseCard({
         {(zipAssets.length > 0 || release.zipball_url) && (
           <>
             {!showMore && (
-              <div className="px-5 py-3">
-                <Button variant="ghost" size="sm" onClick={() => setShowMore(true)}>
-                  Show more
-                </Button>
-              </div>
+              <button
+                onClick={() => setShowMore(true)}
+                className="text-[13px] text-black/60 hover:text-black transition-colors text-left mt-2 underline underline-offset-4"
+              >
+                show more
+              </button>
             )}
             {showMore && (
               <>
                 {sortedZipAssets.map((asset) => {
                   const assetArch = getAssetArch(asset.name);
                   const isRecommended = assetArch === userArch;
-
                   return (
-                    <div key={asset.name} className="flex items-center gap-4 px-5 py-3">
-                      <Monitor className="w-5 h-5 text-black" />
-                      <span className="text-sm font-medium flex-1 text-black">
+                    <div key={asset.name} className="flex items-center gap-3 flex-wrap">
+                      <span className="text-[14px] text-black flex-1 min-w-0">
                         {getArchLabel(asset.name)} (.zip)
+                        {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
                       </span>
-                      {isRecommended && <Badge size="sm">Recommended</Badge>}
-                      <span className="text-sm text-black/60">{formatSize(asset.size)}</span>
-                      <Button asChild variant="tertiary" size="sm" leadingIcon={Download}>
-                        <a href={asset.browser_download_url}>Download</a>
-                      </Button>
+                      <span className="text-[12px] text-black/60">{formatSize(asset.size)}</span>
+                      <OutlineBtn href={asset.browser_download_url}>download</OutlineBtn>
                     </div>
                   );
                 })}
-                <div className="flex items-center gap-4 px-5 py-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-black">
-                    <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V4.25A2.25 2.25 0 0 0 15.75 2H4.25Zm4.03 6.28a.75.75 0 0 0-1.06-1.06L4.97 9.47a.75.75 0 0 0 0 1.06l2.25 2.25a.75.75 0 0 0 1.06-1.06L6.56 10l1.72-1.72Zm2.38-1.06a.75.75 0 1 0-1.06 1.06L11.44 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06l2.25-2.25a.75.75 0 0 0 0-1.06l-2.25-2.25Z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm font-medium flex-1 text-black">Source code</span>
-                  <Button asChild variant="tertiary" size="sm">
-                    <a href={release.html_url} target="_blank" rel="noopener noreferrer">
-                      View on GitHub
-                    </a>
-                  </Button>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-[14px] text-black flex-1 min-w-0">source code</span>
+                  <OutlineBtn href={release.html_url} external>
+                    view on github
+                  </OutlineBtn>
                 </div>
-                <div className="px-5 py-3">
-                  <Button variant="ghost" size="sm" onClick={() => setShowMore(false)}>
-                    Show less
-                  </Button>
-                </div>
+                <button
+                  onClick={() => setShowMore(false)}
+                  className="text-[13px] text-black/60 hover:text-black transition-colors text-left mt-2 underline underline-offset-4"
+                >
+                  show less
+                </button>
               </>
             )}
           </>
@@ -180,52 +194,42 @@ export default function Downloads() {
 
   const windowsReleases = releases.filter((r) => r.assets.some(isWindowsAsset));
 
-  if (loading) {
-    return (
-      <div className="px-6 py-10 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-black">Downloads</h1>
-          <p className="text-black/60 mt-2">Loading releases...</p>
-        </div>
+  return (
+    <div className="py-12">
+      <div className="mb-8">
+        <h1 className="text-[28px] font-bold text-black mb-2">downloads</h1>
+        <p className="text-black/70 leading-relaxed max-w-[60ch]">
+          download yoink for windows. your architecture ({userArch}) is detected automatically.
+        </p>
+      </div>
+
+      {loading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="rounded-lg border border-[#EBEBEB] bg-white overflow-hidden animate-pulse">
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-[#EBEBEB]">
-                <div className="h-5 w-16 bg-[#EBEBEB] rounded" />
+            <div key={i} className="border-t border-[#EBEBEB] py-6 animate-pulse">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-5 w-20 bg-[#EBEBEB] rounded" />
                 <div className="h-4 w-24 bg-[#EBEBEB] rounded ml-auto" />
               </div>
-              <div className="px-5 py-3 flex items-center gap-4">
-                <div className="h-5 w-5 bg-[#EBEBEB] rounded" />
-                <div className="h-4 w-32 bg-[#EBEBEB] rounded" />
-                <div className="h-4 w-16 bg-[#EBEBEB] rounded ml-auto" />
+              <div className="flex items-center gap-3">
+                <div className="h-4 w-40 bg-[#EBEBEB] rounded flex-1" />
                 <div className="h-8 w-24 bg-[#EBEBEB] rounded" />
               </div>
             </div>
           ))}
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-6 py-10 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-black">Downloads</h1>
-        <p className="text-black/60 mt-2">
-          Download Yoink for Windows. Your architecture ({userArch}) is detected automatically.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {windowsReleases.map((release, i) => (
-          <ReleaseCard
-            key={release.id}
-            release={release}
-            isLatest={i === 0}
-            userArch={userArch}
-          />
-        ))}
-      </div>
+      ) : (
+        <div>
+          {windowsReleases.map((release, i) => (
+            <ReleaseCard
+              key={release.id}
+              release={release}
+              isLatest={i === 0}
+              userArch={userArch}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

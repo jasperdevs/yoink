@@ -1,23 +1,28 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
-* {
-  font-family: 'IBM Plex Mono', monospace !important;
+html, body {
+  background: #FFFFFF;
+  color: #000000;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  text-transform: lowercase;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-html, body {
-  background: #FFFFFF !important;
-  color: #000000;
-  font-size: 15px;
+/* Preserve casing for code, kbd, and href-displaying content */
+code, kbd, samp, pre {
+  text-transform: none;
 }
 
 @theme inline {
-  --font-heading: 'IBM Plex Mono', monospace;
-  --font-sans: 'IBM Plex Mono', monospace;
+  --font-heading: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

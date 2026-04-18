@@ -1,109 +1,97 @@
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-
 const globalHotkeys = [
-  { keys: "Alt + `", action: "Capture (rectangle select)" },
-  { keys: "Alt + Shift + `", action: "OCR text extraction" },
-  { keys: "Alt + C", action: "Color picker" },
-  { keys: "Customizable", action: "QR/Barcode scanner" },
-  { keys: "Customizable", action: "Sticker maker" },
-  { keys: "Customizable", action: "Ruler" },
-  { keys: "Customizable", action: "GIF/Video recording" },
-  { keys: "Customizable", action: "Fullscreen capture" },
-  { keys: "Customizable", action: "Active window capture" },
-  { keys: "Customizable", action: "Scrolling capture" },
+  { keys: "Alt + `", action: "capture (rectangle select)" },
+  { keys: "Alt + Shift + `", action: "ocr text extraction" },
+  { keys: "Alt + C", action: "color picker" },
+  { keys: "customizable", action: "qr/barcode scanner" },
+  { keys: "customizable", action: "sticker maker" },
+  { keys: "customizable", action: "ruler" },
+  { keys: "customizable", action: "gif/video recording" },
+  { keys: "customizable", action: "fullscreen capture" },
+  { keys: "customizable", action: "active window capture" },
+  { keys: "customizable", action: "scrolling capture" },
 ];
 
 const annotationHotkeys = [
-  { keys: "1", action: "Select tool" },
-  { keys: "2", action: "Arrow" },
-  { keys: "3", action: "Curved arrow" },
-  { keys: "4", action: "Text" },
-  { keys: "5", action: "Highlight" },
-  { keys: "6", action: "Blur" },
-  { keys: "7", action: "Step number" },
-  { keys: "8", action: "Freehand draw" },
-  { keys: "9", action: "Line" },
-  { keys: "0", action: "Ruler" },
-  { keys: "-", action: "Rectangle shape" },
-  { keys: "=", action: "Circle shape" },
-  { keys: "[", action: "Emoji" },
-  { keys: "]", action: "Eraser" },
+  { keys: "1", action: "select tool" },
+  { keys: "2", action: "arrow" },
+  { keys: "3", action: "curved arrow" },
+  { keys: "4", action: "text" },
+  { keys: "5", action: "highlight" },
+  { keys: "6", action: "blur" },
+  { keys: "7", action: "step number" },
+  { keys: "8", action: "freehand draw" },
+  { keys: "9", action: "line" },
+  { keys: "0", action: "ruler" },
+  { keys: "-", action: "rectangle shape" },
+  { keys: "=", action: "circle shape" },
+  { keys: "[", action: "emoji" },
+  { keys: "]", action: "eraser" },
 ];
 
 const captureHotkeys = [
-  { keys: "Ctrl + Z", action: "Undo last annotation" },
-  { keys: "Delete", action: "Delete selected annotation" },
-  { keys: "Escape", action: "Cancel capture or close popup" },
-  { keys: "Enter", action: "Confirm text input" },
-  { keys: "Tab", action: "Reopen emoji picker (while placing)" },
-  { keys: "Shift + drag", action: "Constrain to square or straight line" },
+  { keys: "Ctrl + Z", action: "undo last annotation" },
+  { keys: "Delete", action: "delete selected annotation" },
+  { keys: "Escape", action: "cancel capture or close popup" },
+  { keys: "Enter", action: "confirm text input" },
+  { keys: "Tab", action: "reopen emoji picker (while placing)" },
+  { keys: "Shift + drag", action: "constrain to square or straight line" },
 ];
 
-function HotkeyTable({ rows }: { rows: { keys: string; action: string }[] }) {
+function HotkeyList({ rows }: { rows: { keys: string; action: string }[] }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-48 text-black/70">Shortcut</TableHead>
-          <TableHead className="text-black/70">Action</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row, i) => (
-          <TableRow key={row.action} index={i}>
-            <TableCell>
-              <kbd className="inline-flex items-center px-2 py-0.5 rounded border border-[#EBEBEB] bg-[#EBEBEB] text-black text-xs font-mono">
-                {row.keys}
-              </kbd>
-            </TableCell>
-            <TableCell className="text-black">{row.action}</TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="flex flex-col">
+      {rows.map((row) => (
+        <div
+          key={row.keys + row.action}
+          className="flex items-center gap-4 py-2 border-b border-[#EBEBEB] last:border-b-0"
+        >
+          <kbd className="inline-flex items-center px-2 py-0.5 rounded border border-[#EBEBEB] bg-[#EBEBEB] text-black text-[12px] font-mono shrink-0 min-w-[120px] justify-center">
+            {row.keys}
+          </kbd>
+          <span className="text-[14px] text-black/80">{row.action}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Section({ title, desc, rows }: { title: string; desc: string; rows: { keys: string; action: string }[] }) {
+  return (
+    <section className="border-t border-[#EBEBEB] pt-10 pb-4">
+      <h2 className="text-[18px] font-bold mb-2 text-black">{title}</h2>
+      <p className="text-black/70 leading-relaxed mb-5 max-w-[70ch] text-[14px]">{desc}</p>
+      <HotkeyList rows={rows} />
+    </section>
   );
 }
 
 export default function Hotkeys() {
   return (
-    <div className="px-6 py-10 space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-black">Hotkey Reference</h1>
-        <p className="text-black/60 mt-2">
-          All hotkeys are fully customizable in Settings. These are the defaults.
+    <div className="py-12 space-y-2">
+      <section className="pb-6">
+        <h1 className="text-[28px] font-bold text-black mb-2">hotkeys</h1>
+        <p className="text-black/70 leading-relaxed max-w-[60ch]">
+          all hotkeys are fully customizable in settings. these are the defaults.
         </p>
-      </div>
+      </section>
 
-      <div className="space-y-3">
-        <h2 className="font-bold text-lg text-black">Global hotkeys</h2>
-        <p className="text-black/60 text-sm">
-          Work system-wide, even when Yoink is in the background. Supports Ctrl, Alt, Shift, and Win modifiers.
-        </p>
-        <HotkeyTable rows={globalHotkeys} />
-      </div>
+      <Section
+        title="global hotkeys"
+        desc="work system-wide, even when yoink is in the background. supports ctrl, alt, shift, and win modifiers."
+        rows={globalHotkeys}
+      />
 
-      <div className="space-y-3">
-        <h2 className="font-bold text-lg text-black">Annotation tools</h2>
-        <p className="text-black/60 text-sm">
-          Switch between tools during capture using number keys.
-        </p>
-        <HotkeyTable rows={annotationHotkeys} />
-      </div>
+      <Section
+        title="annotation tools"
+        desc="switch between tools during capture using number keys."
+        rows={annotationHotkeys}
+      />
 
-      <div className="space-y-3">
-        <h2 className="font-bold text-lg text-black">During capture</h2>
-        <p className="text-black/60 text-sm">
-          Shortcuts available while the capture overlay is active.
-        </p>
-        <HotkeyTable rows={captureHotkeys} />
-      </div>
+      <Section
+        title="during capture"
+        desc="shortcuts available while the capture overlay is active."
+        rows={captureHotkeys}
+      />
     </div>
   );
 }
