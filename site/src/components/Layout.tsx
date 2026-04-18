@@ -4,7 +4,6 @@ import { useStarCount } from "../hooks/useStarCount";
 const navLinks = [
   { to: "/", label: "home" },
   { to: "/downloads", label: "downloads" },
-  { to: "/changelog", label: "changelog" },
   { to: "/donate", label: "donate" },
 ];
 
@@ -105,7 +104,7 @@ export default function Layout() {
           <div className="flex items-center gap-4">
             <a href="https://github.com/jasperdevs/yoink" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors">github</a>
             <a href="https://ko-fi.com/jasperdevs" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors">ko-fi</a>
-            <Link to="/changelog" className="hover:text-black transition-colors">changelog</Link>
+            <Link to="/downloads" className="hover:text-black transition-colors">downloads</Link>
           </div>
         </div>
       </footer>

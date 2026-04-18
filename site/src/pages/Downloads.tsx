@@ -16,6 +16,59 @@ function formatDate(iso: string): string {
   });
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderMarkdown(body: string): string {
+  let html = escapeHtml(body);
+
+  html = html.replace(/^### (.+)$/gm, '<h4 class="text-[14px] mt-4 mb-1 text-black">$1</h4>');
+  html = html.replace(/^## (.+)$/gm, '<h3 class="text-[15px] mt-5 mb-2 text-black">$1</h3>');
+  html = html.replace(/^# (.+)$/gm, '<h2 class="text-[16px] mt-6 mb-2 text-black">$1</h2>');
+
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  html = html.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-[#EBEBEB] text-black text-[13px] font-mono">$1</code>');
+
+  html = html.replace(/^[*-] (.+)$/gm, '<li class="ml-4 list-disc text-[14px] text-black/70">$1</li>');
+
+  html = html.replace(
+    /(<li[^>]*>.*<\/li>\n?)+/g,
+    (match) => `<ul class="space-y-1 my-2">${match}</ul>`
+  );
+
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-black underline hover:no-underline">$1</a>'
+  );
+
+  html = html
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (
+        !trimmed ||
+        trimmed.startsWith("<h") ||
+        trimmed.startsWith("<ul") ||
+        trimmed.startsWith("</ul") ||
+        trimmed.startsWith("<li") ||
+        trimmed.startsWith("<a")
+      ) {
+        return line;
+      }
+      return `<p class="text-[14px] text-black/70 my-1">${trimmed}</p>`;
+    })
+    .join("\n");
+
+  return html;
+}
+
 type Arch = "x64" | "arm64" | "x86" | "unknown";
 
 function detectArch(): Arch {
@@ -89,7 +142,7 @@ function ReleaseCard({
   isLatest: boolean;
   userArch: Arch;
 }) {
-  const [showMore, setShowMore] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const exeAssets = release.assets.filter(isExe);
   const zipAssets = release.assets.filter(isZip);
@@ -109,6 +162,9 @@ function ReleaseCard({
       return aMatch - bMatch;
     });
   }, [zipAssets, userArch]);
+
+  const hasBody = !!release.body?.trim();
+  const hasExtras = zipAssets.length > 0 || !!release.zipball_url || hasBody;
 
   return (
     <div className="border-t border-[#EBEBEB] py-6">
@@ -140,50 +196,61 @@ function ReleaseCard({
             </div>
           );
         })}
-
-        {(zipAssets.length > 0 || release.zipball_url) && (
-          <>
-            {!showMore && (
-              <button
-                onClick={() => setShowMore(true)}
-                className="text-[13px] text-black/60 hover:text-black transition-colors text-left mt-2 underline underline-offset-4"
-              >
-                show more
-              </button>
-            )}
-            {showMore && (
-              <>
-                {sortedZipAssets.map((asset) => {
-                  const assetArch = getAssetArch(asset.name);
-                  const isRecommended = assetArch === userArch;
-                  return (
-                    <div key={asset.name} className="flex items-center gap-3 flex-wrap">
-                      <span className="text-[14px] text-black flex-1 min-w-0">
-                        {getArchLabel(asset.name)} (.zip)
-                        {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
-                      </span>
-                      <span className="text-[12px] text-black/60">{formatSize(asset.size)}</span>
-                      <OutlineBtn href={asset.browser_download_url}>download</OutlineBtn>
-                    </div>
-                  );
-                })}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-[14px] text-black flex-1 min-w-0">source code</span>
-                  <OutlineBtn href={release.html_url} external>
-                    view on github
-                  </OutlineBtn>
-                </div>
-                <button
-                  onClick={() => setShowMore(false)}
-                  className="text-[13px] text-black/60 hover:text-black transition-colors text-left mt-2 underline underline-offset-4"
-                >
-                  show less
-                </button>
-              </>
-            )}
-          </>
-        )}
       </div>
+
+      {hasExtras && (
+        <div className="mt-4">
+          {!expanded ? (
+            <button
+              onClick={() => setExpanded(true)}
+              className="text-[13px] text-black/60 hover:text-black transition-colors underline underline-offset-4"
+            >
+              show changelog
+            </button>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {hasBody && (
+                <div
+                  className="max-w-none"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(release.body) }}
+                />
+              )}
+
+              {(sortedZipAssets.length > 0 || release.zipball_url) && (
+                <div className="flex flex-col gap-2 mt-2">
+                  {sortedZipAssets.map((asset) => {
+                    const assetArch = getAssetArch(asset.name);
+                    const isRecommended = assetArch === userArch;
+                    return (
+                      <div key={asset.name} className="flex items-center gap-3 flex-wrap">
+                        <span className="text-[14px] text-black flex-1 min-w-0">
+                          {getArchLabel(asset.name)} (.zip)
+                          {isRecommended && <span className="ml-2 text-black/60 text-[12px]">(recommended)</span>}
+                        </span>
+                        <span className="text-[12px] text-black/60">{formatSize(asset.size)}</span>
+                        <OutlineBtn href={asset.browser_download_url}>download</OutlineBtn>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-[14px] text-black flex-1 min-w-0">source code</span>
+                    <OutlineBtn href={release.html_url} external>
+                      view on github
+                    </OutlineBtn>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setExpanded(false)}
+                className="text-[13px] text-black/60 hover:text-black transition-colors underline underline-offset-4 text-left"
+              >
+                show less
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
