@@ -36,21 +36,29 @@
   <img src="assets/readme/3banner-readme-v2.png" alt="oddsnap screenshot" width="860" />
 </p>
 
-## Download
-
-Grab the latest release from the [**Releases page**](https://github.com/jasperdevs/odd-snap/releases/latest).
-
-## Winget
-
-```powershell
-winget install --id JasperDevs.OddSnap -e
-winget upgrade --id JasperDevs.OddSnap -e
-```
-
-## Features
+<h2 align="center">Download</h2>
 
 <p align="center">
-  <strong>Explore all features, screenshots, and downloads on the website.</strong>
+  Grab the latest release from the <a href="https://github.com/jasperdevs/odd-snap/releases/latest"><strong>Releases page</strong></a>.
+</p>
+
+<h2 align="center">Winget</h2>
+
+<p align="center">
+  <code>winget install --id JasperDevs.OddSnap -e</code>
+  <br />
+  <code>winget upgrade --id JasperDevs.OddSnap -e</code>
+</p>
+
+<h2 align="center">Features</h2>
+
+<p align="center">
+  <a href="https://jasperdevs.github.io/odd-snap/">
+    <img src="https://img.shields.io/badge/Explore%20the%20website-features%2C%20screenshots%2C%20downloads-000?style=for-the-badge" alt="Explore the OddSnap website" />
+  </a>
+  <br />
+  <br />
+  <strong>See every feature, screenshot, and download on the OddSnap website.</strong>
   <br />
   <a href="https://jasperdevs.github.io/odd-snap/">jasperdevs.github.io/odd-snap</a>
 </p>
@@ -65,6 +73,8 @@ winget upgrade --id JasperDevs.OddSnap -e
 </a>
 </p>
 
-## License
+<h2 align="center">License</h2>
 
-OddSnap is open source under [GPL-3.0-or-later](LICENSE).
+<p align="center">
+  OddSnap is open source under <a href="LICENSE">GPL-3.0-or-later</a>.
+</p>
