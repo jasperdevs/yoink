@@ -327,12 +327,15 @@
                 MouseLeftButtonDown="TitleBar_MouseDown">
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Image Source="pack://application:,,,/oddsnap.ico" Width="16" Height="16"
+                    <Image Source="pack://application:,,,/Assets/oddsnap_wordmark.png"
+                           Height="17"
+                           Width="92"
+                           Stretch="Uniform"
                            RenderOptions.BitmapScalingMode="HighQuality"
-                           VerticalAlignment="Center" Margin="0,0,10,0" Opacity="0.85"/>
-                    <TextBlock x:Name="TitleText" Text="OddSnap" FontSize="12.5" FontWeight="SemiBold"
-                               FontFamily="Segoe UI Variable Display"
-                               Foreground="{DynamicResource ThemeTextPrimaryBrush}" Opacity="0.85" VerticalAlignment="Center"/>
+                           VerticalAlignment="Center"
+                           Opacity="0.92"/>
+                    <TextBlock x:Name="TitleText" Text="oddsnap" Visibility="Collapsed"
+                               Foreground="{DynamicResource ThemeTextPrimaryBrush}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,0,0">
                     <Border Width="40" Height="34" CornerRadius="0" Cursor="Hand" Background="Transparent"

@@ -33,6 +33,7 @@
     <Page Include="App.xaml" />
     <Resource Include="oddsnap.ico" />
     <Resource Include="Assets\amazon.png" />
+    <Resource Include="Assets\oddsnap_wordmark.png" />
     <Resource Include="Assets\aws_sq.png" />
     <Resource Include="Assets\aws_official.svg" />
     <Resource Include="Assets\azure_sq.png" />
