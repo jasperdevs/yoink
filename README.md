@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/oddsnap-square-dark.png" />
-    <img src="assets/oddsnap-square.png" alt="OddSnap" width="132" />
+    <source media="(prefers-color-scheme: dark)" srcset="assets/oddsnap.png" />
+    <img src="assets/oddsnap-readme.png" alt="OddSnap" width="420" />
   </picture>
 </p>
 <p align="center"> Free, open-source screenshot tool. Capture, annotate, share, search with OCR, record, scrolling captures, translations, color picker, upscale, and MUCH more </p>
