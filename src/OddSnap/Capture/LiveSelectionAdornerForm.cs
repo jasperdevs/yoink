@@ -58,6 +58,7 @@ internal sealed class LiveSelectionAdornerForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        CaptureWindowExclusion.Apply(this);
         UpdateSurface();
     }
 

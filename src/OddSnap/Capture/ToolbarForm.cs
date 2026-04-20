@@ -40,6 +40,12 @@ public sealed class ToolbarForm : Form
         }
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        CaptureWindowExclusion.Apply(this);
+    }
+
     public void UpdateSurface()
     {
         var sz = Size;

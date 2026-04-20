@@ -26,6 +26,7 @@ public sealed partial class RegionOverlayForm
     {
         base.OnShown(e);
         _toolbarAnim = 1f;
+        CaptureWindowExclusion.Apply(this);
         WindowDetector.RegisterIgnoredWindow(Handle);
         Native.User32.SetWindowPos(Handle, Native.User32.HWND_TOPMOST,
             0, 0, 0, 0,

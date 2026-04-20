@@ -106,6 +106,7 @@ public sealed partial class ScrollingCaptureForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        CaptureWindowExclusion.Apply(this);
         User32.SetWindowPos(Handle, User32.HWND_TOPMOST, 0, 0, 0, 0,
             User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_SHOWWINDOW);
         User32.SetForegroundWindow(Handle);
@@ -639,6 +640,12 @@ public sealed partial class ScrollingCaptureForm : Form
                 cp.ExStyle |= 0x80; // WS_EX_TOOLWINDOW
                 return cp;
             }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            CaptureWindowExclusion.Apply(this);
         }
 
         protected override void Dispose(bool disposing)

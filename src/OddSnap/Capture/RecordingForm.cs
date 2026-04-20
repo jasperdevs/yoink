@@ -142,6 +142,7 @@ public sealed partial class RecordingForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        CaptureWindowExclusion.Apply(this);
         User32.SetWindowPos(Handle, User32.HWND_TOPMOST, 0, 0, 0, 0,
             User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_SHOWWINDOW);
         User32.SetForegroundWindow(Handle);

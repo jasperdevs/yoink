@@ -58,6 +58,12 @@ public sealed class PickerMagnifierForm : Form
         }
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        CaptureWindowExclusion.Apply(this);
+    }
+
     protected override void WndProc(ref Message m)
     {
         const int WM_NCHITTEST = 0x0084;

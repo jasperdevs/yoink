@@ -99,12 +99,12 @@ jobs:
 
           $rid = "${{ matrix.rid }}"
           $version = "${{ steps.version.outputs.version }}"
-          $setupName = if ($rid -eq 'win-x64') { 'OddSnap App Setup.exe' } elseif ($rid -eq 'win-x86') { 'OddSnap App Setup x86.exe' } else { 'OddSnap App Setup arm64.exe' }
-          $portableName = if ($rid -eq 'win-x64') { 'OddSnap Portable.zip' } elseif ($rid -eq 'win-x86') { 'OddSnap Portable x86.zip' } else { 'OddSnap Portable arm64.zip' }
-          $fullName = "OddSnap Update $version $rid full.nupkg"
-          $releasesName = "OddSnap Update RELEASES $rid"
-          $releaseJsonName = "OddSnap Update releases $rid.json"
-          $assetsJsonName = "OddSnap Update assets $rid.json"
+          $setupName = "OddSnap-Setup-$rid.exe"
+          $portableName = "OddSnap-Portable-$rid.zip"
+          $fullName = "OddSnap-Update-$version-$rid-full.nupkg"
+          $releasesName = "OddSnap-RELEASES-$rid"
+          $releaseJsonName = "OddSnap-releases-$rid.json"
+          $assetsJsonName = "OddSnap-assets-$rid.json"
 
           $setup = Get-ChildItem $outDir -Filter '*-Setup.exe' | Select-Object -First 1
           if ($null -ne $setup) { Rename-Item -LiteralPath $setup.FullName -NewName $setupName }
