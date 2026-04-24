@@ -55,7 +55,7 @@ public static partial class SketchRenderer
 
         if (strokeShadow)
         {
-            // Shadow passes — reuse a single cloned path and matrix
+            // Soft shadow only. Heavy outline strokes made freehand marks look muddy.
             using var shadowPath = (GraphicsPath)path.Clone();
             var m = new System.Drawing.Drawing2D.Matrix();
             m.Translate(2, 2);
@@ -64,15 +64,6 @@ public static partial class SketchRenderer
             m.Reset(); m.Translate(1, 1); // from (2,2) to (3,3)
             shadowPath.Transform(m);
             g.FillPath(BrushShadow2, shadowPath);
-
-            // Stroke passes (8 directions) — reuse one clone, translate incrementally
-            foreach (var (ox, oy) in StrokeOffsets)
-            {
-                using var sp = (GraphicsPath)path.Clone();
-                m.Reset(); m.Translate(ox, oy);
-                sp.Transform(m);
-                g.FillPath(BrushStroke, sp);
-            }
         }
 
         // Main pass

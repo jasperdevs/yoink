@@ -25,21 +25,21 @@ public static partial class UploadService
         uploadReq.Headers.TryAddWithoutValidation("Dropbox-API-Arg", JsonSerializer.Serialize(new { path = remotePath, mode = "add", autorename = true, mute = false }));
         uploadReq.Headers.TryAddWithoutValidation("Content-Type", "application/octet-stream");
         uploadReq.Content = CreateFileStreamContent(filePath);
-        var uploadResp = await Http.SendAsync(uploadReq);
+        using var uploadResp = await Http.SendAsync(uploadReq);
         if (!uploadResp.IsSuccessStatusCode)
             return new UploadResult { Error = $"Dropbox upload failed: {uploadResp.StatusCode}" };
 
         using var shareReq = new HttpRequestMessage(HttpMethod.Post, "https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings");
         shareReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.DropboxAccessToken);
         shareReq.Content = new StringContent(JsonSerializer.Serialize(new { path = remotePath }), Encoding.UTF8, "application/json");
-        var shareResp = await Http.SendAsync(shareReq);
+        using var shareResp = await Http.SendAsync(shareReq);
         var shareBody = await shareResp.Content.ReadAsStringAsync();
         if (!shareResp.IsSuccessStatusCode && shareBody.Contains("shared_link_already_exists"))
         {
             using var listReq = new HttpRequestMessage(HttpMethod.Post, "https://api.dropboxapi.com/2/sharing/list_shared_links");
             listReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.DropboxAccessToken);
             listReq.Content = new StringContent(JsonSerializer.Serialize(new { path = remotePath, direct_only = true }), Encoding.UTF8, "application/json");
-            var listResp = await Http.SendAsync(listReq);
+            using var listResp = await Http.SendAsync(listReq);
             var listBody = await listResp.Content.ReadAsStringAsync();
             var listNode = TryParseJson(listBody);
             var existing = listNode?["links"]?.AsArray().FirstOrDefault()?["url"]?.GetValue<string>();
@@ -82,7 +82,7 @@ public static partial class UploadService
         using var req = new HttpRequestMessage(HttpMethod.Post, "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.GoogleDriveAccessToken);
         req.Content = content;
-        var resp = await Http.SendAsync(req);
+        using var resp = await Http.SendAsync(req);
         var body = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
             return new UploadResult { Error = $"Google Drive upload failed: {resp.StatusCode}" };
@@ -95,7 +95,10 @@ public static partial class UploadService
         using var permReq = new HttpRequestMessage(HttpMethod.Post, $"https://www.googleapis.com/drive/v3/files/{id}/permissions");
         permReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.GoogleDriveAccessToken);
         permReq.Content = new StringContent("{\"role\":\"reader\",\"type\":\"anyone\"}", Encoding.UTF8, "application/json");
-        await Http.SendAsync(permReq);
+        using var permResp = await Http.SendAsync(permReq);
+        var permBody = await permResp.Content.ReadAsStringAsync();
+        if (!permResp.IsSuccessStatusCode)
+            return new UploadResult { Error = BuildHttpError("Google Drive permissions", permResp, permBody, TryParseJson(permBody)) };
 
         return new UploadResult { Success = true, Url = $"https://drive.google.com/file/d/{id}/view" };
     }
@@ -111,7 +114,7 @@ public static partial class UploadService
         using var req = new HttpRequestMessage(HttpMethod.Put, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.OneDriveAccessToken);
         req.Content = CreateFileStreamContent(filePath);
-        var resp = await Http.SendAsync(req);
+        using var resp = await Http.SendAsync(req);
         var body = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
             return new UploadResult { Error = $"OneDrive upload failed: {resp.StatusCode}" };
@@ -124,7 +127,7 @@ public static partial class UploadService
         using var shareReq = new HttpRequestMessage(HttpMethod.Post, $"https://graph.microsoft.com/v1.0/me/drive/items/{itemId}/createLink");
         shareReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.OneDriveAccessToken);
         shareReq.Content = new StringContent("{\"type\":\"view\",\"scope\":\"anonymous\"}", Encoding.UTF8, "application/json");
-        var shareResp = await Http.SendAsync(shareReq);
+        using var shareResp = await Http.SendAsync(shareReq);
         var shareBody = await shareResp.Content.ReadAsStringAsync();
         if (!shareResp.IsSuccessStatusCode)
             return new UploadResult { Error = $"OneDrive share failed: {shareResp.StatusCode}" };
@@ -140,15 +143,42 @@ public static partial class UploadService
         if (string.IsNullOrWhiteSpace(s.AzureBlobSasUrl))
             return new UploadResult { Error = "Azure Blob SAS base URL not configured" };
 
-        string baseUrl = s.AzureBlobSasUrl.TrimEnd('/');
-        string url = $"{baseUrl}/{Path.GetFileName(filePath)}";
+        if (!TryBuildAzureBlobUrls(s.AzureBlobSasUrl, Path.GetFileName(filePath), out var url, out var publicUrl, out var error))
+            return new UploadResult { Error = error };
+
         using var req = new HttpRequestMessage(HttpMethod.Put, url);
         req.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob");
         req.Content = CreateFileStreamContent(filePath);
-        var resp = await Http.SendAsync(req);
+        using var resp = await Http.SendAsync(req);
         if (!resp.IsSuccessStatusCode)
             return new UploadResult { Error = $"Azure Blob upload failed: {resp.StatusCode}" };
-        return new UploadResult { Success = true, Url = url.Split('?')[0] };
+        return new UploadResult { Success = true, Url = publicUrl };
+    }
+
+    private static bool TryBuildAzureBlobUrls(string sasBaseUrl, string fileName, out string uploadUrl, out string publicUrl, out string error)
+    {
+        uploadUrl = "";
+        publicUrl = "";
+        error = "";
+
+        if (!Uri.TryCreate(sasBaseUrl.Trim(), UriKind.Absolute, out var baseUri) ||
+            baseUri.Scheme != Uri.UriSchemeHttps)
+        {
+            error = "Azure Blob SAS URL must be an HTTPS URL.";
+            return false;
+        }
+
+        var builder = new UriBuilder(baseUri);
+        var basePath = builder.Path.TrimEnd('/');
+        builder.Path = string.IsNullOrWhiteSpace(basePath)
+            ? Uri.EscapeDataString(fileName)
+            : $"{basePath}/{Uri.EscapeDataString(fileName)}";
+
+        uploadUrl = builder.Uri.AbsoluteUri;
+
+        builder.Query = "";
+        publicUrl = builder.Uri.AbsoluteUri;
+        return true;
     }
 
     private static async Task<UploadResult> UploadGitHub(string filePath, UploadSettings s)
@@ -173,7 +203,7 @@ public static partial class UploadService
             branch
         }), Encoding.UTF8, "application/json");
 
-        var resp = await Http.SendAsync(req);
+        using var resp = await Http.SendAsync(req);
         var body = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
             return new UploadResult { Error = $"GitHub upload failed: {resp.StatusCode}" };
@@ -192,7 +222,7 @@ public static partial class UploadService
         using var req = new HttpRequestMessage(HttpMethod.Post, s.ImmichBaseUrl.TrimEnd('/') + "/api/assets");
         req.Headers.TryAddWithoutValidation("x-api-key", s.ImmichApiKey);
         req.Content = content;
-        var resp = await Http.SendAsync(req);
+        using var resp = await Http.SendAsync(req);
         var body = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
             return new UploadResult { Error = $"Immich upload failed: {resp.StatusCode}" };
@@ -289,7 +319,7 @@ public static partial class UploadService
         var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{s.WebDavUsername}:{s.WebDavPassword}"));
         req.Headers.Authorization = new AuthenticationHeaderValue("Basic", auth);
         req.Content = CreateFileStreamContent(filePath);
-        var resp = await Http.SendAsync(req);
+        using var resp = await Http.SendAsync(req);
         if (!resp.IsSuccessStatusCode)
             return new UploadResult { Error = $"WebDAV upload failed: {resp.StatusCode}" };
         return new UploadResult { Success = true, Url = string.IsNullOrWhiteSpace(s.WebDavPublicUrl) ? url : s.WebDavPublicUrl.TrimEnd('/') + "/" + Path.GetFileName(filePath) };
@@ -312,15 +342,11 @@ public static partial class UploadService
             _ => "application/octet-stream"
         };
 
-        string key = string.IsNullOrWhiteSpace(s.S3PathPrefix)
-            ? $"oddsnap/{DateTime.UtcNow:yyyyMMdd_HHmmss}{ext}"
-            : $"{s.S3PathPrefix.TrimEnd('/')}/oddsnap/{DateTime.UtcNow:yyyyMMdd_HHmmss}{ext}";
+        string key = BuildS3ObjectKey(filePath, s);
 
         string region = string.IsNullOrWhiteSpace(s.S3Region) ? "auto" : s.S3Region;
         string endpoint = s.S3Endpoint.TrimEnd('/');
-        string host = endpoint.Contains("://")
-            ? new Uri(endpoint).Host
-            : endpoint;
+        string host = BuildS3SigningHost(endpoint);
 
         // Build the URL
         string objectUrl = endpoint.Contains("://")
@@ -361,7 +387,7 @@ public static partial class UploadService
         request.Headers.TryAddWithoutValidation("x-amz-content-sha256", payloadHash);
         request.Headers.TryAddWithoutValidation("Authorization", authHeader);
 
-        var resp = await Http.SendAsync(request);
+        using var resp = await Http.SendAsync(request);
         if (resp.IsSuccessStatusCode)
         {
             // Build public URL
@@ -373,6 +399,24 @@ public static partial class UploadService
 
         var body = await resp.Content.ReadAsStringAsync();
         return new UploadResult { Error = $"S3 error ({resp.StatusCode}): {body[..Math.Min(body.Length, 200)]}" };
+    }
+
+    private static string BuildS3ObjectKey(string filePath, UploadSettings s)
+    {
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        var fileName = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{ext}";
+        return string.IsNullOrWhiteSpace(s.S3PathPrefix)
+            ? $"oddsnap/{fileName}"
+            : $"{s.S3PathPrefix.TrimEnd('/')}/oddsnap/{fileName}";
+    }
+
+    internal static string BuildS3SigningHost(string endpoint)
+    {
+        if (!endpoint.Contains("://", StringComparison.Ordinal))
+            return endpoint.TrimEnd('/');
+
+        var uri = new Uri(endpoint);
+        return uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
     }
 
     private static string HashHex(byte[] data)
@@ -416,18 +460,17 @@ public static partial class UploadService
         content.Add(CreateFileStreamContent(filePath), fieldName, Path.GetFileName(filePath));
 
         using var request = new HttpRequestMessage(HttpMethod.Post, s.CustomUploadUrl);
+        request.Content = content;
         if (!string.IsNullOrWhiteSpace(s.CustomHeaders))
         {
             foreach (var line in s.CustomHeaders.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
-                var parts = line.Split(':', 2, StringSplitOptions.TrimEntries);
-                if (parts.Length == 2)
-                    request.Headers.TryAddWithoutValidation(parts[0], parts[1]);
+                if (!TryApplyCustomUploadHeader(request, line, out var error))
+                    return new UploadResult { Error = error };
             }
         }
-        request.Content = content;
 
-        var resp = await Http.SendAsync(request);
+        using var resp = await Http.SendAsync(request);
         var body = await resp.Content.ReadAsStringAsync();
 
         string? url = null;
@@ -455,5 +498,88 @@ public static partial class UploadService
             return new UploadResult { Success = true, Url = match.Value.TrimEnd('"', '\'', '}', ']') };
 
         return new UploadResult { Error = $"Upload returned: {body[..Math.Min(body.Length, 200)]}" };
+    }
+
+    private static readonly HashSet<string> ForbiddenCustomUploadHeaders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Expect",
+        "Host",
+        "Keep-Alive",
+        "Proxy-Connection",
+        "TE",
+        "Trailer",
+        "Transfer-Encoding",
+        "Upgrade"
+    };
+
+    internal static bool TryValidateCustomUploadHeader(string line, out string name, out string value, out string error)
+    {
+        name = "";
+        value = "";
+        error = "";
+
+        if (string.IsNullOrWhiteSpace(line))
+            return true;
+
+        if (line.Any(static ch => ch is '\r' or '\n' || char.IsControl(ch)))
+        {
+            error = "Custom upload headers cannot contain control characters.";
+            return false;
+        }
+
+        var parts = line.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]))
+        {
+            error = "Custom upload headers must use Name: Value format.";
+            return false;
+        }
+
+        name = parts[0];
+        value = parts[1];
+        if (!IsValidHttpHeaderName(name))
+        {
+            error = $"Custom upload header '{name}' has an invalid name.";
+            return false;
+        }
+
+        if (ForbiddenCustomUploadHeaders.Contains(name))
+        {
+            error = $"Custom upload header '{name}' is managed by OddSnap and cannot be overridden.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryApplyCustomUploadHeader(HttpRequestMessage request, string line, out string error)
+    {
+        if (!TryValidateCustomUploadHeader(line, out var name, out var value, out error))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(name))
+            return true;
+
+        if (!request.Headers.TryAddWithoutValidation(name, value))
+        {
+            error = $"Custom upload header '{name}' is not supported for this request.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsValidHttpHeaderName(string name)
+    {
+        foreach (var ch in name)
+        {
+            bool valid = char.IsAsciiLetterOrDigit(ch) || ch is '!' or '#' or '$' or '%' or '&' or '\'' or '*' or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~';
+            if (!valid)
+                return false;
+        }
+
+        return true;
     }
 }

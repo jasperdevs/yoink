@@ -90,12 +90,15 @@ public partial class App
         var win = new SettingsWindow(_settingsService!, historyService, imageSearchIndexService);
         Action hotkeyHandler = RegisterHotkeys;
         Action uninstallHandler = BeginUninstall;
+        Action localizationHandler = () => _trayIcon?.RefreshLocalization();
         win.HotkeyChanged += hotkeyHandler;
         win.UninstallRequested += uninstallHandler;
+        win.LocalizationChanged += localizationHandler;
         win.Closed += (_, _) =>
         {
             win.HotkeyChanged -= hotkeyHandler;
             win.UninstallRequested -= uninstallHandler;
+            win.LocalizationChanged -= localizationHandler;
             _settingsWindow = null;
             ScheduleIdleMemoryTrim();
         };

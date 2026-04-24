@@ -198,8 +198,8 @@ public partial class ToastWindow : Window
 
         _savedFilePath = spec.FilePath;
 
-        TitleText.Text = spec.Title;
-        BodyText.Text = spec.Body;
+        TitleText.Text = LocalizationService.Translate(spec.Title);
+        BodyText.Text = LocalizationService.Translate(spec.Body);
         TitleText.Visibility = string.IsNullOrWhiteSpace(spec.Title) ? Visibility.Collapsed : Visibility.Visible;
         BodyText.Visibility = string.IsNullOrWhiteSpace(spec.Body) ? Visibility.Collapsed : Visibility.Visible;
         TextContentPanel.Visibility = (TitleText.Visibility == Visibility.Collapsed && BodyText.Visibility == Visibility.Collapsed)
@@ -794,7 +794,7 @@ public partial class ToastWindow : Window
             return null;
 
         var temp = Path.Combine(Path.GetTempPath(), $"oddsnap_toast_{Guid.NewGuid():N}.png");
-        _previewBitmap.Save(temp, System.Drawing.Imaging.ImageFormat.Png);
+        CaptureOutputService.SavePng(_previewBitmap, temp);
         return temp;
     }
 

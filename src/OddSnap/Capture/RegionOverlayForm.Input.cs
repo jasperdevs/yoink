@@ -19,7 +19,7 @@ public sealed partial class RegionOverlayForm
         if (btn >= 0)
         {
             if (btn == BtnCount - 1) { Cancel(); return; }     // close
-            if (btn == BtnCount - 2) { ToggleColorPicker(); return; } // color dot
+            if (btn == ColorButtonIndex) { ToggleColorPicker(); return; } // color dot
             if (_moreButtonIndex >= 0 && btn == _moreButtonIndex)
             {
                 if (_flyoutOpen)
@@ -29,7 +29,7 @@ public sealed partial class RegionOverlayForm
                 return;
             }
             if (btn < _mainBarTools.Length && _mainBarTools[btn].Mode.HasValue)
-                SetMode(_mainBarTools[btn].Mode!.Value);
+                SetTool(_mainBarTools[btn]);
             return;
         }
 
@@ -240,11 +240,16 @@ public sealed partial class RegionOverlayForm
         switch (_mode)
         {
             case CaptureMode.Rectangle:
+            case CaptureMode.Center:
             case CaptureMode.Ocr:
             case CaptureMode.Scan:
             case CaptureMode.Sticker:
             case CaptureMode.Upscale:
                 HideToolbarForCaptureTool();
+                var previousSelectionRect = _selectionRect;
+                var previousAutoDetectRect = _autoDetectRect;
+                bool previousSelectionVisible = _hasSelection;
+                bool previousAutoDetectVisible = _autoDetectActive;
                 if (_windowDetectionMode == WindowDetectionMode.Off)
                 {
                     _autoDetectRect = Rectangle.Empty;
@@ -260,12 +265,25 @@ public sealed partial class RegionOverlayForm
                 _selectionStart = _selectionEnd = e.Location;
                 _selectionRect = Rectangle.Empty;
                 _hasSelection = false;
+                ResetCaptureMagnifierDragPlacement();
+                CloseSelectionAdorner();
+                if (previousSelectionVisible || previousAutoDetectVisible)
+                    Invalidate(Rectangle.Union(
+                        InflateForRepaint(previousSelectionRect),
+                        InflateForRepaint(previousAutoDetectRect)));
                 break;
             case CaptureMode.Freeform:
                 HideToolbarForCaptureTool();
+                var oldFreeformDirty = GetFreeformRepaintBounds(_freeformPoints);
                 _isSelecting = true;
+                _selectionStart = _selectionEnd = e.Location;
+                _selectionRect = Rectangle.Empty;
+                _hasSelection = false;
+                ResetCaptureMagnifierDragPlacement();
                 _freeformPoints.Clear();
                 _freeformPoints.Add(e.Location);
+                if (!oldFreeformDirty.IsEmpty)
+                    Invalidate(oldFreeformDirty);
                 break;
             case CaptureMode.Text:
                 HideToolbarForCaptureTool();

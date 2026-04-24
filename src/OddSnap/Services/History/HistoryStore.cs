@@ -107,6 +107,12 @@ internal static class HistoryStore
                     continue;
                 }
 
+                if (!HistoryEntryUtilities.IsSupportedHistoryFile(entry.FilePath))
+                {
+                    pendingDeletes.Add(entry.FilePath);
+                    continue;
+                }
+
                 var desiredKind = HistoryEntryUtilities.GetKindForPath(
                     entry.FilePath,
                     entry.Kind,

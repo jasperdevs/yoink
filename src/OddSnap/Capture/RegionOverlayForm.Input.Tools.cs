@@ -39,6 +39,7 @@ public sealed partial class RegionOverlayForm
     {
         if (_mode == CaptureMode.Freeform && _isSelecting)
         {
+            _selectionEnd = e.Location;
             if (ShowCaptureMagnifier)
                 UpdateCaptureMagnifier(e.Location);
             ClearCrosshairGuides();
@@ -46,6 +47,7 @@ public sealed partial class RegionOverlayForm
             if (_freeformPoints.Count == 0)
             {
                 _freeformPoints.Add(e.Location);
+                Invalidate(GetFreeformRepaintBounds(_freeformPoints));
             }
             else
             {
@@ -54,9 +56,11 @@ public sealed partial class RegionOverlayForm
                 int dy = e.Location.Y - last.Y;
                 if ((dx * dx) + (dy * dy) >= 9)
                 {
+                    var oldDirty = GetFreeformRepaintBounds(_freeformPoints);
                     _freeformPoints.Add(e.Location);
                     _hasDragged = true;
-                    Invalidate(InflateForRepaint(RectFromPoints(last, e.Location, 10)));
+                    var newDirty = GetFreeformRepaintBounds(_freeformPoints);
+                    Invalidate(Rectangle.Union(oldDirty, newDirty));
                 }
             }
             return;
@@ -183,7 +187,7 @@ public sealed partial class RegionOverlayForm
                 var scaled = ScaleAnnotation(_selectResizeOriginalAnnotation, ob, nb);
                 _selectPreviewAnnotation = scaled;
                 var newBounds = GetAnnotationBounds(scaled);
-                InvalidateLiveTransform();
+                InvalidateLiveTransform(oldBounds, newBounds);
             }
             return;
         }
@@ -204,7 +208,7 @@ public sealed partial class RegionOverlayForm
             {
                 var moved = MoveAnnotation(current, dx, dy);
                 _selectPreviewAnnotation = moved;
-                InvalidateLiveTransform();
+                InvalidateLiveTransform(currentBounds, GetAnnotationBounds(moved));
             }
             else
                 SetSnapGuides(false, false);
@@ -276,7 +280,7 @@ public sealed partial class RegionOverlayForm
             return;
         }
 
-        if (ShowCaptureMagnifier && ToolDef.IsCaptureTool(_mode) && ShouldShowCaptureMagnifierAt(e.Location))
+        if (ShowCaptureMagnifier && ToolDef.IsCaptureTool(_mode) && !_isSelecting && ShouldShowCaptureMagnifierAt(e.Location))
             UpdateCaptureMagnifier(e.Location);
         else if (_captureMagnifierForm != null && (!ShowCaptureMagnifier || !ToolDef.IsCaptureTool(_mode) || IsPointInOverlayUi(e.Location)))
             CloseCaptureMagnifier();
@@ -284,11 +288,20 @@ public sealed partial class RegionOverlayForm
         switch (_mode)
         {
             case CaptureMode.Rectangle when !_isSelecting:
+            case CaptureMode.Center when !_isSelecting:
             case CaptureMode.Ocr when !_isSelecting:
             case CaptureMode.Scan when !_isSelecting:
             case CaptureMode.Sticker when !_isSelecting:
             case CaptureMode.Upscale when !_isSelecting:
-                if (IsPointInOverlayUi(e.Location))
+                if (_mode == CaptureMode.Center)
+                {
+                    var oldDetect = _autoDetectRect;
+                    _autoDetectRect = Rectangle.Empty;
+                    _autoDetectActive = false;
+                    _autoDetectTimer.Stop();
+                    InvalidateAutoDetectChrome(oldDetect, Rectangle.Empty);
+                }
+                else if (IsPointInOverlayUi(e.Location))
                 {
                     var oldDetect = _autoDetectRect;
                     _autoDetectRect = Rectangle.Empty;
@@ -302,29 +315,30 @@ public sealed partial class RegionOverlayForm
                 }
                 break;
             case CaptureMode.Rectangle when _isSelecting:
+            case CaptureMode.Center when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
             case CaptureMode.Scan when _isSelecting:
             case CaptureMode.Sticker when _isSelecting:
             case CaptureMode.Upscale when _isSelecting:
-                var oldSelectionRect = _selectionRect;
-                bool wasOcrSelection = _mode == CaptureMode.Ocr;
-                bool wasScanSelection = _mode == CaptureMode.Scan;
                 _autoDetectActive = false;
                 _autoDetectTimer.Stop();
-                _selectionEnd = e.Location;
-                _selectionRect = _mode == CaptureMode.Rectangle && (ModifierKeys & Keys.Shift) != 0
-                    ? GetSquareSelectionRect(_selectionStart, _selectionEnd)
-                    : NormRect(_selectionStart, _selectionEnd);
+                var oldSelectionRect = _selectionRect;
+                var oldSelectionCursor = _selectionEnd;
+                var nextSelectionEnd = e.Location;
+                var nextSelectionRect = _mode == CaptureMode.Center
+                    ? GetCenterSelectionRect(_selectionStart, nextSelectionEnd)
+                    : _mode == CaptureMode.Rectangle && (ModifierKeys & Keys.Shift) != 0
+                    ? GetSquareSelectionRect(_selectionStart, nextSelectionEnd)
+                    : NormRect(_selectionStart, nextSelectionEnd);
+                if (nextSelectionEnd == oldSelectionCursor && nextSelectionRect == oldSelectionRect)
+                    return;
+                _selectionEnd = nextSelectionEnd;
+                _selectionRect = nextSelectionRect;
                 if (_selectionRect.Width > 3 || _selectionRect.Height > 3) _hasDragged = true;
                 _hasSelection = _selectionRect.Width > 2 && _selectionRect.Height > 2;
-                var oldDirty = GetSelectionOverlayBounds(oldSelectionRect, wasOcrSelection, wasScanSelection);
-                var newDirty = GetSelectionOverlayBounds(_selectionRect, _mode == CaptureMode.Ocr, _mode == CaptureMode.Scan);
-                if (oldDirty.IsEmpty)
-                    Invalidate(newDirty);
-                else if (newDirty.IsEmpty)
-                    Invalidate(oldDirty);
-                else
-                    Invalidate(Rectangle.Union(oldDirty, newDirty));
+                InvalidateSelectionChrome(oldSelectionRect, oldSelectionCursor, _selectionRect, _selectionEnd);
+                if (ShowCaptureMagnifier && ShouldShowCaptureMagnifierAt(e.Location))
+                    UpdateCaptureMagnifier(e.Location);
                 break;
             case CaptureMode.Highlight when _isHighlighting:
                 Invalidate();
@@ -416,9 +430,21 @@ public sealed partial class RegionOverlayForm
             RefreshToolbar();
     }
 
-    private void InvalidateLiveTransform()
+    private void InvalidateLiveTransform() => Invalidate();
+
+    private void InvalidateLiveTransform(Rectangle oldBounds, Rectangle newBounds)
     {
-        Invalidate();
+        var oldDirty = InflateForRepaint(oldBounds, 28);
+        var newDirty = InflateForRepaint(newBounds, 28);
+
+        if (!oldDirty.IsEmpty && !newDirty.IsEmpty)
+            Invalidate(Rectangle.Union(oldDirty, newDirty));
+        else if (!oldDirty.IsEmpty)
+            Invalidate(oldDirty);
+        else if (!newDirty.IsEmpty)
+            Invalidate(newDirty);
+        else
+            Invalidate();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -527,16 +553,30 @@ public sealed partial class RegionOverlayForm
                 Invalidate(InflateForRepaint(eraserRect));
                 break;
             case CaptureMode.Rectangle when _isSelecting:
+            case CaptureMode.Center when _isSelecting:
             case CaptureMode.Ocr when _isSelecting:
             case CaptureMode.Scan when _isSelecting:
             case CaptureMode.Sticker when _isSelecting:
             case CaptureMode.Upscale when _isSelecting:
                 _isSelecting = false;
+                CloseSelectionAdorner();
+                bool isCenter = _mode == CaptureMode.Center;
                 bool isOcr = _mode == CaptureMode.Ocr;
                 bool isScan = _mode == CaptureMode.Scan;
                 bool isSticker = _mode == CaptureMode.Sticker;
                 bool isUpscale = _mode == CaptureMode.Upscale;
-                if (!_hasDragged)
+                if (isCenter && _selectionRect.Width > 2 && _selectionRect.Height > 2)
+                {
+                    _autoDetectRect = Rectangle.Empty;
+                    _autoDetectActive = false;
+                    RegionSelected?.Invoke(_selectionRect);
+                }
+                else if (isCenter)
+                {
+                    _hasSelection = false;
+                    Invalidate();
+                }
+                else if (!_hasDragged)
                 {
                     if (_windowDetectionMode != WindowDetectionMode.Off)
                     {

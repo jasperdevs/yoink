@@ -58,6 +58,9 @@ public partial class SettingsWindow
     {
         if (!IsLoaded) return;
         _settingsService.Settings.RecordingFormat = (RecordingFormat)RecordingFormatCombo.SelectedIndex;
+        SelectRecordingFps(_settingsService.Settings.RecordingFormat == RecordingFormat.GIF
+            ? _settingsService.Settings.GifFps
+            : _settingsService.Settings.RecordingFps);
         _settingsService.Save();
         UpdateRecordingFormatVisibility();
     }
@@ -83,9 +86,24 @@ public partial class SettingsWindow
         if (RecordingFpsCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             if (int.TryParse(tag, out int fps))
             {
-                _settingsService.Settings.RecordingFps = fps;
+                if (_settingsService.Settings.RecordingFormat == RecordingFormat.GIF)
+                    _settingsService.Settings.GifFps = fps;
+                else
+                    _settingsService.Settings.RecordingFps = fps;
                 _settingsService.Save();
             }
+    }
+
+    private void SelectRecordingFps(int fps)
+    {
+        RecordingFpsCombo.SelectedIndex = fps switch
+        {
+            15 => 0,
+            24 => 1,
+            30 => 2,
+            60 => 3,
+            _ => 2
+        };
     }
 
     private void RecordShowCursorCheck_Changed(object sender, RoutedEventArgs e)
@@ -165,11 +183,28 @@ public partial class SettingsWindow
 
     private void Hyperlink_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {
+        OpenSupportUrl(e.Uri.AbsoluteUri);
+        e.Handled = true;
+    }
+
+    private void KoFiSupport_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        OpenSupportUrl("https://ko-fi.com/T6T71X9ZAM");
+        e.Handled = true;
+    }
+
+    private void PayPalSupport_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        OpenSupportUrl("https://www.paypal.com/paypalme/9KGFX");
+        e.Handled = true;
+    }
+
+    private static void OpenSupportUrl(string url)
+    {
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
-            FileName = e.Uri.AbsoluteUri,
+            FileName = url,
             UseShellExecute = true
         });
-        e.Handled = true;
     }
 }

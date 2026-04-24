@@ -6,10 +6,8 @@ namespace OddSnap.Services;
 
 public sealed class SettingsService : IDisposable
 {
-    private static readonly string DefaultSettingsDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OddSnap");
-
-    private static readonly string DefaultSettingsPath = Path.Combine(DefaultSettingsDir, "settings.json");
+    private static readonly string LegacySettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OddSnap", "settings.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -29,15 +27,21 @@ public sealed class SettingsService : IDisposable
     private bool _disposed;
 
     public AppSettings Settings { get; internal set; } = new();
+    public event Action<string>? SaveFailed;
 
     public SettingsService(string? settingsPath = null, TimeSpan? saveDelay = null)
     {
         _settingsPath = ResolveSettingsPath(settingsPath);
-        _settingsDir = Path.GetDirectoryName(_settingsPath) ?? DefaultSettingsDir;
+        _settingsDir = Path.GetDirectoryName(_settingsPath) ?? AppContext.BaseDirectory;
         _saveDelay = saveDelay ?? TimeSpan.FromMilliseconds(350);
         _flushTimer = new System.Threading.Timer(_ =>
         {
-            try { FlushPendingWrites(); } catch { }
+            try { FlushPendingWrites(); }
+            catch (Exception ex)
+            {
+                AppDiagnostics.LogError("settings.save", ex, $"Failed to persist settings to {_settingsPath}.");
+                NotifySaveFailed(ex.Message);
+            }
         }, null, System.Threading.Timeout.InfiniteTimeSpan, System.Threading.Timeout.InfiniteTimeSpan);
     }
 
@@ -45,6 +49,9 @@ public sealed class SettingsService : IDisposable
     public static AppSettings? LoadStatic(string? settingsPath = null)
     {
         var resolvedPath = ResolveSettingsPath(settingsPath);
+        if (!File.Exists(resolvedPath))
+            TryMigrateLegacyPortableSettings(resolvedPath);
+
         if (TryGetCachedSettings(resolvedPath, out var cached))
             return cached;
 
@@ -81,6 +88,9 @@ public sealed class SettingsService : IDisposable
 
     public void Load()
     {
+        if (!File.Exists(_settingsPath))
+            TryMigrateLegacyPortableSettings();
+
         if (!File.Exists(_settingsPath))
         {
             CacheSettings(_settingsPath, Settings);
@@ -177,13 +187,42 @@ public sealed class SettingsService : IDisposable
         }
         catch (Exception fallbackEx)
         {
-            AppDiagnostics.LogError("settings.save", fallbackEx, $"Failed to persist settings after {errorKind} error writing {_settingsPath}. Initial error: {initialError}");
+            var message = $"Failed to persist settings after {errorKind} error writing {_settingsPath}. Initial error: {initialError}";
+            AppDiagnostics.LogError("settings.save", fallbackEx, message);
+            NotifySaveFailed(fallbackEx.Message);
             return false;
         }
     }
 
+    private void NotifySaveFailed(string message)
+    {
+        try { SaveFailed?.Invoke(message); } catch { }
+    }
+
+    private void TryMigrateLegacyPortableSettings()
+        => TryMigrateLegacyPortableSettings(_settingsPath);
+
+    private static void TryMigrateLegacyPortableSettings(string settingsPath)
+    {
+        if (string.Equals(settingsPath, LegacySettingsPath, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            if (!File.Exists(LegacySettingsPath))
+                return;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath) ?? AppContext.BaseDirectory);
+            File.Copy(LegacySettingsPath, settingsPath, overwrite: false);
+        }
+        catch (Exception ex)
+        {
+            AppDiagnostics.LogWarning("settings.migrate-portable", ex.Message, ex);
+        }
+    }
+
     private static string ResolveSettingsPath(string? settingsPath) =>
-        Path.GetFullPath(string.IsNullOrWhiteSpace(settingsPath) ? DefaultSettingsPath : settingsPath);
+        AppStoragePaths.ResolveSettingsPath(settingsPath);
 
     private static bool TryGetCachedSettings(string settingsPath, out AppSettings? settings)
     {
@@ -238,6 +277,9 @@ public sealed class SettingsService : IDisposable
             settings.FileNameTemplate = Helpers.FileNameTemplate.DefaultTemplate;
 
         settings.ImageSearchSources &= ImageSearchSourceOptions.All;
+        settings.InterfaceLanguage = LocalizationService.NormalizeLanguageSetting(settings.InterfaceLanguage);
+        settings.OcrDefaultTranslateFrom = TranslationService.ResolveSourceLanguage(settings.OcrDefaultTranslateFrom);
+        settings.OcrDefaultTranslateTo = NormalizeTranslationTargetSetting(settings.OcrDefaultTranslateTo);
 
         // Migrate older settings to include newly added default tools.
         if (settings.EnabledTools is { Count: > 0 })
@@ -300,6 +342,8 @@ public sealed class SettingsService : IDisposable
             settings.StickerHotkeyKey = 0;
         if (IsUnsafeModifierlessHotkey(settings.UpscaleHotkeyModifiers, settings.UpscaleHotkeyKey))
             settings.UpscaleHotkeyKey = 0;
+        if (IsUnsafeModifierlessHotkey(settings.CenterHotkeyModifiers, settings.CenterHotkeyKey))
+            settings.CenterHotkeyKey = 0;
         if (IsUnsafeModifierlessHotkey(settings.FullscreenHotkeyModifiers, settings.FullscreenHotkeyKey))
             settings.FullscreenHotkeyKey = 0;
         if (IsUnsafeModifierlessHotkey(settings.ActiveWindowHotkeyModifiers, settings.ActiveWindowHotkeyKey))
@@ -316,6 +360,17 @@ public sealed class SettingsService : IDisposable
 
     private static bool IsUnsafeModifierlessHotkey(uint modifiers, uint key) =>
         modifiers == 0 && key != 0 && key != Native.User32.VK_SNAPSHOT;
+
+    private static string NormalizeTranslationTargetSetting(string? languageCode)
+    {
+        if (string.IsNullOrWhiteSpace(languageCode) ||
+            string.Equals(languageCode, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            return "auto";
+        }
+
+        return TranslationService.ResolveTargetLanguage(languageCode, "en");
+    }
 
     private static void NormalizeToastButtonLayout(AppSettings.ToastButtonLayoutSettings settings)
     {

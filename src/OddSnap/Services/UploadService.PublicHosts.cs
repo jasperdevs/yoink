@@ -25,7 +25,7 @@ public static partial class UploadService
             request.Headers.Authorization = new AuthenticationHeaderValue("Client-ID", clientId);
 
         request.Content = content;
-        var resp = await Http.SendAsync(request);
+        using var resp = await Http.SendAsync(request);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 
@@ -53,7 +53,7 @@ public static partial class UploadService
         content.Add(new StringContent(Path.GetFileNameWithoutExtension(filePath)), "name");
         content.Add(CreateFileStreamContent(filePath), "image", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync($"https://api.imgbb.com/1/upload?key={Uri.EscapeDataString(s.ImgBBApiKey)}", content);
+        using var resp = await Http.PostAsync($"https://api.imgbb.com/1/upload?key={Uri.EscapeDataString(s.ImgBBApiKey)}", content);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 
@@ -78,7 +78,7 @@ public static partial class UploadService
         content.Add(new StringContent("fileupload"), "reqtype");
         content.Add(CreateFileStreamContent(filePath), "fileToUpload", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync("https://catbox.moe/user/api.php", content);
+        using var resp = await Http.PostAsync("https://catbox.moe/user/api.php", content);
         var url = (await resp.Content.ReadAsStringAsync()).Trim();
 
         if (!resp.IsSuccessStatusCode)
@@ -102,7 +102,7 @@ public static partial class UploadService
         content.Add(new StringContent("72h"), "time");
         content.Add(CreateFileStreamContent(filePath), "fileToUpload", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync("https://litterbox.catbox.moe/resources/internals/api.php", content);
+        using var resp = await Http.PostAsync("https://litterbox.catbox.moe/resources/internals/api.php", content);
         var url = (await resp.Content.ReadAsStringAsync()).Trim();
 
         if (!resp.IsSuccessStatusCode)
@@ -125,7 +125,7 @@ public static partial class UploadService
         content.Add(new StringContent(s.GyazoAccessToken), "access_token");
         content.Add(CreateFileStreamContent(filePath), "imagedata", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync("https://upload.gyazo.com/api/upload", content);
+        using var resp = await Http.PostAsync("https://upload.gyazo.com/api/upload", content);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 
@@ -143,7 +143,7 @@ public static partial class UploadService
         using var content = new MultipartFormDataContent();
         content.Add(CreateFileStreamContent(filePath), "file", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync("https://file.io", content);
+        using var resp = await Http.PostAsync("https://file.io", content);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 
@@ -166,7 +166,7 @@ public static partial class UploadService
         using var content = new MultipartFormDataContent();
         content.Add(CreateFileStreamContent(filePath), "files[]", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync("https://uguu.se/upload?output=text", content);
+        using var resp = await Http.PostAsync("https://uguu.se/upload?output=text", content);
         var url = (await resp.Content.ReadAsStringAsync()).Trim();
 
         if (url.StartsWith("https://") || url.StartsWith("http://"))
@@ -182,7 +182,7 @@ public static partial class UploadService
         using var content = new MultipartFormDataContent();
         content.Add(CreateFileStreamContent(filePath), "file", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync("https://upload.gofile.io/uploadfile", content);
+        using var resp = await Http.PostAsync("https://upload.gofile.io/uploadfile", content);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 
@@ -225,7 +225,7 @@ public static partial class UploadService
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.ImgPileApiToken);
         request.Content = content;
 
-        var resp = await Http.SendAsync(request);
+        using var resp = await Http.SendAsync(request);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 
@@ -254,7 +254,7 @@ public static partial class UploadService
         using var content = new MultipartFormDataContent();
         content.Add(CreateFileStreamContent(filePath), "file", Path.GetFileName(filePath));
 
-        var resp = await Http.PostAsync("https://tmpfiles.org/api/v1/upload", content);
+        using var resp = await Http.PostAsync("https://tmpfiles.org/api/v1/upload", content);
         var json = await resp.Content.ReadAsStringAsync();
         var node = TryParseJson(json);
 

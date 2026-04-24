@@ -41,6 +41,7 @@ public sealed partial class RegionOverlayForm
         if (e.KeyCode == Keys.Z && e.Control && _undoStack.Count > 0)
         {
             var last = RemoveLastAnnotation();
+            _redoStack.Add(last);
             // Update step counter when undoing a step number
             if (last is StepNumberAnnotation)
             {
@@ -48,6 +49,17 @@ public sealed partial class RegionOverlayForm
                 _nextStepNumber = remaining != null ? remaining.Number + 1 : 1;
             }
             Invalidate(InflateForRepaint(GetAnnotationBounds(last)));
+            return;
+        }
+
+        if ((e.KeyCode == Keys.Y && e.Control || e.KeyCode == Keys.Z && e.Control && e.Shift) && _redoStack.Count > 0)
+        {
+            var annotation = _redoStack[^1];
+            _redoStack.RemoveAt(_redoStack.Count - 1);
+            RestoreAnnotation(annotation);
+            if (annotation is StepNumberAnnotation step)
+                _nextStepNumber = Math.Max(_nextStepNumber, step.Number + 1);
+            Invalidate(InflateForRepaint(GetAnnotationBounds(annotation)));
             return;
         }
 
@@ -77,6 +89,7 @@ public sealed partial class RegionOverlayForm
         {
             var bounds = InflateForRepaint(GetAnnotationBounds(_undoStack[_selectedAnnotationIndex]));
             _undoStack.RemoveAt(_selectedAnnotationIndex);
+            _redoStack.Clear();
             MarkCommittedAnnotationsDirty();
             _selectedAnnotationIndex = -1;
             Invalidate(bounds);
@@ -101,10 +114,10 @@ public sealed partial class RegionOverlayForm
             return false;
 
         var tool = _visibleTools.FirstOrDefault(t => string.Equals(t.Id, toolId, StringComparison.OrdinalIgnoreCase));
-        if (tool?.Mode is not { } mode)
+        if (tool?.Mode is not { })
             return false;
 
-        SetMode(mode);
+        SetTool(tool);
         return true;
     }
 }

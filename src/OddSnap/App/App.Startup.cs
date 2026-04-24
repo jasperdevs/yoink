@@ -49,6 +49,12 @@ public partial class App
 
         _settingsService = new SettingsService();
         _settingsService.Load();
+        _settingsService.SaveFailed += message =>
+        {
+            _ = Dispatcher.BeginInvoke(() =>
+                ToastWindow.ShowError("Settings save failed", string.IsNullOrWhiteSpace(message) ? "OddSnap could not write settings." : message));
+        };
+        LocalizationService.ApplyCurrentCulture(_settingsService.Settings.InterfaceLanguage);
         BackgroundRuntimeJobService.Initialize();
         StartBackgroundPreloads();
 

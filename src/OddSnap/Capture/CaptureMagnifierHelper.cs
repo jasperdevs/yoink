@@ -12,7 +12,7 @@ namespace OddSnap.Capture;
 /// </summary>
 internal sealed class CaptureMagnifierHelper : IDisposable
 {
-    private const int Grid = 11, Cell = 14, Mag = Grid * Cell;
+    private const int Grid = 11, Cell = 10, Mag = Grid * Cell;
     private const int PW = Mag, PH = Mag;
 
     private readonly Bitmap _magBitmap = new(PW, PH, PixelFormat.Format32bppArgb);
@@ -25,6 +25,7 @@ internal sealed class CaptureMagnifierHelper : IDisposable
     private Color _pickedColor;
     private string _hexStr = "";
     private string _rgbStr = "";
+    private int _placementIndex;
 
     /// <summary>
     /// Caches pixel data from the screenshot for fast magnifier rendering.
@@ -50,7 +51,7 @@ internal sealed class CaptureMagnifierHelper : IDisposable
     /// <summary>
     /// Shows or updates the magnifier at the given cursor position (in form/overlay coords).
     /// </summary>
-    public void Update(Point cursorInForm, Form owner, Rectangle virtualBounds)
+    public void Update(Point cursorInForm, Form owner, Rectangle virtualBounds, Rectangle avoidRect = default)
     {
         if (_pixelData is null) return;
         if (_throttle.ElapsedMilliseconds < UiChrome.FrameIntervalMs && _form?.Visible == true) return;
@@ -73,12 +74,14 @@ internal sealed class CaptureMagnifierHelper : IDisposable
         EnsureForm(owner);
         var form = _form!;
 
-        var (mx, my) = CalcPosition(cursorInForm, owner.ClientSize);
+        var (mx, my) = CalcPosition(cursorInForm, owner.ClientSize, avoidRect);
         form.Left = mx + virtualBounds.X - 4;
         form.Top = my + virtualBounds.Y - 4;
         if (!form.Visible)
             form.Show(owner);
         form.UpdateMagnifier(_magBitmap, cursorInForm, _pickedColor, _hexStr, _rgbStr, showInfo: false);
+        User32.SetWindowPos(form.Handle, User32.HWND_TOPMOST, 0, 0, 0, 0,
+            User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE | User32.SWP_SHOWWINDOW);
         _throttle.Restart();
     }
 
@@ -92,7 +95,11 @@ internal sealed class CaptureMagnifierHelper : IDisposable
         _form?.Close();
         _form?.Dispose();
         _form = null;
+        _pixelData = null;
+        _bmpW = 0;
+        _bmpH = 0;
         _lastSamplePoint = new Point(-1, -1);
+        _placementIndex = 0;
     }
 
     public bool IsVisible => _form?.Visible == true;
@@ -147,8 +154,14 @@ internal sealed class CaptureMagnifierHelper : IDisposable
 
         var bitsLock = _magBitmap.LockBits(new Rectangle(0, 0, PW, PH),
             ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-        Marshal.Copy(_magPixels, 0, bitsLock.Scan0, _magPixels.Length);
-        _magBitmap.UnlockBits(bitsLock);
+        try
+        {
+            Marshal.Copy(_magPixels, 0, bitsLock.Scan0, _magPixels.Length);
+        }
+        finally
+        {
+            _magBitmap.UnlockBits(bitsLock);
+        }
     }
 
     private void SetPx(int x, int y, int v)
@@ -165,17 +178,81 @@ internal sealed class CaptureMagnifierHelper : IDisposable
         return unchecked((int)0xFF000000) | (r << 16) | (g << 8) | b;
     }
 
-    private static (int x, int y) CalcPosition(Point cursor, Size clientSize)
+    private (int x, int y) CalcPosition(Point cursor, Size clientSize, Rectangle avoidRect)
     {
-        int formW = 152, formH = 152;
+        int formW = PickerMagnifierForm.TotalW;
+        int formH = PickerMagnifierForm.GetTotalHeight(showInfo: false);
         int margin = 12, offset = 8;
-        int px = cursor.X + offset + 4, py = cursor.Y + offset + 4;
-        if (px + formW > clientSize.Width - margin) px = cursor.X - offset - formW;
-        if (py + formH > clientSize.Height - margin) py = cursor.Y - offset - formH;
-        px = Math.Clamp(px, margin, Math.Max(margin, clientSize.Width - formW - margin));
-        py = Math.Clamp(py, margin, Math.Max(margin, clientSize.Height - formH - margin));
-        return (px, py);
+        int preferredIndex = avoidRect.IsEmpty ? 0 : _placementIndex;
+        var candidates = new[]
+        {
+            new Point(cursor.X + offset + 4, cursor.Y + offset + 4),
+            new Point(cursor.X - offset - formW, cursor.Y + offset + 4),
+            new Point(cursor.X + offset + 4, cursor.Y - offset - formH),
+            new Point(cursor.X - offset - formW, cursor.Y - offset - formH),
+            avoidRect.IsEmpty ? Point.Empty : new Point(avoidRect.Right + offset, cursor.Y - formH / 2),
+            avoidRect.IsEmpty ? Point.Empty : new Point(avoidRect.Left - offset - formW, cursor.Y - formH / 2),
+            avoidRect.IsEmpty ? Point.Empty : new Point(cursor.X - formW / 2, avoidRect.Bottom + offset),
+            avoidRect.IsEmpty ? Point.Empty : new Point(cursor.X - formW / 2, avoidRect.Top - offset - formH)
+        };
+
+        if (TryResolveCandidate(preferredIndex, candidates, clientSize, formW, formH, margin, avoidRect, out var preferred))
+        {
+            if (!avoidRect.IsEmpty)
+                _placementIndex = preferredIndex;
+            return (preferred.X, preferred.Y);
+        }
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            if (i == preferredIndex)
+                continue;
+
+            if (TryResolveCandidate(i, candidates, clientSize, formW, formH, margin, avoidRect, out var resolved))
+            {
+                if (!avoidRect.IsEmpty)
+                    _placementIndex = i;
+                return (resolved.X, resolved.Y);
+            }
+        }
+
+        var fallback = ClampPosition(candidates[0], clientSize, formW, formH, margin);
+        if (!avoidRect.IsEmpty)
+            _placementIndex = 0;
+        return (fallback.X, fallback.Y);
     }
+
+    private static bool TryResolveCandidate(
+        int index,
+        IReadOnlyList<Point> candidates,
+        Size clientSize,
+        int formW,
+        int formH,
+        int margin,
+        Rectangle avoidRect,
+        out Point resolved)
+    {
+        resolved = Point.Empty;
+        if ((uint)index >= (uint)candidates.Count)
+            return false;
+
+        var candidate = candidates[index];
+        if (candidate == Point.Empty)
+            return false;
+
+        var clamped = ClampPosition(candidate, clientSize, formW, formH, margin);
+        var rect = new Rectangle(clamped.X, clamped.Y, formW, formH);
+        if (!avoidRect.IsEmpty && rect.IntersectsWith(avoidRect))
+            return false;
+
+        resolved = clamped;
+        return true;
+    }
+
+    private static Point ClampPosition(Point point, Size clientSize, int formW, int formH, int margin)
+        => new(
+            Math.Clamp(point.X, margin, Math.Max(margin, clientSize.Width - formW - margin)),
+            Math.Clamp(point.Y, margin, Math.Max(margin, clientSize.Height - formH - margin)));
 
     public void Dispose()
     {

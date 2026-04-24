@@ -20,6 +20,11 @@ internal sealed class ThemedConfirmDialog : Window
     private ThemedConfirmDialog(string title, string message, string primaryText, string secondaryText, bool danger)
     {
         Theme.Refresh();
+        title = Services.LocalizationService.Translate(title);
+        message = Services.LocalizationService.Translate(message);
+        primaryText = Services.LocalizationService.Translate(primaryText);
+        secondaryText = Services.LocalizationService.Translate(secondaryText);
+
         Title = title;
         Width = 380;
         SizeToContent = SizeToContent.Height;
@@ -138,7 +143,8 @@ internal sealed class ThemedConfirmDialog : Window
         {
             Background = Theme.Brush(Theme.TitleBar),
             CornerRadius = new CornerRadius(10, 10, 0, 0),
-            Padding = new Thickness(14, 9, 8, 9)
+            Padding = new Thickness(14, 0, 0, 0),
+            MinHeight = 40
         };
 
         var grid = new Grid();
@@ -157,16 +163,16 @@ internal sealed class ThemedConfirmDialog : Window
 
         var close = new Border
         {
-            Width = 30,
-            Height = 28,
-            CornerRadius = new CornerRadius(6),
+            Width = 46,
+            Height = 40,
+            CornerRadius = new CornerRadius(0, 10, 0, 0),
             Background = WpfBrushes.Transparent,
             Cursor = WpfCursors.Hand,
             Child = new System.Windows.Controls.Image
             {
                 Source = StreamlineIcons.RenderWpf("close", ToDrawingColor(Theme.TextSecondary, 220), 16),
-                Width = 12,
-                Height = 12,
+                Width = 16,
+                Height = 16,
                 Stretch = Stretch.Uniform,
                 HorizontalAlignment = WpfHorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
@@ -243,7 +249,7 @@ internal sealed class ThemedConfirmDialog : Window
 
         button.Background = isPrimary ? primaryBg : Theme.Brush(Theme.AccentSubtle);
         button.Foreground = isPrimary
-            ? WpfBrushes.White
+            ? (Theme.IsDark ? WpfBrushes.Black : WpfBrushes.White)
             : Theme.Brush(Theme.TextPrimary);
         button.BorderBrush = isPrimary
             ? WpfBrushes.Transparent
@@ -258,7 +264,7 @@ internal sealed class ThemedConfirmDialog : Window
     private static ControlTemplate BuildButtonTemplate()
     {
         var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
         border.SetBinding(Border.BackgroundProperty, new System.Windows.Data.Binding(nameof(Button.Background)) { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
         border.SetBinding(Border.BorderBrushProperty, new System.Windows.Data.Binding(nameof(Button.BorderBrush)) { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
         border.SetBinding(Border.BorderThicknessProperty, new System.Windows.Data.Binding(nameof(Button.BorderThickness)) { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });

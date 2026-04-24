@@ -9,6 +9,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using OddSnap.Helpers;
+using OddSnap.Services;
 using DataObject = System.Windows.DataObject;
 using DragDropEffects = System.Windows.DragDropEffects;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
@@ -49,7 +50,7 @@ public partial class PreviewWindow
             else if (_screenshot != null)
             {
                 tmpFile = Path.Combine(Path.GetTempPath(), $"oddsnap_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-                _screenshot.Save(tmpFile, ImageFormat.Png);
+                CaptureOutputService.SavePng(_screenshot, tmpFile);
                 deleteTempFileAfterDrag = true;
             }
             else
@@ -77,7 +78,7 @@ public partial class PreviewWindow
             if (_screenshot != null)
             {
                 using var ms = new MemoryStream();
-                _screenshot.Save(ms, ImageFormat.Png);
+                CaptureOutputService.WritePng(_screenshot, ms);
                 data.SetData("PNG", ms.ToArray());
             }
 
@@ -231,9 +232,10 @@ public partial class PreviewWindow
             };
             if (dlg.ShowDialog(this) == true && _screenshot != null)
             {
-                var fmt = dlg.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
-                    ? ImageFormat.Jpeg : ImageFormat.Png;
-                _screenshot.Save(dlg.FileName, fmt);
+                if (dlg.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
+                    _screenshot.Save(dlg.FileName, ImageFormat.Jpeg);
+                else
+                    CaptureOutputService.SavePng(_screenshot, dlg.FileName);
             }
         }
         AnimateDismiss();

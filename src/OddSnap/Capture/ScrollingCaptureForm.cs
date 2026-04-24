@@ -26,7 +26,7 @@ public sealed partial class ScrollingCaptureForm : Form
 
     private enum State { Selecting, Capturing, Stitching, Done }
 
-    private readonly Bitmap? _screenshot;
+    private Bitmap? _screenshot;
     private readonly Rectangle _virtualBounds;
     private readonly bool _showCursor;
     private State _state = State.Selecting;
@@ -55,12 +55,9 @@ public sealed partial class ScrollingCaptureForm : Form
     private LiveSelectionAdornerForm? _selectionAdorner;
 
     // Cached GDI objects for selection overlay
-    private readonly Pen _selPen = new(Color.FromArgb(255, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
-    private readonly Font _labelFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
+    private readonly Font _readoutFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
     private readonly Font _hintFont = UiChrome.ChromeFont(UiChrome.ChromeHintSize);
     private readonly SolidBrush _hintBrush = new(UiChrome.SurfaceTextMuted);
-    private readonly SolidBrush _bgLabelBrush = new(UiChrome.SurfacePill);
-    private readonly SolidBrush _textLabelBrush = new(UiChrome.SurfaceTextPrimary);
 
     public ScrollingCaptureForm(Bitmap? screenshot, Rectangle virtualBounds, bool showCursor = false,
                                 bool showMagnifier = false)
@@ -169,7 +166,7 @@ public sealed partial class ScrollingCaptureForm : Form
                 UpdateLiveSelectionAdorner();
                 Invalidate();
             }
-            _magHelper?.Update(e.Location, this, _virtualBounds);
+            _magHelper?.Update(e.Location, this, _virtualBounds, _isDragging ? GetMagnifierAvoidBounds() : Rectangle.Empty);
         }
     }
 
@@ -198,6 +195,7 @@ public sealed partial class ScrollingCaptureForm : Form
         _selectionAdorner?.Close();
         _selectionAdorner?.Dispose();
         _selectionAdorner = null;
+        ReleaseSelectionPreview();
         _screenRegion = new Rectangle(
             _selection.X + _virtualBounds.X,
             _selection.Y + _virtualBounds.Y,
@@ -374,7 +372,7 @@ public sealed partial class ScrollingCaptureForm : Form
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             var borderRect = Rectangle.Inflate(_selection, 2, 2);
-            g.DrawRectangle(_selPen, borderRect);
+            SelectionFrameRenderer.DrawRectangle(g, borderRect, fill: false);
         }
     }
 
@@ -389,18 +387,7 @@ public sealed partial class ScrollingCaptureForm : Form
         {
             if (_screenshot is not null)
                 g.DrawImage(_screenshot, _selection, _selection, GraphicsUnit.Pixel);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.DrawRectangle(_selPen, _selection);
-            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            string label = $"Scroll  {_selection.Width} x {_selection.Height}";
-            var sz = g.MeasureString(label, _labelFont);
-            float lx = _selection.X + _selection.Width / 2f - sz.Width / 2f;
-            float ly = _selection.Bottom + 6;
-            if (ly + sz.Height > Height - 10) ly = _selection.Y - sz.Height - 6;
-            var bgRect = new RectangleF(lx - 8, ly - 2, sz.Width + 16, sz.Height + 4);
-            using var bgPath = RRect(bgRect, bgRect.Height / 2f);
-            g.FillPath(_bgLabelBrush, bgPath);
-            g.DrawString(label, _labelFont, _textLabelBrush, lx, ly);
+            SelectionFrameRenderer.DrawRectangle(g, _selection);
         }
         else
         {
@@ -418,22 +405,22 @@ public sealed partial class ScrollingCaptureForm : Form
         if (_selectionAdorner is null)
             return;
 
-        var label = _selection.Width > 2 && _selection.Height > 2
-            ? $"Scroll  {_selection.Width} x {_selection.Height}"
-            : "";
-        _selectionAdorner.SetSelection(_selection, label);
+        _selectionAdorner.SetSelection(_selection, PointToClient(Cursor.Position));
     }
 
-    private static GraphicsPath RRect(RectangleF r, float radius)
+    private Rectangle GetMagnifierAvoidBounds()
     {
-        var path = new GraphicsPath();
-        float d = radius * 2;
-        path.AddArc(r.X, r.Y, d, d, 180, 90);
-        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
+        if (_selection.Width <= 2 || _selection.Height <= 2)
+            return Rectangle.Empty;
+
+        var readoutBounds = SelectionSizeReadout.GetBounds(
+            PointToClient(Cursor.Position),
+            _selection,
+            _readoutFont,
+            ClientRectangle);
+        return readoutBounds.IsEmpty
+            ? _selection
+            : Rectangle.Union(_selection, InflateForRepaint(readoutBounds, 8));
     }
 
     private static Rectangle NormRect(Point a, Point b)
@@ -455,6 +442,12 @@ public sealed partial class ScrollingCaptureForm : Form
         _frames.Clear();
     }
 
+    private void ReleaseSelectionPreview()
+    {
+        _screenshot?.Dispose();
+        _screenshot = null;
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -466,13 +459,10 @@ public sealed partial class ScrollingCaptureForm : Form
             _captureTimer?.Dispose();
             _controlBar?.Dispose();
             DisposeFrames();
-            _screenshot?.Dispose();
-            _selPen.Dispose();
-            _labelFont.Dispose();
+            ReleaseSelectionPreview();
+            _readoutFont.Dispose();
             _hintFont.Dispose();
             _hintBrush.Dispose();
-            _bgLabelBrush.Dispose();
-            _textLabelBrush.Dispose();
         }
         base.Dispose(disposing);
     }

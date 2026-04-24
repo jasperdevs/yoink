@@ -54,6 +54,8 @@ public static class WindowsMenuRenderer
         bool active = false,
         bool danger = false)
     {
+        text = OddSnap.Services.LocalizationService.Translate(text);
+
         var color = danger
             ? Color.FromArgb(239, 68, 68)
             : UiChrome.SurfaceTextPrimary;

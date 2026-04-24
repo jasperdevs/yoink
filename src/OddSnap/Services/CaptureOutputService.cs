@@ -8,6 +8,9 @@ namespace OddSnap.Services;
 
 public static class CaptureOutputService
 {
+    private static readonly ImageCodecInfo? PngEncoder =
+        ImageCodecInfo.GetImageEncoders().FirstOrDefault(e => e.MimeType == "image/png");
+
     public static Bitmap PrepareBitmap(Bitmap source, int maxLongEdge)
     {
         if (maxLongEdge <= 0)
@@ -59,17 +62,28 @@ public static class CaptureOutputService
                 SaveWithAtomicWrite(bitmap, filePath, (bmp, path) => bmp.Save(path, ImageFormat.Bmp));
                 break;
             default:
-                SaveWithAtomicWrite(bitmap, filePath, (bmp, path) => bmp.Save(path, ImageFormat.Png));
+                SaveWithAtomicWrite(bitmap, filePath, SavePngCore);
                 break;
         }
     }
+
+    public static void SavePng(Bitmap bitmap, string filePath)
+    {
+        var dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        SavePngCore(bitmap, filePath);
+    }
+
+    public static void WritePng(Bitmap bitmap, Stream stream) => SavePngCore(bitmap, stream);
 
     public static string SaveBitmapToTempPng(Bitmap bitmap, string fileNamePrefix)
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"{fileNamePrefix}_{Guid.NewGuid():N}.png");
         try
         {
-            bitmap.Save(tempPath, ImageFormat.Png);
+            SavePngCore(bitmap, tempPath);
             return tempPath;
         }
         catch
@@ -92,5 +106,30 @@ public static class CaptureOutputService
             try { File.Delete(tmpPath); } catch { }
             saveAction(bitmap, filePath);
         }
+    }
+
+    private static void SavePngCore(Bitmap bitmap, string filePath)
+    {
+        if (PngEncoder is null)
+            throw new InvalidOperationException("PNG encoder is not available.");
+
+        using var parameters = CreatePngEncoderParameters();
+        bitmap.Save(filePath, PngEncoder, parameters);
+    }
+
+    private static void SavePngCore(Bitmap bitmap, Stream stream)
+    {
+        if (PngEncoder is null)
+            throw new InvalidOperationException("PNG encoder is not available.");
+
+        using var parameters = CreatePngEncoderParameters();
+        bitmap.Save(stream, PngEncoder, parameters);
+    }
+
+    private static EncoderParameters CreatePngEncoderParameters()
+    {
+        var parameters = new EncoderParameters(1);
+        parameters.Param[0] = new EncoderParameter(Encoder.Compression, 6L);
+        return parameters;
     }
 }

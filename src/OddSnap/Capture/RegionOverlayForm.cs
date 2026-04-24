@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using OddSnap.Helpers;
 using OddSnap.Models;
+using OddSnap.Services;
 
 namespace OddSnap.Capture;
 
@@ -16,6 +17,7 @@ public sealed partial class RegionOverlayForm : Form
     private readonly int _bmpW, _bmpH;
     private readonly Rectangle _virtualBounds;
     private readonly WindowDetectionMode _windowDetectionMode;
+    private readonly CenterSelectionAspectRatio _centerSelectionAspectRatio;
 
     private CaptureMode _mode = CaptureMode.Rectangle;
     private bool _isSelecting;
@@ -24,7 +26,6 @@ public sealed partial class RegionOverlayForm : Form
     private Rectangle _selectionRect;
     private bool _hasSelection;
     private bool _hasDragged;
-
     private readonly List<Point> _freeformPoints = new();
 
     // Dynamic toolbar built from enabled tools + fixed buttons (color, close)
@@ -37,7 +38,9 @@ public sealed partial class RegionOverlayForm : Form
     private Rectangle[] _toolbarButtons = Array.Empty<Rectangle>();
     private string[] _toolbarIcons = Array.Empty<string>();
     private string[] _toolbarLabels = Array.Empty<string>();
+    private string[] _toolbarToolIds = Array.Empty<string>();
     private CaptureMode?[] _toolbarModes = Array.Empty<CaptureMode?>();
+    private string? _activeToolId;
     private int _hoveredButton = -1;
     private int _tooltipButton = -1;
     private WindowsToolTip? _toolbarToolTip;
@@ -56,6 +59,7 @@ public sealed partial class RegionOverlayForm : Form
     private Point _prevCursorPos; // crosshair ghosting fix
     private Rectangle _lastSelectionRect;
     private Rectangle _lastAutoDetectRect;
+    private LiveSelectionAdornerForm? _selectionAdorner;
     private CrosshairGuideForm? _verticalCrosshairForm;
     private CrosshairGuideForm? _horizontalCrosshairForm;
     private readonly System.Windows.Forms.Timer _animTimer;
@@ -74,6 +78,7 @@ public sealed partial class RegionOverlayForm : Form
     private readonly Graphics _magGfx;
     private readonly Font _hexFont = UiChrome.ChromeFont(11f, FontStyle.Bold);
     private readonly Font _rgbFont = UiChrome.ChromeFont(9f);
+    private readonly Font _readoutFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
     private readonly SolidBrush _mutedBrush = new(Color.FromArgb(140, 255, 255, 255));
     private readonly Pen _crossPen = new(Color.FromArgb(210, 255, 255, 255), 1f);
     private Point _pickerCursorPos;
@@ -83,13 +88,14 @@ public sealed partial class RegionOverlayForm : Form
     private string _rgbStr = "0, 0, 0";
     private readonly System.Windows.Forms.Timer _pickerTimer;
 
-    private const int Grid = 11, Cell = 14, Mag = Grid * Cell;
+    private const int Grid = 11, Cell = 10, Mag = Grid * Cell;
     private const int InfoH = 0, PPad = 0;
     private const int PW = Mag, PH = Mag;
     private const int MagOff = 8, MagMargin = 4;
 
     // Typed undo stack: all annotations in creation order
     private readonly List<Annotation> _undoStack = new();
+    private readonly List<Annotation> _redoStack = new();
     private Bitmap? _committedAnnotationsBitmap;
     private bool _committedAnnotationsDirty = true;
 
@@ -338,17 +344,21 @@ public sealed partial class RegionOverlayForm : Form
     public event Action<Rectangle>? StickerRegionSelected;
     public event Action<Rectangle>? UpscaleRegionSelected;
     public event Action? SelectionCancelled;
+
     public RegionOverlayForm(Bitmap screenshot, Rectangle virtualBounds,
         CaptureMode initialMode = CaptureMode.Rectangle,
-        WindowDetectionMode windowDetectionMode = WindowDetectionMode.WindowOnly)
+        WindowDetectionMode windowDetectionMode = WindowDetectionMode.WindowOnly,
+        CenterSelectionAspectRatio centerSelectionAspectRatio = CenterSelectionAspectRatio.Free)
     {
         OddSnap.UI.Theme.Refresh();
         _screenshot = screenshot;
         _virtualBounds = virtualBounds;
         _windowDetectionMode = windowDetectionMode;
+        _centerSelectionAspectRatio = centerSelectionAspectRatio;
         _bmpW = _screenshot.Width;
         _bmpH = _screenshot.Height;
         _mode = initialMode;
+        _activeToolId = ToolDef.AllTools.FirstOrDefault(t => t.Mode == _mode)?.Id;
         _showTime = DateTime.UtcNow;
 
         // Magnifier bitmap for color picker
@@ -390,13 +400,35 @@ public sealed partial class RegionOverlayForm : Form
         _autoDetectTimer.Tick += (_, _) =>
         {
             _autoDetectTimer.Stop();
-            if (_isSelecting || !ToolDef.IsCaptureTool(_mode) || IsPointInOverlayUi(_pendingAutoDetectPoint))
+            if (_isSelecting || !ToolDef.IsCaptureTool(_mode) || _mode == CaptureMode.Center || IsPointInOverlayUi(_pendingAutoDetectPoint))
                 return;
 
             UpdateAutoDetectRect(_pendingAutoDetectPoint);
         };
 
         _currentOverlay = this;
+    }
+
+    public static bool TrySwitchCurrentOverlayMode(CaptureMode mode)
+    {
+        if (!IsOverlaySwitchableMode(mode))
+            return false;
+
+        var overlay = _currentOverlay;
+        if (overlay is null || overlay.IsDisposed || overlay.Disposing)
+            return false;
+        try
+        {
+            if (overlay.InvokeRequired)
+                overlay.BeginInvoke(new Action(() => overlay.SwitchModeFromHotkey(mode)));
+            else
+                overlay.SwitchModeFromHotkey(mode);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private int[] GetPixelData()
@@ -429,8 +461,12 @@ public sealed partial class RegionOverlayForm : Form
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
+        Text = string.Empty;
         Bounds = new Rectangle(_virtualBounds.X, _virtualBounds.Y,
             _virtualBounds.Width, _virtualBounds.Height);
+        MinimumSize = Size.Empty;
+        MinimizeBox = false;
+        MaximizeBox = false;
         Cursor = Cursors.Cross;
         BackColor = Color.Black;
         SetStyle(ControlStyles.AllPaintingInWmPaint |
@@ -451,12 +487,14 @@ public sealed partial class RegionOverlayForm : Form
         _toolbarButtons = new Rectangle[BtnCount];
         _toolbarIcons = new string[BtnCount];
         _toolbarLabels = new string[BtnCount];
+        _toolbarToolIds = new string[BtnCount];
         _toolbarModes = new CaptureMode?[BtnCount];
 
         for (int i = 0; i < _mainBarTools.Length; i++)
         {
-            _toolbarIcons[i] = _mainBarTools[i].Id;
-            _toolbarLabels[i] = _mainBarTools[i].Label;
+            _toolbarIcons[i] = _mainBarTools[i].Id == "crop" ? "rect" : _mainBarTools[i].Id;
+            _toolbarLabels[i] = LocalizationService.Translate(_mainBarTools[i].Label);
+            _toolbarToolIds[i] = _mainBarTools[i].Id;
             _toolbarModes[i] = _mainBarTools[i].Mode;
         }
         int idx = _mainBarTools.Length;
@@ -464,7 +502,8 @@ public sealed partial class RegionOverlayForm : Form
         {
             _moreButtonIndex = idx;
             _toolbarIcons[idx] = "more";
-            _toolbarLabels[idx] = "More tools";
+            _toolbarLabels[idx] = LocalizationService.Translate("More tools");
+            _toolbarToolIds[idx] = "more";
             _toolbarModes[idx] = null;
             idx++;
         }
@@ -473,11 +512,14 @@ public sealed partial class RegionOverlayForm : Form
             _moreButtonIndex = -1;
         }
         _toolbarIcons[idx] = "color";
-        _toolbarLabels[idx] = "Color";
+        _toolbarLabels[idx] = LocalizationService.Translate("Color");
+        _toolbarToolIds[idx] = "color";
         _toolbarModes[idx] = null;
-        _toolbarIcons[idx + 1] = "close";
-        _toolbarLabels[idx + 1] = "Close (Esc)";
-        _toolbarModes[idx + 1] = null;
+        idx++;
+        _toolbarIcons[idx] = "close";
+        _toolbarLabels[idx] = LocalizationService.Translate("Close (Esc)");
+        _toolbarToolIds[idx] = "close";
+        _toolbarModes[idx] = null;
 
         // Compute group gaps: between tool groups
         var gaps = new List<int>();

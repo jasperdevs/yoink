@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Collections.Specialized;
 
@@ -7,9 +6,6 @@ namespace OddSnap.Services;
 
 public static class ClipboardService
 {
-    private static readonly ImageCodecInfo? PngEncoder =
-        ImageCodecInfo.GetImageEncoders().FirstOrDefault(e => e.MimeType == "image/png");
-
     public static void CopyToClipboard(Bitmap bitmap, string? filePath = null)
     {
         var dataObject = new System.Windows.Forms.DataObject();
@@ -17,16 +13,7 @@ public static class ClipboardService
         dataObject.SetData(System.Windows.Forms.DataFormats.Bitmap, bitmap);
 
         using var pngStream = new MemoryStream();
-        if (PngEncoder is not null)
-        {
-            using var enc = new EncoderParameters(1);
-            enc.Param[0] = new EncoderParameter(Encoder.Compression, 6L);
-            bitmap.Save(pngStream, PngEncoder, enc);
-        }
-        else
-        {
-            bitmap.Save(pngStream, ImageFormat.Png);
-        }
+        CaptureOutputService.WritePng(bitmap, pngStream);
         if (pngStream.TryGetBuffer(out var pngBuffer))
             dataObject.SetData("PNG", false, new MemoryStream(pngBuffer.Array!, pngBuffer.Offset, pngBuffer.Count, writable: false, publiclyVisible: true));
         else

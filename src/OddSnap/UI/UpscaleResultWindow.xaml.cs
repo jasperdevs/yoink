@@ -3,7 +3,6 @@ using System.Windows.Media;
 using System.Windows;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
-using System.Windows.Shell;
 using OddSnap.Helpers;
 using OddSnap.Services;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
@@ -34,15 +33,7 @@ public partial class UpscaleResultWindow : Window
         _settingsService = settingsService;
         _acceptResult = acceptResult;
         InitializeComponent();
-
-        WindowChrome.SetWindowChrome(this, new WindowChrome
-        {
-            CaptionHeight = 0,
-            CornerRadius = new CornerRadius(12),
-            GlassFrameThickness = new Thickness(0),
-            ResizeBorderThickness = new Thickness(8),
-            UseAeroCaptionButtons = false
-        });
+        OddSnapWindowChrome.Apply(this);
 
         Theme.Refresh();
         ApplyTheme();
@@ -63,9 +54,6 @@ public partial class UpscaleResultWindow : Window
 
     private void LoadIcons()
     {
-        var titleIcon = System.Drawing.Color.FromArgb(210, Theme.TextSecondary.R, Theme.TextSecondary.G, Theme.TextSecondary.B);
-        MinimizeTitleIcon.Source = StreamlineIcons.RenderWpf("minimize", titleIcon, 18);
-        CloseTitleIcon.Source = StreamlineIcons.RenderWpf("close", titleIcon, 18);
         UseResultIcon.Source = StreamlineIcons.RenderWpf("download", System.Drawing.Color.FromArgb(245, 255, 255, 255), 18);
     }
 
@@ -345,26 +333,7 @@ public partial class UpscaleResultWindow : Window
         StatusText.Text = "Click Upscale to generate a comparison.";
     }
 
-    private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton == MouseButton.Left)
-            DragMove();
-    }
-
-    private void CloseBtn_Click(object sender, MouseButtonEventArgs e) => Close();
-    private void MinimizeBtn_Click(object sender, MouseButtonEventArgs e) => WindowState = WindowState.Minimized;
-
-    private void TitleBtn_Enter(object sender, MouseEventArgs e)
-    {
-        if (sender is not System.Windows.Controls.Border b) return;
-        b.Background = Theme.Brush(ReferenceEquals(b, CloseTitleBtn) ? Theme.DangerHover : Theme.AccentHover);
-    }
-
-    private void TitleBtn_Leave(object sender, MouseEventArgs e)
-    {
-        if (sender is System.Windows.Controls.Border b)
-            b.Background = System.Windows.Media.Brushes.Transparent;
-    }
+    private void TitleBar_CloseRequested(object? sender, EventArgs e) => Close();
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {

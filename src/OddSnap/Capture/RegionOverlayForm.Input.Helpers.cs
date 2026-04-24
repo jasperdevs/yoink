@@ -35,6 +35,9 @@ public sealed partial class RegionOverlayForm
 
     private int GetToolbarButtonAt(Point p)
     {
+        if (!IsToolbarInteractive())
+            return -1;
+
         for (int i = 0; i < _toolbarButtons.Length; i++)
             if (_toolbarButtons[i].Contains(p)) return i;
         return -1;
@@ -50,7 +53,72 @@ public sealed partial class RegionOverlayForm
         return NormRect(start, new Point(x2, y2));
     }
 
-    private void SetMode(CaptureMode m)
+    private Rectangle GetCenterSelectionRect(Point center, Point current)
+    {
+        int halfW = Math.Abs(current.X - center.X);
+        int halfH = Math.Abs(current.Y - center.Y);
+
+        var aspectRatio = (ModifierKeys & Keys.Shift) != 0
+            ? CenterSelectionAspectRatio.Square
+            : _centerSelectionAspectRatio;
+
+        if (aspectRatio != CenterSelectionAspectRatio.Free)
+        {
+            if (halfW == 0 && halfH == 0)
+                return Rectangle.Empty;
+
+            ApplyCenterAspectRatio(aspectRatio, ref halfW, ref halfH);
+        }
+
+        int maxHalfW = Math.Max(0, Math.Min(center.X, _bmpW - center.X));
+        int maxHalfH = Math.Max(0, Math.Min(center.Y, _bmpH - center.Y));
+        double scale = Math.Min(1d, Math.Min(maxHalfW / Math.Max(1d, halfW), maxHalfH / Math.Max(1d, halfH)));
+        halfW = Math.Max(0, (int)Math.Floor(halfW * scale));
+        halfH = Math.Max(0, (int)Math.Floor(halfH * scale));
+
+        return new Rectangle(center.X - halfW, center.Y - halfH, halfW * 2, halfH * 2);
+    }
+
+    private static void ApplyCenterAspectRatio(CenterSelectionAspectRatio aspectRatio, ref int halfW, ref int halfH)
+    {
+        var ratio = aspectRatio switch
+        {
+            CenterSelectionAspectRatio.Square => 1d,
+            CenterSelectionAspectRatio.Widescreen16x9 => 16d / 9d,
+            CenterSelectionAspectRatio.Classic4x3 => 4d / 3d,
+            CenterSelectionAspectRatio.Photo3x2 => 3d / 2d,
+            CenterSelectionAspectRatio.Portrait9x16 => 9d / 16d,
+            _ => 0d
+        };
+        if (ratio <= 0)
+            return;
+
+        if (halfW / (double)Math.Max(1, halfH) >= ratio)
+            halfH = Math.Max(1, (int)Math.Round(halfW / ratio));
+        else
+            halfW = Math.Max(1, (int)Math.Round(halfH * ratio));
+    }
+
+    private void SetTool(ToolDef tool)
+    {
+        if (tool.Mode is { } mode)
+            SetMode(mode, tool.Id);
+    }
+
+    private void SetToolColor(Color color)
+    {
+        _toolColor = color;
+        for (int i = 0; i < ToolColors.Length; i++)
+        {
+            if (ToolColors[i].ToArgb() == color.ToArgb())
+            {
+                _toolColorIndex = i;
+                return;
+            }
+        }
+    }
+
+    private void SetMode(CaptureMode m, string? toolId = null)
     {
         if (_isTyping) CommitText();
         bool wasEmoji = _mode == CaptureMode.Emoji && _emojiPickerOpen;
@@ -61,6 +129,7 @@ public sealed partial class RegionOverlayForm
         HideFontSearchBox();
         _emojiHovered = -1;
         _mode = m;
+        _activeToolId = toolId ?? _visibleTools.FirstOrDefault(t => t.Mode == m)?.Id;
         _hasSelection = false;
         _hasDragged = false;
         _selectionRect = Rectangle.Empty;
@@ -131,6 +200,17 @@ public sealed partial class RegionOverlayForm
         Invalidate(Rectangle.Union(InflateForRepaint(GetEmojiPickerBounds(), 12), InflateForRepaint(GetColorPickerBounds(), 12)));
         RefreshToolbar();
     }
+
+    private void SwitchModeFromHotkey(CaptureMode mode)
+    {
+        SetMode(mode);
+        Focus();
+        Invalidate();
+        UpdateToolbarSurfaceOnly();
+    }
+
+    private static bool IsOverlaySwitchableMode(CaptureMode mode) =>
+        ToolDef.AllTools.Any(tool => tool.Mode == mode);
 
     private Point GetRulerEnd(Point current)
     {

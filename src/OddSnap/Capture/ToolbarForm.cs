@@ -23,7 +23,7 @@ public sealed class ToolbarForm : Form
         _owner = owner;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
-        TopMost = true;
+        TopMost = owner.TopMost;
         StartPosition = FormStartPosition.Manual;
     }
 

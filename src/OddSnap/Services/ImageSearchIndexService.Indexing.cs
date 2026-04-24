@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
+using OddSnap.Helpers;
 using OddSnap.Models;
 
 namespace OddSnap.Services;
@@ -173,7 +174,7 @@ public sealed partial class ImageSearchIndexService
     private async Task<ImageSearchIndexRecord> BuildRecordAsync(HistoryEntry entry, string? ocrLanguageTag, OcrWorkload workload, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var bitmap = new Bitmap(entry.FilePath);
+        using var bitmap = BitmapPerf.LoadDetached(entry.FilePath);
         string ocrText = "";
         string? ocrError = null;
 

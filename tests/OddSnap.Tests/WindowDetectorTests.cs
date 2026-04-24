@@ -64,6 +64,7 @@ public sealed class WindowDetectorTests
         var result = WindowDetector.IsSnappableWindowCandidate(0, 0, "Chrome_WidgetWin_1", "");
 
         Assert.False(result);
+        Assert.False(WindowDetector.IsPassThroughWindowCandidate(0, "Chrome_WidgetWin_1"));
     }
 
     [Fact]
@@ -72,6 +73,13 @@ public sealed class WindowDetectorTests
         var result = WindowDetector.IsSnappableWindowCandidate(0, User32.WS_EX_APPWINDOW, "Chrome_WidgetWin_1", "Docs");
 
         Assert.True(result);
+    }
+
+    [Fact]
+    public void IsPassThroughWindowCandidate_AllowsTransparentShellHelpers()
+    {
+        Assert.True(WindowDetector.IsPassThroughWindowCandidate(User32.WS_EX_TRANSPARENT, "Chrome_WidgetWin_1"));
+        Assert.True(WindowDetector.IsPassThroughWindowCandidate(0, "tooltips_class32"));
     }
 
     [Fact]

@@ -1,14 +1,16 @@
-# OddSnap v0.8.27
+# OddSnap v0.8.28
 
 ## Added
-- add a monthly-folder toggle and editable filename pattern for automatic capture saves (#30).
+- add interface localization and language switching with bundled translation files (#32).
+- add customizable capture toolbar tools, center/ruler modes, and per-tool hotkeys.
 
 ## Changed
-- raise MP4/MKV/WebM recording quality and skip no-op scaling for original-size recordings.
-- preserve Velopack release asset names required by in-app updates.
+- restyle Settings, result windows, hotkey controls, and shared window chrome to match the Windows 11 app theme.
+- tighten capture overlay selection handles, toolbar icons, readouts, and magnifier placement.
 
 ## Fixed
-- keep OddSnap recorder, scrolling, and capture overlay chrome out of screenshots and capture frames.
-- speed up tray menu opening and allow tray/record-hotkey recording stop.
-- fix winget manifest generation for the Velopack setup installer (#31).
-- avoid overwriting captures when custom filename patterns repeat within the same minute.
+- fix tool hotkey recording, conflict handling, and setup hotkey styling (#34).
+- store portable settings and logs beside the portable app instead of Roaming AppData (#35).
+- prevent screenshot cancel from flashing native window chrome.
+- prevent the capture magnifier from overlapping the selected screenshot region.
+- keep icon glyphs stable when switching interface languages.

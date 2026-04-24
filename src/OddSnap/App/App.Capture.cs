@@ -13,7 +13,41 @@ namespace OddSnap;
 
 public partial class App
 {
-    private void ResetCapturing() => Volatile.Write(ref _isCapturing, 0);
+    private void ResetCapturing()
+    {
+        Volatile.Write(ref _isCapturing, 0);
+        RestoreSettingsAfterCapture();
+    }
+
+    private void HideSettingsForCapture()
+    {
+        if (_settingsWindow is not { IsVisible: true } settingsWindow)
+            return;
+
+        void Hide()
+        {
+            if (_settingsWindow is { IsVisible: true } win)
+                win.Hide();
+        }
+
+        Interlocked.Exchange(ref _settingsHiddenForCapture, 1);
+        if (Dispatcher.CheckAccess())
+            Hide();
+        else
+            Dispatcher.Invoke(Hide);
+    }
+
+    private void RestoreSettingsAfterCapture()
+    {
+        if (Interlocked.Exchange(ref _settingsHiddenForCapture, 0) == 0)
+            return;
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_settingsWindow is not null)
+                _settingsWindow.Show();
+        });
+    }
 
     private sealed class PersistedCaptureResult
     {
@@ -30,7 +64,7 @@ public partial class App
             {
                 Theme.Refresh();
                 bool showCursor = _settingsService!.Settings.ShowCursor;
-                var bounds = ScreenCapture.GetVirtualScreenBounds();
+                var (selectionScreenshot, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
                 var s = _settingsService!.Settings;
                 var fmt = s.RecordingFormat;
 
@@ -48,7 +82,7 @@ public partial class App
 
                 bool recMic = fmt != RecordingFormat.GIF && s.RecordMicrophone;
                 bool recDesktop = fmt != RecordingFormat.GIF && s.RecordDesktopAudio;
-                var form = new RecordingForm(null, bounds, fps, savePath, fmt, maxH,
+                var form = new RecordingForm(selectionScreenshot, bounds, fps, savePath, fmt, maxH,
                     showCursor, recMic, s.MicrophoneDeviceId, recDesktop, s.DesktopAudioDeviceId,
                     _settingsService!.Settings.ShowCaptureMagnifier);
 
@@ -160,8 +194,8 @@ public partial class App
             {
                 Theme.Refresh();
                 bool showCursor = _settingsService!.Settings.ShowCursor;
-                var bounds = ScreenCapture.GetVirtualScreenBounds();
-                var form = new ScrollingCaptureForm(null, bounds, showCursor,
+                var (selectionScreenshot, bounds) = ScreenCapture.CaptureAllScreens(showCursor);
+                var form = new ScrollingCaptureForm(selectionScreenshot, bounds, showCursor,
                     _settingsService!.Settings.ShowCaptureMagnifier);
 
                 form.CaptureCompleted += result =>
@@ -288,7 +322,12 @@ public partial class App
                     : ScreenCapture.CaptureCurrentScreen(showCursor);
                 screenshot = bmp;
 
-                var overlay = new RegionOverlayForm(screenshot, bounds, initialMode, _settingsService!.Settings.WindowDetection)
+                var overlay = new RegionOverlayForm(
+                    screenshot,
+                    bounds,
+                    initialMode,
+                    _settingsService!.Settings.WindowDetection,
+                    _settingsService.Settings.CenterSelectionAspectRatio)
                 {
                     ShowCrosshairGuides = _settingsService!.Settings.ShowCrosshairGuides,
                     DetectWindows = _settingsService.Settings.DetectWindows,
@@ -465,16 +504,10 @@ public partial class App
                     System.Windows.Forms.Application.ExitThread();
                 };
 
-                overlay.SelectionCancelled += () =>
-                {
-                    overlay.Close();
-                    System.Windows.Forms.Application.ExitThread();
-                };
-
                 overlay.FormClosed += (_, _) =>
                 {
                     var mode = overlay.CurrentMode;
-                    if (mode is CaptureMode.Rectangle or CaptureMode.Freeform)
+                    if (mode is CaptureMode.Rectangle or CaptureMode.Center or CaptureMode.Freeform)
                     {
                         Dispatcher.BeginInvoke(() =>
                         {

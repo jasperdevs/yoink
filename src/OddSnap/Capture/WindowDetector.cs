@@ -10,6 +10,13 @@ namespace OddSnap.Capture;
 /// </summary>
 public static class WindowDetector
 {
+    private enum WindowHitResult
+    {
+        PassThrough,
+        Snappable,
+        Blocked
+    }
+
     private static readonly HashSet<IntPtr> IgnoredHandles = new();
     private static readonly object IgnoredHandleLock = new();
     private static readonly string[] IgnoredWindowClasses =
@@ -62,11 +69,8 @@ public static class WindowDetector
     {
         var pt = ToScreenPoint(screenPoint, virtualBounds);
 
-        var liveHit = GetTopLevelWindowRectFallbackFromPoint(pt, virtualBounds);
-        if (!liveHit.IsEmpty)
-            return liveHit;
-
         Rectangle detected = Rectangle.Empty;
+        bool blockedByRealWindow = false;
         var seen = new HashSet<IntPtr>();
 
         User32.EnumWindows((hwnd, _) =>
@@ -74,17 +78,20 @@ public static class WindowDetector
             if (hwnd == IntPtr.Zero || !seen.Add(hwnd))
                 return true;
 
-            if (!TryGetWindowRect(hwnd, pt, virtualBounds, out var rect))
+            var hit = TryGetWindowRect(hwnd, pt, virtualBounds, out var rect);
+            if (hit == WindowHitResult.PassThrough)
                 return true;
 
-            detected = rect;
+            if (hit == WindowHitResult.Snappable)
+                detected = rect;
+            else
+                blockedByRealWindow = true;
             return false;
         }, IntPtr.Zero);
 
-        if (!detected.IsEmpty)
-            return detected;
-
-        return Rectangle.Empty;
+        return detected.IsEmpty && !blockedByRealWindow
+            ? GetTopLevelWindowRectFallbackFromPoint(pt, virtualBounds)
+            : detected;
     }
 
     /// <summary>Secondary live fallback when z-order enumeration doesn't resolve a hit.</summary>
@@ -103,8 +110,11 @@ public static class WindowDetector
                 break;
             visited[visitedCount++] = candidate;
 
-            if (TryGetWindowRect(candidate, pt, virtualBounds, out var rect))
+            var hit = TryGetWindowRect(candidate, pt, virtualBounds, out var rect);
+            if (hit == WindowHitResult.Snappable)
                 return rect;
+            if (hit == WindowHitResult.Blocked)
+                break;
 
             hwnd = User32.GetWindow(candidate, User32.GW_HWNDNEXT);
         }
@@ -112,27 +122,36 @@ public static class WindowDetector
         return Rectangle.Empty;
     }
 
-    private static bool TryGetWindowRect(IntPtr hwnd, User32.POINT? point, Rectangle virtualBounds, out Rectangle rect)
+    private static WindowHitResult TryGetWindowRect(IntPtr hwnd, User32.POINT? point, Rectangle virtualBounds, out Rectangle rect)
     {
         rect = Rectangle.Empty;
 
         if (hwnd == IntPtr.Zero || IsIgnoredWindowHandle(hwnd) || !User32.IsWindowVisible(hwnd) || Dwm.IsWindowCloaked(hwnd))
-            return false;
-        if (!IsSnappableWindow(hwnd))
-            return false;
+            return WindowHitResult.PassThrough;
 
         var screenRect = GetSnappableBounds(hwnd);
         if (screenRect.Width <= 2 || screenRect.Height <= 2)
-            return false;
+            return WindowHitResult.PassThrough;
         if (point.HasValue && !screenRect.Contains(point.Value.X, point.Value.Y))
-            return false;
+            return WindowHitResult.PassThrough;
+
+        int style = User32.GetWindowLongA(hwnd, User32.GWL_STYLE);
+        int exStyle = User32.GetWindowLongA(hwnd, User32.GWL_EXSTYLE);
+        string className = GetClassName(hwnd);
+        string title = GetWindowTitle(hwnd);
+        if (!IsSnappableWindowCandidate(style, exStyle, className, title))
+            return IsPassThroughWindowCandidate(exStyle, className)
+                ? WindowHitResult.PassThrough
+                : WindowHitResult.Blocked;
 
         rect = new Rectangle(
             screenRect.Left - virtualBounds.X,
             screenRect.Top - virtualBounds.Y,
             screenRect.Width,
             screenRect.Height);
-        return rect.Width > 2 && rect.Height > 2;
+        return rect.Width > 2 && rect.Height > 2
+            ? WindowHitResult.Snappable
+            : WindowHitResult.PassThrough;
     }
 
     private static IntPtr NormalizeTopLevelWindowForHitTest(IntPtr hwnd)
@@ -169,6 +188,14 @@ public static class WindowDetector
             return false;
 
         return true;
+    }
+
+    internal static bool IsPassThroughWindowCandidate(int exStyle, string className)
+    {
+        if ((exStyle & User32.WS_EX_TRANSPARENT) != 0)
+            return true;
+
+        return IgnoredWindowClasses.Any(ignored => string.Equals(ignored, className, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsSnappableWindow(IntPtr hwnd)

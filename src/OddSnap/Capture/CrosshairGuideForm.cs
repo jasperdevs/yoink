@@ -59,7 +59,12 @@ public sealed class CrosshairGuideForm : Form
     public void UpdateLine(Rectangle bounds)
     {
         if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            if (Visible)
+                Hide();
+            _zOrderSet = false;
             return;
+        }
 
         // Use SetWindowPos to move + update the layered window in one call.
         // This avoids the expensive Bounds setter which triggers layout/resize events.

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 
@@ -14,6 +15,8 @@ public enum TranslationModel
 public static class TranslationService
 {
     private const string PythonLauncherArg = "-3";
+    private const string ArgosTranslateVersion = "1.11.0";
+    private const string ArgosTranslatePackage = "argostranslate==" + ArgosTranslateVersion;
     private static readonly TimeSpan ArgosProbeCacheTtl = TimeSpan.FromMinutes(10);
     private static readonly HttpClient GoogleHttp = CreateGoogleHttpClient();
     private static readonly string ArgosStateDir = Path.Combine(
@@ -91,6 +94,44 @@ public static class TranslationService
         return code;
     }
 
+    public static string ResolveTargetLanguage(string? toCode, string? interfaceLanguageSetting = null, CultureInfo? systemCulture = null)
+    {
+        var requested = string.IsNullOrWhiteSpace(toCode) ? "auto" : toCode.Trim();
+        if (!string.Equals(requested, "auto", StringComparison.OrdinalIgnoreCase))
+            return NormalizeSupportedLanguage(requested) ?? "en";
+
+        var preferred = LocalizationService.ResolveContentLanguageCode(interfaceLanguageSetting, systemCulture);
+        return NormalizeSupportedLanguage(preferred) ?? "en";
+    }
+
+    public static string ResolveSourceLanguage(string? fromCode)
+    {
+        var requested = string.IsNullOrWhiteSpace(fromCode) ? "auto" : fromCode.Trim();
+        if (string.Equals(requested, "auto", StringComparison.OrdinalIgnoreCase))
+            return "auto";
+
+        return NormalizeSupportedLanguage(requested) ?? "auto";
+    }
+
+    private static string? NormalizeSupportedLanguage(string languageCode)
+    {
+        var normalized = languageCode.Trim().Replace('_', '-');
+        foreach (var (code, _) in SupportedLanguages)
+        {
+            if (string.Equals(code, normalized, StringComparison.OrdinalIgnoreCase))
+                return code;
+        }
+
+        var neutral = normalized.Split('-', 2)[0];
+        foreach (var (code, _) in SupportedLanguages)
+        {
+            if (string.Equals(code, neutral, StringComparison.OrdinalIgnoreCase) && code != "auto")
+                return code;
+        }
+
+        return null;
+    }
+
     // --- Install (Argos only — Google needs no install) ---
 
     public static async Task EnsureInstalledAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
@@ -101,7 +142,7 @@ public static class TranslationService
         progress?.Report("Installing Argos Translate...");
         var result = await RunPythonAsync(new[]
         {
-            PythonLauncherArg, "-m", "pip", "install", "--user", "--upgrade", "argostranslate"
+            PythonLauncherArg, "-m", "pip", "install", "--user", "--disable-pip-version-check", ArgosTranslatePackage
         }, cancellationToken).ConfigureAwait(false);
 
         if (result.ExitCode != 0)
@@ -130,7 +171,7 @@ public static class TranslationService
         if (TryGetArgosCachedStatus(out var cachedReady, out _))
             return cachedReady;
 
-        if (File.Exists(ArgosMarkerPath))
+        if (IsArgosMarkerCurrent())
         {
             UpdateArgosProbeCache(true, "Installed");
             return true;
@@ -144,17 +185,20 @@ public static class TranslationService
 
         var result = await RunPythonAsync(new[]
         {
-            PythonLauncherArg, "-c", "import argostranslate; print('ok')"
+            PythonLauncherArg, "-c",
+            $"import argostranslate, importlib.metadata as m; raise SystemExit(0 if m.version('argostranslate') == '{ArgosTranslateVersion}' else 1)"
         }, cancellationToken).ConfigureAwait(false);
 
         var ready = result.ExitCode == 0;
+        if (ready)
+            TryWriteArgosMarker();
         UpdateArgosProbeCache(ready, ready ? "Installed" : "Not installed");
         return ready;
     }
 
     public static bool TryGetArgosCachedStatus(out bool isReady, out string status)
     {
-        if (File.Exists(ArgosMarkerPath))
+        if (IsArgosMarkerCurrent())
         {
             UpdateArgosProbeCache(true, "Installed");
             isReady = true;
@@ -181,6 +225,9 @@ public static class TranslationService
 
     public static async Task<string> TranslateAsync(string text, string fromCode, string toCode, TranslationModel model, CancellationToken cancellationToken = default)
     {
+        fromCode = ResolveSourceLanguage(fromCode);
+        toCode = ResolveTargetLanguage(toCode);
+
         if (model == TranslationModel.Google)
         {
             var apiKey = _googleApiKey;
@@ -414,11 +461,24 @@ print(translated)
         try
         {
             Directory.CreateDirectory(ArgosStateDir);
-            File.WriteAllText(ArgosMarkerPath, "installed");
+            File.WriteAllText(ArgosMarkerPath, ArgosTranslatePackage);
         }
         catch (Exception ex)
         {
             AppDiagnostics.LogWarning("translation.argos.marker-write", ex.Message, ex);
+        }
+    }
+
+    private static bool IsArgosMarkerCurrent()
+    {
+        try
+        {
+            return File.Exists(ArgosMarkerPath) &&
+                   string.Equals(File.ReadAllText(ArgosMarkerPath).Trim(), ArgosTranslatePackage, StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
         }
     }
 

@@ -20,6 +20,7 @@ public partial class App
         _hotkeyService.ScanHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.Scan);
         _hotkeyService.StickerHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.Sticker);
         _hotkeyService.UpscaleHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.Upscale);
+        _hotkeyService.CenterHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.Center);
         _hotkeyService.RulerHotkeyPressed += () => OnToolHotkeyPressed(CaptureMode.Ruler);
         _hotkeyService.GifHotkeyPressed += OnGifHotkeyPressed;
         _hotkeyService.FullscreenHotkeyPressed += OnFullscreenHotkeyPressed;
@@ -41,6 +42,7 @@ public partial class App
         TryRegister(_hotkeyService.RegisterScan(s.ScanHotkeyModifiers, s.ScanHotkeyKey), "Scanner", s.ScanHotkeyModifiers, s.ScanHotkeyKey);
         TryRegister(_hotkeyService.RegisterSticker(s.StickerHotkeyModifiers, s.StickerHotkeyKey), "Sticker", s.StickerHotkeyModifiers, s.StickerHotkeyKey);
         TryRegister(_hotkeyService.RegisterUpscale(s.UpscaleHotkeyModifiers, s.UpscaleHotkeyKey), "Upscale", s.UpscaleHotkeyModifiers, s.UpscaleHotkeyKey);
+        TryRegister(_hotkeyService.RegisterCenter(s.CenterHotkeyModifiers, s.CenterHotkeyKey), "Center Select", s.CenterHotkeyModifiers, s.CenterHotkeyKey);
         TryRegister(_hotkeyService.RegisterRuler(s.RulerHotkeyModifiers, s.RulerHotkeyKey), "Ruler", s.RulerHotkeyModifiers, s.RulerHotkeyKey);
         TryRegister(_hotkeyService.RegisterGif(s.GifHotkeyModifiers, s.GifHotkeyKey), "GIF", s.GifHotkeyModifiers, s.GifHotkeyKey);
         TryRegister(_hotkeyService.RegisterFullscreen(s.FullscreenHotkeyModifiers, s.FullscreenHotkeyKey), "Fullscreen", s.FullscreenHotkeyModifiers, s.FullscreenHotkeyKey);
@@ -59,25 +61,41 @@ public partial class App
 
     private void OnHotkeyPressed()
     {
+        if (TrySwitchActiveOverlay(_settingsService!.Settings.DefaultCaptureMode))
+            return;
+
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchOverlay(_settingsService!.Settings.DefaultCaptureMode);
     }
 
     private void OnToolHotkeyPressed(CaptureMode mode)
     {
+        if (TrySwitchActiveOverlay(mode))
+            return;
+
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchOverlay(mode);
     }
 
     private void OnOcrHotkeyPressed()
     {
+        if (TrySwitchActiveOverlay(CaptureMode.Ocr))
+            return;
+
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchOverlay(CaptureMode.Ocr);
     }
 
     private void OnPickerHotkeyPressed()
     {
+        if (TrySwitchActiveOverlay(CaptureMode.ColorPicker))
+            return;
+
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchOverlay(CaptureMode.ColorPicker);
     }
 
@@ -90,30 +108,38 @@ public partial class App
         }
 
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchGifRecording();
     }
 
     private void OnScrollCaptureHotkeyPressed()
     {
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchScrollingCapture();
     }
 
     private void OnAiRedirectHotkeyPressed()
     {
+        if (TrySwitchActiveOverlay(_settingsService!.Settings.DefaultCaptureMode))
+            return;
+
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchOverlay(_settingsService!.Settings.DefaultCaptureMode, useAiRedirect: true);
     }
 
     private void OnFullscreenHotkeyPressed()
     {
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchWithDelay(CaptureFullscreenNow);
     }
 
     private void OnActiveWindowHotkeyPressed()
     {
         if (Interlocked.CompareExchange(ref _isCapturing, 1, 0) != 0) return;
+        HideSettingsForCapture();
         LaunchWithDelay(CaptureActiveWindowNow);
     }
 
@@ -143,4 +169,7 @@ public partial class App
 
         action();
     }
+
+    private static bool TrySwitchActiveOverlay(CaptureMode mode) =>
+        RegionOverlayForm.TrySwitchCurrentOverlayMode(mode);
 }

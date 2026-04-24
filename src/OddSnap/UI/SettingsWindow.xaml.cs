@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using System.Windows.Shell;
 using CaptureMode = OddSnap.Models.CaptureMode;
 using OddSnap.Models;
 using OddSnap.Services;
@@ -71,6 +70,7 @@ public partial class SettingsWindow : Window
 
     public event Action? HotkeyChanged;
     public event Action? UninstallRequested;
+    public event Action? LocalizationChanged;
 
     public SettingsWindow(SettingsService settingsService, HistoryService historyService, ImageSearchIndexService imageSearchIndexService)
     {
@@ -78,14 +78,7 @@ public partial class SettingsWindow : Window
         _historyService = historyService;
         _imageSearchIndexService = imageSearchIndexService;
         InitializeComponent();
-        WindowChrome.SetWindowChrome(this, new WindowChrome
-        {
-            CaptionHeight = 0,
-            CornerRadius = new CornerRadius(12),
-            GlassFrameThickness = new Thickness(0),
-            ResizeBorderThickness = new Thickness(8),
-            UseAeroCaptionButtons = false
-        });
+        OddSnapWindowChrome.Apply(this);
         Theme.Refresh();
         Theme.ApplyTo(Application.Current.Resources);
         ApplyThemeColors();
@@ -190,9 +183,6 @@ public partial class SettingsWindow : Window
             ? System.Drawing.Color.FromArgb(210, 255, 255, 255)
             : System.Drawing.Color.FromArgb(170, 0, 0, 0);
         ImageSearchIcon.Source = Helpers.StreamlineIcons.RenderWpf("search", color, 18);
-        var titleIcon = System.Drawing.Color.FromArgb(210, Theme.TextSecondary.R, Theme.TextSecondary.G, Theme.TextSecondary.B);
-        MinimizeTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("minimize", titleIcon, 18);
-        CloseTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", titleIcon, 18);
     }
 
     private void TryProcessPendingTrayHistoryOpen()
@@ -467,25 +457,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton == MouseButton.Left) DragMove();
-    }
-
-    private void CloseBtn_Click(object sender, MouseButtonEventArgs e) => Close();
-
-    private void MinimizeBtn_Click(object sender, MouseButtonEventArgs e) => WindowState = WindowState.Minimized;
-
-    private void TitleBtn_Enter(object sender, System.Windows.Input.MouseEventArgs e)
-    {
-        if (sender is not Border b) return;
-        b.Background = Theme.Brush(ReferenceEquals(b, CloseTitleBtn) ? Theme.DangerHover : Theme.AccentHover);
-    }
-
-    private void TitleBtn_Leave(object sender, System.Windows.Input.MouseEventArgs e)
-    {
-        if (sender is Border b) b.Background = System.Windows.Media.Brushes.Transparent;
-    }
+    private void TitleBar_CloseRequested(object? sender, EventArgs e) => Close();
 
     private void ApplyMicaBackdrop()
     {
@@ -504,18 +476,35 @@ public partial class SettingsWindow : Window
     private void AfterCaptureCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;
-        _settingsService.Settings.AfterCapture = (AfterCaptureAction)AfterCaptureCombo.SelectedIndex;
+        _settingsService.Settings.AfterCapture = AfterCaptureCombo.SelectedIndex switch
+        {
+            0 => AfterCaptureAction.CopyToClipboard,
+            2 => AfterCaptureAction.PreviewOnly,
+            _ => AfterCaptureAction.PreviewAndCopy
+        };
         _settingsService.Save();
     }
 
     private void DefaultCaptureModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded) return;
-        _settingsService.Settings.DefaultCaptureMode = DefaultCaptureModeCombo.SelectedIndex == 1
-            ? CaptureMode.Freeform
-            : CaptureMode.Rectangle;
+        _settingsService.Settings.DefaultCaptureMode = DefaultCaptureModeCombo.SelectedIndex switch
+        {
+            1 => CaptureMode.Center,
+            2 => CaptureMode.Freeform,
+            _ => CaptureMode.Rectangle
+        };
         _settingsService.Save();
         HotkeyChanged?.Invoke();
+    }
+
+    private void CenterAspectRatioCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        var selectedIndex = Math.Clamp(CenterAspectRatioCombo.SelectedIndex, 0, 5);
+        CenterAspectRatioCombo.SelectedIndex = selectedIndex;
+        _settingsService.Settings.CenterSelectionAspectRatio = (CenterSelectionAspectRatio)selectedIndex;
+        _settingsService.Save();
     }
 
     private void SaveToFileCheck_Changed(object sender, RoutedEventArgs e)

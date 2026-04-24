@@ -19,6 +19,7 @@ public sealed partial class RecordingForm
 
     private void StartRecording()
     {
+        _recordingStopRequested = 0;
         _magHelper?.Close();
         _selectionAdorner?.Close();
         _selectionAdorner?.Dispose();
@@ -76,6 +77,8 @@ public sealed partial class RecordingForm
     {
         if (_state != State.Recording) return;
         if (_recorder == null && _videoRecorder == null) return;
+        if (Interlocked.Exchange(ref _recordingStopRequested, 1) != 0) return;
+        _state = State.Encoding;
         _tickTimer?.Stop();
 
         var gifRec = _recorder; _recorder = null;
@@ -123,6 +126,9 @@ public sealed partial class RecordingForm
 
     private void DiscardRecording()
     {
+        if (_state == State.Recording && Interlocked.Exchange(ref _recordingStopRequested, 1) != 0)
+            return;
+
         _tickTimer?.Stop();
         if (_recorder != null) { _recorder.Discard(); _recorder.Dispose(); _recorder = null; }
         if (_videoRecorder != null) { _videoRecorder.Discard(); _videoRecorder.Dispose(); _videoRecorder = null; }

@@ -64,18 +64,16 @@ public static partial class SketchRenderer
         float len = MathF.Sqrt(dx * dx + dy * dy);
         if (len < 2) return;
 
-        const float thickness = 3f;
-
         g.SmoothingMode = SmoothingMode.AntiAlias;
-
-        using var pen = new Pen(color, thickness)
-            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-
         if (strokeShadow)
-            DrawPenWithStrokeShadow(g, pen, from, to);
-
+            DrawSoftLineShadow(g, from, to, 3f);
+        using var pen = new Pen(color, 3.2f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
         g.DrawLine(pen, from, to);
-
         g.SmoothingMode = SmoothingMode.Default;
     }
 
@@ -86,32 +84,26 @@ public static partial class SketchRenderer
         float len = MathF.Sqrt(dx * dx + dy * dy);
         if (len < 3) return;
 
-        const float thickness = 3.5f;
-
         g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        float nx = dx / len, ny = dy / len;
+        float headSize = GetArrowheadSize(len);
+        var shaftEnd = new PointF(to.X - nx * headSize * 0.38f, to.Y - ny * headSize * 0.38f);
 
         if (strokeShadow)
         {
-            float ndx = dx / len, ndy = dy / len;
-            using var s1 = new Pen(AnnotShadow1, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-            g.DrawLine(s1, from.X + 2, from.Y + 2, to.X + 2, to.Y + 2);
-            DrawArrowhead(g, new PointF(to.X + 2, to.Y + 2), ndx, ndy, len, AnnotShadow1, thickness + 0.5f);
-            using var s2 = new Pen(AnnotShadow2, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-            g.DrawLine(s2, from.X + 3, from.Y + 3, to.X + 3, to.Y + 3);
-
-            using var sp = new Pen(AnnotStroke, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-            foreach (var (ox, oy) in StrokeOffsets)
-            {
-                g.DrawLine(sp, from.X + ox, from.Y + oy, to.X + ox, to.Y + oy);
-                DrawArrowhead(g, new PointF(to.X + ox, to.Y + oy), ndx, ndy, len, AnnotStroke, thickness + 0.5f);
-            }
+            DrawSoftLineShadow(g, from, shaftEnd, 3.4f);
+            DrawArrowhead(g, new PointF(to.X + 2, to.Y + 2), nx, ny, len, Color.FromArgb(42, 0, 0, 0), 3.6f, seed + 3000);
         }
 
-        using var pen = new Pen(color, thickness)
-            { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-        g.DrawLine(pen, from, to);
-
-        DrawArrowhead(g, new PointF(to.X, to.Y), dx / len, dy / len, len, color, thickness + 0.5f);
+        using var pen = new Pen(color, 3.4f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
+        g.DrawLine(pen, from, shaftEnd);
+        DrawArrowhead(g, to, nx, ny, len, color, 3.6f, seed + 6000);
 
         g.SmoothingMode = SmoothingMode.Default;
     }
@@ -165,58 +157,72 @@ public static partial class SketchRenderer
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // Helper to draw curve + arrowhead with a given pen
-        void DrawCurveAndHead(Point[] pts, int count, PointF headTip, Color c, Pen pen)
+        // Helper to draw curve with a given pen
+        void DrawCurve(Point[] pts, int count, Pen pen)
         {
             if (count >= 4)
                 g.DrawCurve(pen, pts, 0, count - 1, 0.5f);
             else
                 g.DrawLines(pen, pts.AsSpan(0, count).ToArray());
-            DrawArrowhead(g, headTip, nx, ny, len, c, pen.Width + 0.5f);
         }
 
         int ptCount = shortenedPts.Length;
 
         if (strokeShadow)
         {
-            using var s1Pen = new Pen(AnnotShadow1, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Flat, LineJoin = LineJoin.Round };
-            using var stPen = new Pen(AnnotStroke, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Flat, LineJoin = LineJoin.Round };
-
-            var buf = OffsetPointsInPlace(shortenedPts, 1, 1);
-            DrawCurveAndHead(buf, ptCount, new PointF(tip.X + 1, tip.Y + 1), AnnotShadow1, s1Pen);
-
-            foreach (var (ox, oy) in StrokeOffsets)
-            {
-                buf = OffsetPointsInPlace(shortenedPts, ox, oy);
-                DrawCurveAndHead(buf, ptCount, new PointF(tip.X + ox, tip.Y + oy), AnnotStroke, stPen);
-            }
+            DrawSoftCurveShadow(g, shortenedPts, thickness, ptCount >= 4);
+            DrawArrowhead(g, new PointF(tip.X + 2, tip.Y + 2), nx, ny, len, Color.FromArgb(42, 0, 0, 0), thickness + 0.5f, seed + 4000);
         }
 
         using var mainPen = new Pen(color, thickness) { StartCap = LineCap.Round, EndCap = LineCap.Flat, LineJoin = LineJoin.Round };
-        DrawCurveAndHead(shortenedPts, ptCount, new PointF(tip.X, tip.Y), color, mainPen);
+        DrawCurve(shortenedPts, ptCount, mainPen);
+        DrawArrowhead(g, tip, nx, ny, len, color, thickness + 0.5f, seed + 7000);
 
         g.SmoothingMode = SmoothingMode.Default;
     }
 
     private static void DrawArrowhead(Graphics g, PointF tip, float nx, float ny,
-        float shaftLen, Color color, float thickness)
+        float shaftLen, Color color, float thickness, int seed = 0)
     {
-        float headSize = Math.Clamp(12f + shaftLen / 15f, 12f, 28f);
-        headSize = Math.Min(headSize, shaftLen * 0.4f);
+        float headSize = GetArrowheadSize(shaftLen);
         float angle = 25f * MathF.PI / 180f;
 
         float bx = tip.X - nx * headSize, by = tip.Y - ny * headSize;
         var left = RotatePoint(new PointF(bx, by), tip, -angle);
         var right = RotatePoint(new PointF(bx, by), tip, angle);
 
-        // Draw as two lines (like Excalidraw's "arrow" type)
-        using var pen = new Pen(color, thickness)
+        DrawRoughStrokeLine(g, left, tip, color, seed + 1, thickness, 0.45f);
+        DrawRoughStrokeLine(g, right, tip, color, seed + 2, thickness, 0.45f);
+    }
+
+    private static float GetArrowheadSize(float shaftLen)
+        => Math.Min(Math.Clamp(12f + shaftLen / 15f, 12f, 28f), shaftLen * 0.4f);
+
+    private static void DrawRoughStrokeLine(Graphics g, PointF from, PointF to, Color color, int seed, float width, float roughness)
+    {
+        using var mainPen = new Pen(color, width)
         {
             StartCap = LineCap.Round,
-            EndCap = LineCap.Round
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
         };
-        g.DrawLine(pen, left, tip);
-        g.DrawLine(pen, right, tip);
+        DrawSketchyLine(g, mainPen, from, to, seed, roughness);
+
+        using var echoPen = new Pen(Color.FromArgb(120, color.R, color.G, color.B), Math.Max(1.5f, width * 0.72f))
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
+        DrawSketchyLine(g, echoPen, from, to, seed + 911, roughness * 0.55f);
+    }
+
+    private static int RoughOffset(int seed, int max)
+    {
+        if (max <= 0)
+            return 0;
+        var rng = new Random(seed);
+        return rng.Next(-max, max + 1);
     }
 
     /// <summary>Draw a wobbly line between two points (like rough.js).</summary>

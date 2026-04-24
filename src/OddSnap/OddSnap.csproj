@@ -12,7 +12,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>oddsnap.ico</ApplicationIcon>
-    <Version>0.8.27</Version>
+    <Version>0.8.28</Version>
     <RuntimeIdentifiers>win-x64;win-x86;win-arm64</RuntimeIdentifiers>
     <Authors>jasperdevs</Authors>
     <AssemblyName>OddSnap</AssemblyName>
@@ -32,6 +32,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Localization\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <ApplicationDefinition Remove="App.xaml" />
     <Page Include="App.xaml" />
     <Resource Include="oddsnap.ico" />
@@ -58,6 +61,7 @@
     <Resource Include="Assets\gyazo_sq.png" />
     <Resource Include="Assets\gyazo_official.png" />
     <Resource Include="Assets\github_sq.png" />
+    <Resource Include="Assets\kofi_logo.png" />
     <Resource Include="Assets\imgbb.png" />
     <Resource Include="Assets\imgbb_sq.png" />
     <Resource Include="Assets\imgbb_official.png" />
@@ -69,6 +73,7 @@
     <Resource Include="Assets\litterbox_sq.png" />
     <Resource Include="Assets\litterbox_official.png" />
     <Resource Include="Assets\onedrive_sq.png" />
+    <Resource Include="Assets\paypal.svg" />
     <Resource Include="Assets\photoroom_sq.png" />
     <Resource Include="Assets\removebg_sq.png" />
     <Resource Include="Assets\transfer.png" />

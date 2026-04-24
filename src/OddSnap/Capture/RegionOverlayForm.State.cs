@@ -12,7 +12,6 @@ namespace OddSnap.Capture;
 public sealed partial class RegionOverlayForm
 {
     public CaptureMode CurrentMode => _mode;
-
     public void SetShowToolNumberBadges(bool show)
     {
         _showToolNumberBadges = show;
@@ -43,12 +42,14 @@ public sealed partial class RegionOverlayForm
         var flyoutIds = ToolDef.FlyoutToolIds();
         if (enabledIds == null)
         {
-            _visibleTools = ToolDef.AllTools;
+            var defaultEnabled = ToolDef.DefaultEnabledIds();
+            _visibleTools = ToolDef.AllTools.Where(t => defaultEnabled.Contains(t.Id)).ToArray();
         }
         else
         {
             _visibleTools = ToolDef.AllTools.Where(t => enabledIds.Contains(t.Id)).ToArray();
         }
+
         _mainBarTools = _visibleTools.Where(t => !flyoutIds.Contains(t.Id)).ToArray();
         _flyoutTools = _visibleTools.Where(t => flyoutIds.Contains(t.Id)).ToArray();
         RefreshToolbar();
@@ -124,6 +125,9 @@ public sealed partial class RegionOverlayForm
 
     private bool IsPointInToolbarChrome(Point p)
     {
+        if (!IsToolbarInteractive())
+            return false;
+
         var tbBounds = _toolbarRect;
         tbBounds.Inflate(8, 8);
         if (IsVerticalDock)
@@ -183,6 +187,9 @@ public sealed partial class RegionOverlayForm
            && ToolDef.IsCaptureTool(_mode)
            && !IsPointInOverlayUi(p);
 
+    private Point GetReadoutCursorPoint()
+        => _selectionEnd != Point.Empty ? _selectionEnd : _lastCursorPos;
+
     private Rectangle GetSelectionOverlayBounds(Rectangle rect, bool isOcr, bool isScan)
     {
         if (rect.Width <= 0 || rect.Height <= 0)
@@ -191,15 +198,52 @@ public sealed partial class RegionOverlayForm
         var dirty = rect;
         dirty.Inflate(8, 8);
 
-        var labelBounds = Rectangle.Ceiling(GetLabelBounds(rect, isOcr, isScan));
-        if (!labelBounds.IsEmpty)
-            dirty = Rectangle.Union(dirty, InflateForRepaint(labelBounds, 8));
+        var readoutBounds = SelectionSizeReadout.GetBounds(
+            GetReadoutCursorPoint(),
+            rect,
+            _readoutFont,
+            ClientRectangle);
+        if (!readoutBounds.IsEmpty)
+            dirty = Rectangle.Union(dirty, InflateForRepaint(readoutBounds, 8));
 
         return dirty;
     }
 
+    private Region GetSelectionOverlayRegion(Rectangle rect, bool isOcr, bool isScan)
+    {
+        var region = new Region();
+        region.MakeEmpty();
+
+        if (rect.Width <= 0 || rect.Height <= 0)
+            return region;
+
+        const int borderPad = 10;
+        region.Union(new Rectangle(rect.Left - borderPad, rect.Top - borderPad, rect.Width + borderPad * 2, borderPad * 2));
+        region.Union(new Rectangle(rect.Left - borderPad, rect.Bottom - borderPad, rect.Width + borderPad * 2, borderPad * 2));
+        region.Union(new Rectangle(rect.Left - borderPad, rect.Top - borderPad, borderPad * 2, rect.Height + borderPad * 2));
+        region.Union(new Rectangle(rect.Right - borderPad, rect.Top - borderPad, borderPad * 2, rect.Height + borderPad * 2));
+
+        var readoutBounds = SelectionSizeReadout.GetBounds(
+            GetReadoutCursorPoint(),
+            rect,
+            _readoutFont,
+            ClientRectangle);
+        if (!readoutBounds.IsEmpty)
+            region.Union(InflateForRepaint(readoutBounds, 8));
+
+        return region;
+    }
+
+    private void InvalidateSelectionOverlay(Rectangle oldRect, bool oldOcr, bool oldScan, Rectangle newRect, bool newOcr, bool newScan)
+    {
+        using var region = GetSelectionOverlayRegion(oldRect, oldOcr, oldScan);
+        using var next = GetSelectionOverlayRegion(newRect, newOcr, newScan);
+        region.Union(next);
+        Invalidate(region);
+    }
+
     private bool IsSelectionCaptureMode()
-        => _mode is CaptureMode.Rectangle or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker or CaptureMode.Upscale;
+        => _mode is CaptureMode.Rectangle or CaptureMode.Center or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker or CaptureMode.Upscale;
 
     private void InvalidateAutoDetectChrome(Rectangle oldDetect, Rectangle newDetect)
     {
@@ -257,6 +301,7 @@ public sealed partial class RegionOverlayForm
     private void AddAnnotation(Annotation annotation)
     {
         _undoStack.Add(annotation);
+        _redoStack.Clear();
         MarkCommittedAnnotationsDirty();
     }
 
@@ -399,7 +444,10 @@ public sealed partial class RegionOverlayForm
     {
         bool removed = _undoStack.Remove(annotation);
         if (removed)
+        {
+            _redoStack.Clear();
             MarkCommittedAnnotationsDirty();
+        }
         return removed;
     }
 
@@ -410,6 +458,7 @@ public sealed partial class RegionOverlayForm
             _selectPreviewAnnotation is not null)
         {
             _undoStack[_selectedAnnotationIndex] = _selectPreviewAnnotation;
+            _redoStack.Clear();
             MarkCommittedAnnotationsDirty();
         }
 
@@ -422,6 +471,12 @@ public sealed partial class RegionOverlayForm
         _undoStack.RemoveAt(_undoStack.Count - 1);
         MarkCommittedAnnotationsDirty();
         return last;
+    }
+
+    private void RestoreAnnotation(Annotation annotation)
+    {
+        _undoStack.Add(annotation);
+        MarkCommittedAnnotationsDirty();
     }
 
     private Bitmap GetCommittedAnnotationsBitmap()

@@ -97,6 +97,11 @@ public sealed partial class RegionOverlayForm
         }));
     }
 
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+    }
+
     internal void PositionToolbarForm()
     {
         if (_toolbarForm is null) return;
@@ -364,6 +369,15 @@ public sealed partial class RegionOverlayForm
 
     private void HideToolbarImmediately()
     {
+        HideToolbarTooltip();
+        CloseMoreToolsDropdown();
+        _colorPickerOpen = false;
+        _fontPickerOpen = false;
+        _emojiPickerOpen = false;
+        HideFontSearchBox();
+        HideEmojiSearchBox();
+        _hoveredButton = -1;
+
         if (_toolbarForm is null || _toolbarForm.IsDisposed)
             return;
 
@@ -427,6 +441,34 @@ public sealed partial class RegionOverlayForm
         _horizontalCrosshairForm?.Hide();
     }
 
+    private void EnsureSelectionAdorner()
+    {
+        if (_selectionAdorner is { IsDisposed: false })
+            return;
+
+        _selectionAdorner = new LiveSelectionAdornerForm(_virtualBounds, "");
+        var _ = _selectionAdorner.Handle;
+        WindowDetector.RegisterIgnoredWindow(_selectionAdorner.Handle);
+        _selectionAdorner.Show(this);
+    }
+
+    private void UpdateSelectionAdorner()
+    {
+        EnsureSelectionAdorner();
+        _selectionAdorner?.SetSelection(_selectionRect, GetReadoutCursorPoint());
+    }
+
+    private void CloseSelectionAdorner()
+    {
+        if (_selectionAdorner == null)
+            return;
+
+        try { WindowDetector.UnregisterIgnoredWindow(_selectionAdorner.Handle); } catch { }
+        try { _selectionAdorner.Close(); } catch { }
+        try { _selectionAdorner.Dispose(); } catch { }
+        _selectionAdorner = null;
+    }
+
     private void Cancel()
     {
         if (_cancelRequested)
@@ -434,13 +476,17 @@ public sealed partial class RegionOverlayForm
 
         _cancelRequested = true;
         _allowDeactivation = true;
+        try { Hide(); } catch { }
+        try { HideToolbarImmediately(); } catch { }
         try { HideTextBox(); } catch { }
         try { HideEmojiSearchBox(); } catch { }
         try { HideFontSearchBox(); } catch { }
         try { CloseMagWindow(); } catch { }
         try { CloseCaptureMagnifier(); } catch { }
+        try { CloseSelectionAdorner(); } catch { }
         try { ClearCrosshairGuides(); } catch { }
         SelectionCancelled?.Invoke();
+        Close();
     }
 
     internal void CancelFromShortcut() => Cancel();
@@ -460,6 +506,7 @@ public sealed partial class RegionOverlayForm
                 WindowDetector.UnregisterIgnoredWindow(_horizontalCrosshairForm.Handle);
             _horizontalCrosshairForm?.Close();
             _horizontalCrosshairForm?.Dispose();
+            CloseSelectionAdorner();
             WindowDetector.UnregisterIgnoredWindow(Handle);
             WindowDetector.ClearSnapshot();
             if (_toolbarForm != null)
@@ -479,6 +526,7 @@ public sealed partial class RegionOverlayForm
             _committedAnnotationsBitmap?.Dispose();
             _hexFont.Dispose();
             _rgbFont.Dispose();
+            _readoutFont.Dispose();
             _mutedBrush.Dispose();
             _crossPen.Dispose();
             foreach (var f in _fontCache.Values) f?.Dispose();

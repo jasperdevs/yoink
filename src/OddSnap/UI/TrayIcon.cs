@@ -35,7 +35,7 @@ public sealed class TrayIcon : IDisposable
         _defaultIcon = CreateDefaultIcon();
         _notifyIcon = new NotifyIcon
         {
-            Text = "OddSnap — Click to capture, right-click for menu",
+            Text = T("OddSnap - Click to capture, right-click for menu"),
             Icon = _defaultIcon,
             Visible = true
         };
@@ -65,13 +65,25 @@ public sealed class TrayIcon : IDisposable
         {
             _recordingIcon ??= CreateRecordingIcon();
             _notifyIcon.Icon = _recordingIcon;
-            _notifyIcon.Text = "OddSnap recording - click to stop, right-click for menu";
+            _notifyIcon.Text = T("OddSnap recording - click to stop, right-click for menu");
         }
         else
         {
             _notifyIcon.Icon = _defaultIcon;
-            _notifyIcon.Text = "OddSnap - Click to capture, right-click for menu";
+            _notifyIcon.Text = T("OddSnap - Click to capture, right-click for menu");
         }
+    }
+
+    public void RefreshLocalization()
+    {
+        _notifyIcon.Text = _isShowingRecording
+            ? T("OddSnap recording - click to stop, right-click for menu")
+            : T("OddSnap - Click to capture, right-click for menu");
+
+        var oldMenu = _menu;
+        _menu = CreateThemedMenu();
+        _notifyIcon.ContextMenuStrip = _menu;
+        oldMenu?.Dispose();
     }
 
     private ContextMenuStrip CreateThemedMenu()
@@ -80,17 +92,17 @@ public sealed class TrayIcon : IDisposable
         var menu = WindowsMenuRenderer.Create(showImages: true, minWidth: WindowsMenuRenderer.DefaultWidth);
         bool isRec = Capture.RecordingForm.Current != null;
 
-        var captureItem  = WindowsMenuRenderer.Item("Screenshot", HotkeyHint("rect"), "rect");
-        var ocrItem      = WindowsMenuRenderer.Item("Text capture", HotkeyHint("ocr"), "ocr");
-        var pickerItem   = WindowsMenuRenderer.Item("Color picker", HotkeyHint("picker"), "picker");
+        var captureItem  = WindowsMenuRenderer.Item(T("Screenshot"), HotkeyHint("rect"), "rect");
+        var ocrItem      = WindowsMenuRenderer.Item(T("Text capture"), HotkeyHint("ocr"), "ocr");
+        var pickerItem   = WindowsMenuRenderer.Item(T("Color picker"), HotkeyHint("picker"), "picker");
         var recordItem   = isRec
-            ? WindowsMenuRenderer.Item("Stop recording", null, "record", active: true, danger: true)
-            : WindowsMenuRenderer.Item("Record", HotkeyHint("_record"), "record");
+            ? WindowsMenuRenderer.Item(T("Stop recording"), null, "record", active: true, danger: true)
+            : WindowsMenuRenderer.Item(T("Record"), HotkeyHint("_record"), "record");
         _recordItem = recordItem;
-        var scrollItem   = WindowsMenuRenderer.Item("Scroll capture", HotkeyHint("_scrollCapture"), "scrollCapture");
-        var settingsItem = WindowsMenuRenderer.Item("Settings", iconId: "gear");
-        var historyItem  = WindowsMenuRenderer.Item("History", iconId: "folder");
-        var quitItem     = WindowsMenuRenderer.Item("Quit", iconId: "close", danger: true);
+        var scrollItem   = WindowsMenuRenderer.Item(T("Scroll capture"), HotkeyHint("_scrollCapture"), "scrollCapture");
+        var settingsItem = WindowsMenuRenderer.Item(T("Settings"), iconId: "gear");
+        var historyItem  = WindowsMenuRenderer.Item(T("History"), iconId: "folder");
+        var quitItem     = WindowsMenuRenderer.Item(T("Quit"), iconId: "close", danger: true);
 
         captureItem.Click += (_, _) => OnCapture?.Invoke();
         ocrItem.Click     += (_, _) => OnOcr?.Invoke();
@@ -160,11 +172,13 @@ public sealed class TrayIcon : IDisposable
             return;
 
         bool isRec = Capture.RecordingForm.Current != null;
-        _recordItem.Text = isRec ? "Stop recording" : "Record";
+        _recordItem.Text = isRec ? T("Stop recording") : T("Record");
         _recordItem.ShortcutKeyDisplayString = isRec ? string.Empty : HotkeyHint("_record") ?? string.Empty;
         _recordItem.Tag = isRec;
         _recordItem.ForeColor = isRec ? Color.FromArgb(239, 68, 68) : UiChrome.SurfaceTextPrimary;
     }
+
+    private static string T(string text) => LocalizationService.Translate(text);
 
     // ── Tray icon ────────────────────────────────────────────────
 

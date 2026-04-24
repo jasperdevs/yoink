@@ -42,9 +42,11 @@ internal static partial class User32
     public const int WS_EX_LAYERED = 0x80000;
     public const int WS_EX_TRANSPARENT = 0x20;
     public const int WS_EX_NOACTIVATE = 0x08000000;
+    public const int WS_EX_TOPMOST = 0x00000008;
     public const uint GA_ROOTOWNER = 3;
     public const uint GA_ROOT = 2;
     public const uint GW_HWNDNEXT = 2;
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
 
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
     public delegate bool EnumChildProc(IntPtr hWnd, IntPtr lParam);
@@ -99,6 +101,9 @@ internal static partial class User32
 
     [LibraryImport("user32.dll")]
     public static partial IntPtr WindowFromPoint(POINT point);
+
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
 
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetWindow(IntPtr hWnd, uint uCmd);

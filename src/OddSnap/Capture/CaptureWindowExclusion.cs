@@ -5,6 +5,8 @@ namespace OddSnap.Capture;
 
 internal static class CaptureWindowExclusion
 {
+    private readonly record struct HiddenWindow(IntPtr Handle, bool WasTopmost);
+
     private static readonly object Sync = new();
     private static readonly List<IntPtr> RegisteredHandles = new();
 
@@ -21,16 +23,16 @@ internal static class CaptureWindowExclusion
         if (handle == IntPtr.Zero)
             return;
 
-        Register(handle);
-
         try
         {
             User32.SetWindowDisplayAffinity(handle, User32.WDA_EXCLUDEFROMCAPTURE);
         }
         catch
         {
-            // Best-effort only; older Windows builds do not support capture exclusion.
+            // Best-effort only. Older Windows builds or unusual window styles can reject this.
         }
+
+        Register(handle);
     }
 
     public static T RunWithoutIntersectingWindows<T>(Rectangle captureRegion, Func<T> capture)
@@ -69,7 +71,7 @@ internal static class CaptureWindowExclusion
         }
     }
 
-    private static List<IntPtr> HideIntersectingWindows(Rectangle captureRegion)
+    private static List<HiddenWindow> HideIntersectingWindows(Rectangle captureRegion)
     {
         List<IntPtr> handles;
         lock (Sync)
@@ -78,14 +80,15 @@ internal static class CaptureWindowExclusion
             handles = RegisteredHandles.ToList();
         }
 
-        var hiddenHandles = new List<IntPtr>();
+        var hiddenHandles = new List<HiddenWindow>();
         foreach (var handle in handles)
         {
             if (!ShouldHide(handle, captureRegion))
                 continue;
 
+            var wasTopmost = (User32.GetWindowLongA(handle, User32.GWL_EXSTYLE) & User32.WS_EX_TOPMOST) != 0;
             if (User32.ShowWindow(handle, User32.SW_HIDE))
-                hiddenHandles.Add(handle);
+                hiddenHandles.Add(new HiddenWindow(handle, wasTopmost));
         }
 
         if (hiddenHandles.Count > 0)
@@ -108,16 +111,20 @@ internal static class CaptureWindowExclusion
             && captureRegion.IntersectsWith(bounds);
     }
 
-    private static void RestoreWindows(List<IntPtr> handles)
+    private static void RestoreWindows(List<HiddenWindow> windows)
     {
-        foreach (var handle in handles)
+        foreach (var window in windows)
         {
+            var handle = window.Handle;
             if (handle == IntPtr.Zero || !User32.IsWindow(handle))
                 continue;
 
             User32.ShowWindow(handle, User32.SW_SHOWNOACTIVATE);
-            User32.SetWindowPos(handle, User32.HWND_TOPMOST, 0, 0, 0, 0,
-                User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE | User32.SWP_SHOWWINDOW);
+            if (window.WasTopmost)
+            {
+                User32.SetWindowPos(handle, User32.HWND_TOPMOST, 0, 0, 0, 0,
+                    User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
+            }
         }
     }
 

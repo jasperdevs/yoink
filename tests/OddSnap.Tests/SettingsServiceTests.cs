@@ -119,6 +119,27 @@ public sealed class SettingsServiceTests
     }
 
     [Fact]
+    public void FlushPendingWrites_RaisesSaveFailedWhenSettingsPathCannotBeWritten()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            using var service = new SettingsService(root, TimeSpan.Zero);
+            string? failure = null;
+            service.SaveFailed += message => failure = message;
+
+            service.Save();
+            service.FlushPendingWrites();
+
+            Assert.False(string.IsNullOrWhiteSpace(failure));
+        }
+        finally
+        {
+            TryDeleteRoot(root);
+        }
+    }
+
+    [Fact]
     public void Save_ProtectsSecretsAndLoadRestoresPlainValues()
     {
         var root = CreateTempRoot();
@@ -210,6 +231,29 @@ public sealed class SettingsServiceTests
         Assert.DoesNotContain("jwt.payload", redacted);
         Assert.DoesNotContain("ghp_secret", redacted);
         Assert.Contains("[redacted]", redacted);
+    }
+
+    [Fact]
+    public void PortableStorage_UsesOddSnapSubfolderBesideApp()
+    {
+        var appDir = Path.Combine(Path.GetTempPath(), "oddsnap-portable", Guid.NewGuid().ToString("N"));
+
+        var storageDir = AppStoragePaths.ResolveStorageDirectory(appDir, isInstalled: false);
+
+        Assert.Equal(Path.Combine(appDir, "OddSnap"), storageDir);
+        Assert.Equal(Path.Combine(appDir, "OddSnap", "settings.json"), Path.Combine(storageDir, "settings.json"));
+        Assert.Equal(Path.Combine(appDir, "OddSnap", "logs"), Path.Combine(storageDir, "logs"));
+    }
+
+    [Fact]
+    public void InstalledStorage_UsesRoamingFolder()
+    {
+        var appDir = Path.Combine(Path.GetTempPath(), "oddsnap-installed", Guid.NewGuid().ToString("N"));
+
+        var storageDir = AppStoragePaths.ResolveStorageDirectory(appDir, isInstalled: true);
+
+        Assert.Contains(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), storageDir, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(Path.Combine("OddSnap"), storageDir);
     }
 
     private static string CreateTempRoot()

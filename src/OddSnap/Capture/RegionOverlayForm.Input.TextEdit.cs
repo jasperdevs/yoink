@@ -171,8 +171,8 @@ public sealed partial class RegionOverlayForm
             if (!GetColorPickerSwatchRect(i).Contains(p))
                 continue;
 
-            _toolColor = ToolColors[i];
-            _toolColorIndex = i;
+            SetToolColor(ToolColors[i]);
+            _activeToolId = _visibleTools.FirstOrDefault(t => t.Mode == _mode)?.Id ?? _activeToolId;
             _colorPickerOpen = false;
             Invalidate(InflateForRepaint(GetColorPickerBounds(), 12));
             RefreshToolbar();

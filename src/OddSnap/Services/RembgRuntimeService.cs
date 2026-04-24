@@ -5,7 +5,15 @@ namespace OddSnap.Services;
 
 public static class RembgRuntimeService
 {
-    private const int RuntimeLayoutVersion = 2;
+    private const int RuntimeLayoutVersion = 3;
+    private const string PipPackage = "pip==26.0.1";
+    private const string SetuptoolsPackage = "setuptools==82.0.1";
+    private const string WheelPackage = "wheel==0.47.0";
+    private const string RembgPackage = "rembg==2.0.74";
+    private const string NumpyPackage = "numpy==2.4.4";
+    private const string PillowPackage = "pillow==12.2.0";
+    private const string OnnxRuntimePackage = "onnxruntime==1.24.2";
+    private const string OnnxRuntimeGpuPackage = "onnxruntime-gpu==1.24.4";
     private static readonly TimeSpan ProbeCacheTtl = TimeSpan.FromMinutes(10);
 
     private sealed record ProbeState(bool? Ready, string Status, DateTime CheckedUtc);
@@ -309,7 +317,7 @@ public static class RembgRuntimeService
         progress?.Report("Installing rembg packages...");
         var toolsInstall = await RunRuntimePythonAsync(provider, new[]
         {
-            "-m", "pip", "install", "--disable-pip-version-check", "--upgrade", "pip", "setuptools", "wheel"
+            "-m", "pip", "install", "--disable-pip-version-check", PipPackage, SetuptoolsPackage, WheelPackage
         }, cancellationToken).ConfigureAwait(false);
         if (toolsInstall.ExitCode != 0)
             throw new InvalidOperationException(ProcessRunner.GetFailureMessage(toolsInstall, "Couldn't prepare pip inside the isolated runtime."));
@@ -345,12 +353,11 @@ public static class RembgRuntimeService
         yield return "pip";
         yield return "install";
         yield return "--disable-pip-version-check";
-        yield return "--upgrade";
         yield return "--prefer-binary";
-        yield return "rembg";
-        yield return "numpy";
-        yield return "pillow";
-        yield return useGpuPackage ? "onnxruntime-gpu" : "onnxruntime";
+        yield return RembgPackage;
+        yield return NumpyPackage;
+        yield return PillowPackage;
+        yield return useGpuPackage ? OnnxRuntimeGpuPackage : OnnxRuntimePackage;
     }
 
     private static bool IsRuntimeMarkerCurrent(StickerExecutionProvider provider)

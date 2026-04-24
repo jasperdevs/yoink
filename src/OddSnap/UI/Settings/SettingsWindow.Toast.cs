@@ -29,44 +29,44 @@ public partial class SettingsWindow
         }
     }
 
-    private void LoadToastButtonEditor()
+    private void LoadToastButtonLayoutDesigner()
     {
-        LoadToastEditorIcons();
-        RefreshToastButtonEditor();
+        LoadToastLayoutIcons();
+        RefreshToastButtonLayoutDesigner();
     }
 
-    private void LoadToastEditorIcons()
+    private void LoadToastLayoutIcons()
     {
         var white = System.Drawing.Color.FromArgb(230, 255, 255, 255);
-        ToastEditorCloseIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", white, 20);
-        ToastEditorPinIcon.Source = Helpers.StreamlineIcons.RenderWpf("pin", white, 20);
-        ToastEditorSaveIcon.Source = Helpers.StreamlineIcons.RenderWpf("download", white, 20);
-        ToastEditorAiRedirectIcon.Source = Helpers.ToolIcons.RenderAiRedirectWpf(white, 20);
-        ToastEditorDeleteIcon.Source = Helpers.StreamlineIcons.RenderWpf("trash", white, 20);
+        ToastLayoutCloseIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", white, 20);
+        ToastLayoutPinIcon.Source = Helpers.StreamlineIcons.RenderWpf("pin", white, 20);
+        ToastLayoutSaveIcon.Source = Helpers.StreamlineIcons.RenderWpf("download", white, 20);
+        ToastLayoutAiRedirectIcon.Source = Helpers.ToolIcons.RenderAiRedirectWpf(white, 20);
+        ToastLayoutDeleteIcon.Source = Helpers.StreamlineIcons.RenderWpf("trash", white, 20);
     }
 
-    private void RefreshToastButtonEditor()
+    private void RefreshToastButtonLayoutDesigner()
     {
-        ToastEditorSelectionText.Text = _toastButtonDragActive
+        ToastLayoutSelectionText.Text = _toastButtonDragActive
             ? $"Dragging {_selectedToastButton}. Drop on a slot, another button, or the shelf."
             : $"Selected: {_selectedToastButton}";
-        UpdateToastEditorButton(ToastEditorCloseBtn, ToastButtonKind.Close);
-        UpdateToastEditorButton(ToastEditorPinBtn, ToastButtonKind.Pin);
-        UpdateToastEditorButton(ToastEditorSaveBtn, ToastButtonKind.Save);
-        UpdateToastEditorButton(ToastEditorAiRedirectBtn, ToastButtonKind.AiRedirect);
-        UpdateToastEditorButton(ToastEditorDeleteBtn, ToastButtonKind.Delete);
-        UpdateToastEditorSlot(ToastSlotTopLeft, ToastButtonSlot.TopLeft);
-        UpdateToastEditorSlot(ToastSlotTopInnerLeft, ToastButtonSlot.TopInnerLeft);
-        UpdateToastEditorSlot(ToastSlotTopInnerRight, ToastButtonSlot.TopInnerRight);
-        UpdateToastEditorSlot(ToastSlotTopRight, ToastButtonSlot.TopRight);
-        UpdateToastEditorSlot(ToastSlotBottomLeft, ToastButtonSlot.BottomLeft);
-        UpdateToastEditorSlot(ToastSlotBottomInnerLeft, ToastButtonSlot.BottomInnerLeft);
-        UpdateToastEditorSlot(ToastSlotBottomInnerRight, ToastButtonSlot.BottomInnerRight);
-        UpdateToastEditorSlot(ToastSlotBottomRight, ToastButtonSlot.BottomRight);
+        UpdateToastLayoutButton(ToastLayoutCloseBtn, ToastButtonKind.Close);
+        UpdateToastLayoutButton(ToastLayoutPinBtn, ToastButtonKind.Pin);
+        UpdateToastLayoutButton(ToastLayoutSaveBtn, ToastButtonKind.Save);
+        UpdateToastLayoutButton(ToastLayoutAiRedirectBtn, ToastButtonKind.AiRedirect);
+        UpdateToastLayoutButton(ToastLayoutDeleteBtn, ToastButtonKind.Delete);
+        UpdateToastLayoutSlot(ToastSlotTopLeft, ToastButtonSlot.TopLeft);
+        UpdateToastLayoutSlot(ToastSlotTopInnerLeft, ToastButtonSlot.TopInnerLeft);
+        UpdateToastLayoutSlot(ToastSlotTopInnerRight, ToastButtonSlot.TopInnerRight);
+        UpdateToastLayoutSlot(ToastSlotTopRight, ToastButtonSlot.TopRight);
+        UpdateToastLayoutSlot(ToastSlotBottomLeft, ToastButtonSlot.BottomLeft);
+        UpdateToastLayoutSlot(ToastSlotBottomInnerLeft, ToastButtonSlot.BottomInnerLeft);
+        UpdateToastLayoutSlot(ToastSlotBottomInnerRight, ToastButtonSlot.BottomInnerRight);
+        UpdateToastLayoutSlot(ToastSlotBottomRight, ToastButtonSlot.BottomRight);
         RefreshToastHiddenShelf();
     }
 
-    private void UpdateToastEditorButton(Border border, ToastButtonKind button)
+    private void UpdateToastLayoutButton(Border border, ToastButtonKind button)
     {
         border.Visibility = ToastButtonLayout.IsVisible(ToastButtons, button) ? Visibility.Visible : Visibility.Collapsed;
 
@@ -84,10 +84,10 @@ public partial class SettingsWindow
         border.Opacity = ToastButtonLayout.IsVisible(ToastButtons, button)
             ? (_toastButtonDragActive && button == _toastDragButton ? 0.18 : 1)
             : 0.45;
-        UpdateToastEditorIcon(button, selected);
+        UpdateToastLayoutIcon(button, selected);
     }
 
-    private void UpdateToastEditorIcon(ToastButtonKind button, bool active)
+    private void UpdateToastLayoutIcon(ToastButtonKind button, bool active)
     {
         var color = Theme.IsDark
             ? System.Drawing.Color.FromArgb(active ? 255 : 220, 255, 255, 255)
@@ -95,24 +95,24 @@ public partial class SettingsWindow
         switch (button)
         {
             case ToastButtonKind.Close:
-                ToastEditorCloseIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", color, 22, active);
+                ToastLayoutCloseIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", color, 22, active);
                 break;
             case ToastButtonKind.Pin:
-                ToastEditorPinIcon.Source = Helpers.StreamlineIcons.RenderWpf("pin", color, 22, active);
+                ToastLayoutPinIcon.Source = Helpers.StreamlineIcons.RenderWpf("pin", color, 22, active);
                 break;
             case ToastButtonKind.Save:
-                ToastEditorSaveIcon.Source = Helpers.StreamlineIcons.RenderWpf("download", color, 22, active);
+                ToastLayoutSaveIcon.Source = Helpers.StreamlineIcons.RenderWpf("download", color, 22, active);
                 break;
             case ToastButtonKind.AiRedirect:
-                ToastEditorAiRedirectIcon.Source = Helpers.ToolIcons.RenderAiRedirectWpf(color, 22, active);
+                ToastLayoutAiRedirectIcon.Source = Helpers.ToolIcons.RenderAiRedirectWpf(color, 22, active);
                 break;
             case ToastButtonKind.Delete:
-                ToastEditorDeleteIcon.Source = Helpers.StreamlineIcons.RenderWpf("trash", color, 22, active);
+                ToastLayoutDeleteIcon.Source = Helpers.StreamlineIcons.RenderWpf("trash", color, 22, active);
                 break;
         }
     }
 
-    private void UpdateToastEditorSlot(Border slotBorder, ToastButtonSlot slot)
+    private void UpdateToastLayoutSlot(Border slotBorder, ToastButtonSlot slot)
     {
         bool selectedTarget = _dragHoverSlot == slot || ToastButtonLayout.GetSlot(ToastButtons, _selectedToastButton) == slot;
 
@@ -127,7 +127,7 @@ public partial class SettingsWindow
         slotBorder.Opacity = _toastButtonDragActive ? 1 : (selectedTarget ? 0.95 : 0.55);
     }
 
-    private void ToastEditorButton_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void ToastLayoutButton_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
         if (sender is not Border border || border.Tag is not string raw)
@@ -141,15 +141,15 @@ public partial class SettingsWindow
         _toastDragStart = e.GetPosition(this);
         _pressedButtonWasHidden = false;
         border.CaptureMouse();
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
-    private void ToastEditorButton_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    private void ToastLayoutButton_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
         UpdateToastDrag(e.GetPosition(this), e.LeftButton);
     }
 
-    private void ToastEditorButton_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void ToastLayoutButton_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (sender is Border border)
             border.ReleaseMouseCapture();
@@ -163,7 +163,7 @@ public partial class SettingsWindow
             if (TryApplyToastDropAt(pos))
             {
                 ClearToastPointerState();
-                RefreshToastButtonEditor();
+                RefreshToastButtonLayoutDesigner();
                 return;
             }
         }
@@ -175,20 +175,20 @@ public partial class SettingsWindow
         }
 
         ClearToastPointerState();
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
-    private void ToastEditorSlot_DragEnter(object sender, System.Windows.DragEventArgs e)
+    private void ToastLayoutSlot_DragEnter(object sender, System.Windows.DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(System.Windows.DataFormats.Text) || sender is not Border border || border.Tag is not string raw)
             return;
 
         _dragHoverSlot = ParseToastSlot(raw);
         e.Effects = System.Windows.DragDropEffects.Move;
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
-    private void ToastEditorSlot_DragOver(object sender, System.Windows.DragEventArgs e)
+    private void ToastLayoutSlot_DragOver(object sender, System.Windows.DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(System.Windows.DataFormats.Text) || sender is not Border border || border.Tag is not string raw)
             return;
@@ -196,10 +196,10 @@ public partial class SettingsWindow
         _dragHoverSlot = ParseToastSlot(raw);
         e.Effects = System.Windows.DragDropEffects.Move;
         e.Handled = true;
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
-    private void ToastEditorSlot_Drop(object sender, System.Windows.DragEventArgs e)
+    private void ToastLayoutSlot_Drop(object sender, System.Windows.DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(System.Windows.DataFormats.Text) || sender is not Border border || border.Tag is not string raw)
             return;
@@ -208,16 +208,16 @@ public partial class SettingsWindow
         MoveSelectedButtonToSlot(ParseToastSlot(raw));
         _dragHoverSlot = null;
         _toastButtonDragActive = false;
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
-    private void ToastEditorSlot_DragLeave(object sender, System.Windows.DragEventArgs e)
+    private void ToastLayoutSlot_DragLeave(object sender, System.Windows.DragEventArgs e)
     {
         _dragHoverSlot = null;
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
-    private void ToastEditorSlot_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void ToastLayoutSlot_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
         if (sender is not Border border || border.Tag is not string raw)
@@ -226,14 +226,14 @@ public partial class SettingsWindow
         MoveSelectedButtonToSlot(ParseToastSlot(raw));
     }
 
-    private void ToastEditorButton_DragEnter(object sender, System.Windows.DragEventArgs e)
+    private void ToastLayoutButton_DragEnter(object sender, System.Windows.DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(System.Windows.DataFormats.Text))
             return;
         e.Effects = System.Windows.DragDropEffects.Move;
     }
 
-    private void ToastEditorButton_Drop(object sender, System.Windows.DragEventArgs e)
+    private void ToastLayoutButton_Drop(object sender, System.Windows.DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(System.Windows.DataFormats.Text) || sender is not Border border || border.Tag is not string raw)
             return;
@@ -277,7 +277,7 @@ public partial class SettingsWindow
         ToastHiddenShelf.BorderBrush = Theme.Brush(Theme.BorderSubtle);
         _toastButtonDragActive = false;
         _dragHoverSlot = null;
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
     private void ResetToastButtonsBtn_Click(object sender, RoutedEventArgs e)
@@ -287,7 +287,7 @@ public partial class SettingsWindow
         ToastWindow.SetButtonLayout(ToastButtons);
         _dragHoverSlot = null;
         _toastButtonDragActive = false;
-        LoadToastButtonEditor();
+        LoadToastButtonLayoutDesigner();
     }
 
     private static ToastButtonKind ParseToastButton(string raw) => raw switch
@@ -373,14 +373,14 @@ public partial class SettingsWindow
         _toastDragStart = e.GetPosition(this);
         _pressedButtonWasHidden = true;
         border.CaptureMouse();
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
     private void ToastHiddenButton_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         => UpdateToastDrag(e.GetPosition(this), e.LeftButton);
 
     private void ToastHiddenButton_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        => ToastEditorButton_MouseLeftButtonUp(sender, e);
+        => ToastLayoutButton_MouseLeftButtonUp(sender, e);
 
     private void ClearToastPointerState()
     {
@@ -419,11 +419,11 @@ public partial class SettingsWindow
 
     private ToastButtonKind? HitTestToastButton(System.Windows.Point pos)
     {
-        if (IsPointOverElement(ToastEditorCloseBtn, pos) && ToastEditorCloseBtn.Visibility == Visibility.Visible) return ToastButtonKind.Close;
-        if (IsPointOverElement(ToastEditorPinBtn, pos) && ToastEditorPinBtn.Visibility == Visibility.Visible) return ToastButtonKind.Pin;
-        if (IsPointOverElement(ToastEditorSaveBtn, pos) && ToastEditorSaveBtn.Visibility == Visibility.Visible) return ToastButtonKind.Save;
-        if (IsPointOverElement(ToastEditorAiRedirectBtn, pos) && ToastEditorAiRedirectBtn.Visibility == Visibility.Visible) return ToastButtonKind.AiRedirect;
-        if (IsPointOverElement(ToastEditorDeleteBtn, pos) && ToastEditorDeleteBtn.Visibility == Visibility.Visible) return ToastButtonKind.Delete;
+        if (IsPointOverElement(ToastLayoutCloseBtn, pos) && ToastLayoutCloseBtn.Visibility == Visibility.Visible) return ToastButtonKind.Close;
+        if (IsPointOverElement(ToastLayoutPinBtn, pos) && ToastLayoutPinBtn.Visibility == Visibility.Visible) return ToastButtonKind.Pin;
+        if (IsPointOverElement(ToastLayoutSaveBtn, pos) && ToastLayoutSaveBtn.Visibility == Visibility.Visible) return ToastButtonKind.Save;
+        if (IsPointOverElement(ToastLayoutAiRedirectBtn, pos) && ToastLayoutAiRedirectBtn.Visibility == Visibility.Visible) return ToastButtonKind.AiRedirect;
+        if (IsPointOverElement(ToastLayoutDeleteBtn, pos) && ToastLayoutDeleteBtn.Visibility == Visibility.Visible) return ToastButtonKind.Delete;
         return null;
     }
 
@@ -477,7 +477,7 @@ public partial class SettingsWindow
             ToastDragGhost.Tag = button;
         }
 
-        var layerPos = TranslatePoint(pos, ToastEditorSurfaceRoot);
+        var layerPos = TranslatePoint(pos, ToastLayoutSurfaceRoot);
         Canvas.SetLeft(ToastDragGhost, layerPos.X - 15);
         Canvas.SetTop(ToastDragGhost, layerPos.Y - 15);
         ToastDragGhost.Visibility = Visibility.Visible;
@@ -496,7 +496,7 @@ public partial class SettingsWindow
         if (_toastDragSource is null)
             return;
 
-        ToastEditorButton_MouseLeftButtonUp(_toastDragSource, e);
+        ToastLayoutButton_MouseLeftButtonUp(_toastDragSource, e);
     }
 
     private void UpdateToastDrag(System.Windows.Point pos, MouseButtonState leftButton)
@@ -511,7 +511,7 @@ public partial class SettingsWindow
         _dragHoverSlot = HitTestToastSlot(pos);
         UpdateShelfHover(IsPointOverElement(ToastHiddenShelf, pos));
         ShowToastDragGhost(_toastDragButton, pos);
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
     private void MoveSelectedButtonToSlot(ToastButtonSlot slot)
@@ -538,7 +538,7 @@ public partial class SettingsWindow
     {
         _settingsService.Save();
         ToastWindow.SetButtonLayout(ToastButtons);
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
     private static System.Windows.Controls.Image BuildStreamlineIcon(string id)

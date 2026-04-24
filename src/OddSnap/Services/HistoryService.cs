@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
@@ -243,7 +242,7 @@ public sealed partial class HistoryService : IDisposable
         var filePath = Path.Combine(stickerDir, fileName);
 
         Directory.CreateDirectory(stickerDir);
-        sticker.Save(filePath, ImageFormat.Png);
+        CaptureOutputService.SavePng(sticker, filePath);
         var fileSizeBytes = new FileInfo(filePath).Length;
 
         HistoryEntry entry;

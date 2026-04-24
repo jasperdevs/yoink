@@ -8,7 +8,7 @@ public sealed partial class RegionOverlayForm
 {
     private void UpdateToolbarTooltip(Point cursor)
     {
-        if (_flyoutOpen || _hoveredButton < 0 || _hoveredButton >= _toolbarLabels.Length)
+        if (!IsToolbarInteractive() || _flyoutOpen || _hoveredButton < 0 || _hoveredButton >= _toolbarLabels.Length)
         {
             HideToolbarTooltip();
             return;
@@ -58,4 +58,7 @@ public sealed partial class RegionOverlayForm
         _tooltipButton = -1;
         try { _toolbarToolTip?.Hide(); } catch { }
     }
+
+    private bool IsToolbarInteractive()
+        => !_isSelecting && _toolbarForm is { IsDisposed: false, Visible: true };
 }

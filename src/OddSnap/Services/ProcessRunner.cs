@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 
 namespace OddSnap.Services;
 
@@ -29,11 +31,20 @@ internal static class ProcessRunner
 
         using var errorMode = WindowsErrorModeScope.SuppressSystemDialogs();
         using var process = new Process { StartInfo = psi };
-        if (!process.Start())
+        try
+        {
+            if (!process.Start())
+            {
+                var message = startFailureMessage ?? $"Could not start process '{fileName}'.";
+                onStartFailure?.Invoke(message);
+                return new ProcessRunResult(-1, "", message);
+            }
+        }
+        catch (Exception ex) when (ex is Win32Exception or FileNotFoundException or DirectoryNotFoundException)
         {
             var message = startFailureMessage ?? $"Could not start process '{fileName}'.";
             onStartFailure?.Invoke(message);
-            return new ProcessRunResult(-1, "", message);
+            return new ProcessRunResult(-1, "", $"{message} {ex.Message}".Trim());
         }
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync();

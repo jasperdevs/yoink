@@ -11,17 +11,11 @@ internal sealed class LiveSelectionAdornerForm : Form
 {
     private readonly Rectangle _virtualBounds;
     private readonly string _hint;
+    private readonly System.Diagnostics.Stopwatch _renderStopwatch = System.Diagnostics.Stopwatch.StartNew();
+    private readonly System.Windows.Forms.Timer _renderTimer = new() { Interval = UiChrome.FrameIntervalMs };
 
-    private readonly Pen _selectionPen = new(Color.White, 2.0f)
-    {
-        DashStyle = DashStyle.Dash,
-        DashPattern = new[] { 4f, 3f },
-        LineJoin = LineJoin.Miter
-    };
-    private readonly Font _labelFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
+    private readonly Font _readoutFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
     private readonly Font _hintFont = UiChrome.ChromeFont(UiChrome.ChromeHintSize);
-    private readonly SolidBrush _labelBackgroundBrush = new(UiChrome.SurfacePill);
-    private readonly SolidBrush _labelTextBrush = new(UiChrome.SurfaceTextPrimary);
     private readonly SolidBrush _hintTextBrush = new(Color.White);
     private readonly SolidBrush _hintStrokeBrush = new(Color.FromArgb(180, 0, 0, 0));
 
@@ -29,7 +23,9 @@ internal sealed class LiveSelectionAdornerForm : Form
     private Graphics? _surfaceGraphics;
     private Rectangle _contentBounds;
     private Rectangle _selection;
-    private string _label = "";
+    private Point _cursor;
+    private IReadOnlyList<string>? _readoutDetails;
+    private bool _renderQueued;
 
     public LiveSelectionAdornerForm(Rectangle virtualBounds, string hint)
     {
@@ -40,6 +36,7 @@ internal sealed class LiveSelectionAdornerForm : Form
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         Bounds = GetHintContentBounds();
+        _renderTimer.Tick += (_, _) => RenderQueuedFrame();
     }
 
     protected override CreateParams CreateParams
@@ -62,11 +59,40 @@ internal sealed class LiveSelectionAdornerForm : Form
         UpdateSurface();
     }
 
-    public void SetSelection(Rectangle selection, string label)
+    public void SetSelection(Rectangle selection, Point cursor, IReadOnlyList<string>? readoutDetails = null)
     {
+        if (_selection == selection && _cursor == cursor && ReferenceEquals(_readoutDetails, readoutDetails))
+            return;
+
         _selection = selection;
-        _label = label;
+        _cursor = cursor;
+        _readoutDetails = readoutDetails;
+        if (_renderStopwatch.ElapsedMilliseconds < UiChrome.FrameIntervalMs)
+        {
+            _renderQueued = true;
+            if (!_renderTimer.Enabled)
+                _renderTimer.Start();
+            return;
+        }
+
         UpdateSurface();
+    }
+
+    private void RenderQueuedFrame()
+    {
+        if (!_renderQueued)
+        {
+            _renderTimer.Stop();
+            return;
+        }
+
+        if (_renderStopwatch.ElapsedMilliseconds < UiChrome.FrameIntervalMs)
+            return;
+
+        _renderQueued = false;
+        UpdateSurface();
+        if (!_renderQueued)
+            _renderTimer.Stop();
     }
 
     private void UpdateSurface()
@@ -80,9 +106,6 @@ internal sealed class LiveSelectionAdornerForm : Form
             _virtualBounds.Y + _contentBounds.Y,
             _contentBounds.Width,
             _contentBounds.Height);
-
-        if (Bounds != screenBounds)
-            Bounds = screenBounds;
 
         var size = _contentBounds.Size;
         if (_surface == null || _surface.Width != size.Width || _surface.Height != size.Height)
@@ -132,11 +155,14 @@ internal sealed class LiveSelectionAdornerForm : Form
     private Rectangle GetSelectionContentBounds()
     {
         var bounds = Rectangle.Inflate(_selection, 8, 8);
-        if (!string.IsNullOrWhiteSpace(_label))
-        {
-            var labelBounds = GetLabelBounds(_selection, _label, out _, out _);
-            bounds = Rectangle.Union(bounds, Rectangle.Ceiling(labelBounds));
-        }
+        var readoutBounds = SelectionSizeReadout.GetBounds(
+            _cursor,
+            _selection,
+            _readoutFont,
+            new Rectangle(0, 0, _virtualBounds.Width, _virtualBounds.Height),
+            _readoutDetails);
+        if (!readoutBounds.IsEmpty)
+            bounds = Rectangle.Union(bounds, readoutBounds);
 
         bounds.Inflate(4, 4);
         return ClampToVirtualClient(bounds);
@@ -162,27 +188,14 @@ internal sealed class LiveSelectionAdornerForm : Form
 
     private void DrawSelection(Graphics g)
     {
-        g.DrawRectangle(_selectionPen, _selection);
-
-        if (string.IsNullOrWhiteSpace(_label))
-            return;
-
-        var labelRect = GetLabelBounds(_selection, _label, out float x, out float y);
-        using var path = RoundedRect(labelRect, labelRect.Height / 2f);
-        g.FillPath(_labelBackgroundBrush, path);
-        g.DrawString(_label, _labelFont, _labelTextBrush, x, y);
-    }
-
-    private RectangleF GetLabelBounds(Rectangle selection, string label, out float x, out float y)
-    {
-        var size = TextRenderer.MeasureText(label, _labelFont, Size.Empty,
-            TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-        x = selection.X + selection.Width / 2f - size.Width / 2f;
-        y = selection.Bottom + 6;
-        if (y + size.Height > _virtualBounds.Height - 10)
-            y = selection.Y - size.Height - 6;
-
-        return new RectangleF(x - 8, y - 2, size.Width + 16, size.Height + 4);
+        SelectionFrameRenderer.DrawRectangle(g, _selection);
+        SelectionSizeReadout.Draw(
+            g,
+            _cursor,
+            _selection,
+            _readoutFont,
+            new Rectangle(0, 0, _virtualBounds.Width, _virtualBounds.Height),
+            _readoutDetails);
     }
 
     private void DrawOutlinedText(Graphics g, string text, Font font, float x, float y)
@@ -226,7 +239,7 @@ internal sealed class LiveSelectionAdornerForm : Form
             hdcMem = Native.User32.CreateCompatibleDC(hdcScreen);
             hBmp = _surface.GetHbitmap(Color.FromArgb(0));
             hOld = Native.User32.SelectObject(hdcMem, hBmp);
-            Native.User32.UpdateLayeredWindow(Handle, hdcScreen, ref screenPoint, ref size,
+        Native.User32.UpdateLayeredWindow(Handle, hdcScreen, ref screenPoint, ref size,
                 hdcMem, ref sourcePoint, 0, ref blend, 2);
         }
         finally
@@ -239,19 +252,19 @@ internal sealed class LiveSelectionAdornerForm : Form
                 Native.User32.DeleteDC(hdcMem);
             Native.User32.ReleaseDC(IntPtr.Zero, hdcScreen);
         }
+
+        _renderStopwatch.Restart();
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            _renderTimer.Dispose();
             _surfaceGraphics?.Dispose();
             _surface?.Dispose();
-            _selectionPen.Dispose();
-            _labelFont.Dispose();
+            _readoutFont.Dispose();
             _hintFont.Dispose();
-            _labelBackgroundBrush.Dispose();
-            _labelTextBrush.Dispose();
             _hintTextBrush.Dispose();
             _hintStrokeBrush.Dispose();
         }
@@ -259,15 +272,4 @@ internal sealed class LiveSelectionAdornerForm : Form
         base.Dispose(disposing);
     }
 
-    private static GraphicsPath RoundedRect(RectangleF rect, float radius)
-    {
-        var path = new GraphicsPath();
-        float diameter = radius * 2;
-        path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);
-        path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
-        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
-        path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
 }

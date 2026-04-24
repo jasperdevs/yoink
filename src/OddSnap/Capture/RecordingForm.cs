@@ -41,6 +41,7 @@ public sealed partial class RecordingForm : Form
     // Recording
     private GifRecorder? _recorder;
     private VideoRecorder? _videoRecorder;
+    private int _recordingStopRequested;
     private readonly int _fps;
     private readonly int _maxDuration;
     private readonly Models.RecordingFormat _format;
@@ -69,12 +70,9 @@ public sealed partial class RecordingForm : Form
     private static readonly Color TransKey = Color.FromArgb(1, 2, 3);
 
     // Cached GDI objects for paint
-    private readonly Pen _selPen = new(Color.FromArgb(255, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
-    private readonly Font _labelFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
+    private readonly Font _readoutFont = UiChrome.ChromeFont(9f, FontStyle.Bold);
     private readonly Font _hintFont = UiChrome.ChromeFont(UiChrome.ChromeHintSize);
     private readonly SolidBrush _hintBrush = new(UiChrome.SurfaceTextMuted);
-    private readonly SolidBrush _bgLabelBrush = new(UiChrome.SurfacePill);
-    private readonly SolidBrush _textLabelBrush = new(UiChrome.SurfaceTextPrimary);
     private readonly Pen _borderPen = new(Color.FromArgb(200, 239, 68, 68), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f }, LineJoin = LineJoin.Miter };
     private readonly SolidBrush _cornerBrush = new(Color.FromArgb(220, 239, 68, 68));
     private readonly SolidBrush _dotBrush = new(Color.FromArgb(240, 239, 68, 68));
@@ -219,7 +217,7 @@ public sealed partial class RecordingForm : Form
                 UpdateLiveSelectionAdorner();
                 Invalidate();
             }
-            _magHelper?.Update(e.Location, this, _virtualBounds);
+            _magHelper?.Update(e.Location, this, _virtualBounds, _isDragging ? GetMagnifierAvoidBounds() : Rectangle.Empty);
             return;
         }
         if (_state == State.Recording)
@@ -280,18 +278,14 @@ public sealed partial class RecordingForm : Form
         {
             if (screenshot is not null)
                 g.DrawImage(screenshot, _selection, _selection, GraphicsUnit.Pixel);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.DrawRectangle(_selPen, _selection);
-            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            string label = $"{GetRecordingFormatLabel()}  {_selection.Width} x {_selection.Height}  {_fps} FPS";
-            var sz = g.MeasureString(label, _labelFont);
-            float lx = _selection.X + _selection.Width / 2f - sz.Width / 2f;
-            float ly = _selection.Bottom + 6;
-            if (ly + sz.Height > Height - 10) ly = _selection.Y - sz.Height - 6;
-            var bgRect = new RectangleF(lx - 8, ly - 2, sz.Width + 16, sz.Height + 4);
-            using var bgPath = RRect(bgRect, bgRect.Height / 2f);
-            g.FillPath(_bgLabelBrush, bgPath);
-            g.DrawString(label, _labelFont, _textLabelBrush, lx, ly);
+            SelectionFrameRenderer.DrawRectangle(g, _selection);
+            SelectionSizeReadout.Draw(
+                g,
+                PointToClient(Cursor.Position),
+                _selection,
+                _hintFont,
+                ClientRectangle,
+                GetRecordingReadoutDetails());
         }
         else
         {
@@ -309,10 +303,7 @@ public sealed partial class RecordingForm : Form
         if (_selectionAdorner is null)
             return;
 
-        var label = _selection.Width > 2 && _selection.Height > 2
-            ? $"{GetRecordingFormatLabel()}  {_selection.Width} x {_selection.Height}  {_fps} FPS"
-            : "";
-        _selectionAdorner.SetSelection(_selection, label);
+        _selectionAdorner.SetSelection(_selection, PointToClient(Cursor.Position), GetRecordingReadoutDetails());
     }
 
     private void PaintRecordingPhase(Graphics g)
@@ -380,22 +371,19 @@ public sealed partial class RecordingForm : Form
         WindowsDockRenderer.PaintIcon(g, iconId, rect, Color.FromArgb(alpha, iconColor.R, iconColor.G, iconColor.B), active);
     }
 
-    private static GraphicsPath RRect(RectangleF r, float radius)
-    {
-        var path = new GraphicsPath();
-        float d = radius * 2;
-        path.AddArc(r.X, r.Y, d, d, 180, 90);
-        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-
     private static Rectangle NormRect(Point a, Point b)
     {
         int x = Math.Min(a.X, b.X), y = Math.Min(a.Y, b.Y);
         return new Rectangle(x, y, Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
+    }
+
+    private static Rectangle InflateForRepaint(Rectangle rect, int pad = 8)
+    {
+        if (rect.Width <= 0 || rect.Height <= 0)
+            return Rectangle.Empty;
+
+        rect.Inflate(pad, pad);
+        return rect;
     }
 
     private string GetRecordingFormatLabel() => _format switch
@@ -405,6 +393,25 @@ public sealed partial class RecordingForm : Form
         Models.RecordingFormat.MKV => "MKV",
         _ => "GIF"
     };
+
+    private string[] GetRecordingReadoutDetails()
+        => [$"{GetRecordingFormatLabel()}  {_fps} FPS"];
+
+    private Rectangle GetMagnifierAvoidBounds()
+    {
+        if (_selection.Width <= 2 || _selection.Height <= 2)
+            return Rectangle.Empty;
+
+        var readoutBounds = SelectionSizeReadout.GetBounds(
+            PointToClient(Cursor.Position),
+            _selection,
+            _readoutFont,
+            ClientRectangle,
+            GetRecordingReadoutDetails());
+        return readoutBounds.IsEmpty
+            ? _selection
+            : Rectangle.Union(_selection, InflateForRepaint(readoutBounds, 8));
+    }
 
     protected override void Dispose(bool disposing)
     {
@@ -419,9 +426,9 @@ public sealed partial class RecordingForm : Form
             _selectionAdorner = null;
             _screenshot?.Dispose();
             _screenshot = null;
-            _selPen.Dispose(); _labelFont.Dispose();
-            _hintFont.Dispose(); _hintBrush.Dispose(); _bgLabelBrush.Dispose();
-            _textLabelBrush.Dispose(); _borderPen.Dispose(); _cornerBrush.Dispose();
+            _readoutFont.Dispose();
+            _hintFont.Dispose(); _hintBrush.Dispose();
+            _borderPen.Dispose(); _cornerBrush.Dispose();
             _dotBrush.Dispose(); _ringPen.Dispose(); _timeFont.Dispose();
             _timeBrush.Dispose(); _encFont.Dispose();
             _encTextBrush.Dispose(); _spinBrush.Dispose();

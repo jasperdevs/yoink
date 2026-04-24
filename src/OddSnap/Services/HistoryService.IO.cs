@@ -458,7 +458,10 @@ public sealed partial class HistoryService
                 try
                 {
                     _entries = JsonSerializer.Deserialize<List<HistoryEntry>>(File.ReadAllText(path), JsonOpts) ?? new();
-                    _entries = _entries.Where(entry => File.Exists(entry.FilePath)).OrderByDescending(entry => entry.CapturedAt).ToList();
+                    _entries = _entries
+                        .Where(entry => File.Exists(entry.FilePath) && HistoryEntryUtilities.IsSupportedHistoryFile(entry.FilePath))
+                        .OrderByDescending(entry => entry.CapturedAt)
+                        .ToList();
                     InvalidateFilteredCache();
                     MarkEntriesRewrite_NoLock();
                     changed = _entries.Count > 0;

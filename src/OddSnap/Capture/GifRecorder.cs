@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using AnimatedGif;
+using OddSnap.Helpers;
 
 namespace OddSnap.Capture;
 
@@ -259,7 +260,7 @@ public sealed class GifRecorder : IDisposable
         try
         {
             var first = Path.Combine(_tempDir, "frame_000000.bmp");
-            return File.Exists(first) ? new Bitmap(first) : null;
+            return File.Exists(first) ? BitmapPerf.LoadDetached(first) : null;
         }
         catch { return null; }
     }

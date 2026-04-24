@@ -48,6 +48,7 @@ public partial class SettingsWindow
         GyazoSettings.Visibility = dest == Services.UploadDestination.Gyazo ? Visibility.Visible : Visibility.Collapsed;
         FileIoSettings.Visibility = dest == Services.UploadDestination.FileIo ? Visibility.Visible : Visibility.Collapsed;
         UguuSettings.Visibility = dest == Services.UploadDestination.Uguu ? Visibility.Visible : Visibility.Collapsed;
+        TmpFilesSettings.Visibility = dest == Services.UploadDestination.TmpFiles ? Visibility.Visible : Visibility.Collapsed;
         GofileSettings.Visibility = dest == Services.UploadDestination.Gofile ? Visibility.Visible : Visibility.Collapsed;
         TransferSettings.Visibility = dest == Services.UploadDestination.TransferSh ? Visibility.Visible : Visibility.Collapsed;
         DropboxSettings.Visibility = dest == Services.UploadDestination.Dropbox ? Visibility.Visible : Visibility.Collapsed;
@@ -152,7 +153,7 @@ public partial class SettingsWindow
 
     private void AiRedirectPanelHotkeyBox_GotFocus(object sender, RoutedEventArgs e)
     {
-        AiRedirectPanelHotkeyBox.Text = "Press keys...";
+        AiRedirectPanelHotkeyBox.Text = LocalizationService.Translate("Press keys...");
     }
 
     private void AiRedirectPanelHotkeyBox_LostFocus(object sender, RoutedEventArgs e)
@@ -484,7 +485,7 @@ public partial class SettingsWindow
         try
         {
             using (var bmp = new Bitmap(1, 1))
-                bmp.Save(tempPath, System.Drawing.Imaging.ImageFormat.Png);
+                CaptureOutputService.SavePng(bmp, tempPath);
 
             if (_settingsService.Settings.ImageUploadDestination == Services.UploadDestination.AiChat)
             {

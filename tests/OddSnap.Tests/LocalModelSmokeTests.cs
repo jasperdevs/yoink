@@ -68,7 +68,6 @@ public sealed class LocalModelSmokeTests
     {
         TryDeleteDirectory(RembgRuntimeService.RootDirectory);
         TryDeleteDirectory(UpscaleRuntimeService.RootDirectory);
-        TryDeleteDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".u2net"));
     }
 
     private static void TryDeleteDirectory(string path)

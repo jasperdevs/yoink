@@ -14,14 +14,17 @@ public static class ToolIcons
     /// <summary>Map from tool IDs to shared icon IDs where they differ.</summary>
     private static readonly Dictionary<string, string> ToolToStreamlineId = new()
     {
+        ["_fullscreen"] = "fullscreen",
+        ["_activeWindow"] = "activeWindow",
+        ["_scrollCapture"] = "scrollCapture",
         ["_record"] = "record",
     };
 
-    public static BitmapSource RenderToolIconWpf(string toolId, char glyph, Color color, int size)
+    public static BitmapSource RenderToolIconWpf(string toolId, char glyph, Color color, int size, bool active = false)
     {
         var iconId = ToolToStreamlineId.TryGetValue(toolId, out var mapped) ? mapped : toolId;
 
-        return StreamlineIcons.RenderWpf(iconId, color, size)
+        return StreamlineIcons.RenderWpf(iconId, color, size, active)
                ?? StreamlineIcons.RenderWpf("warning", color, size)!;
     }
 

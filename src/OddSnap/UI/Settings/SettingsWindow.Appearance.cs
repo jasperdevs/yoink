@@ -7,6 +7,8 @@ using OddSnap.Models;
 using OddSnap.Services;
 using Button = System.Windows.Controls.Button;
 using CheckBox = System.Windows.Controls.CheckBox;
+using MediaBrush = System.Windows.Media.Brush;
+using MediaColor = System.Windows.Media.Color;
 
 namespace OddSnap.UI;
 
@@ -19,25 +21,25 @@ public partial class SettingsWindow
         Resources["ThemeTextPrimaryBrush"] = Theme.Brush(Theme.TextPrimary);
         Resources["ThemeTextSecondaryBrush"] = Theme.Brush(Theme.TextSecondary);
         Resources["ThemeMutedBrush"] = Theme.Brush(Theme.TextMuted);
-        Resources["ThemeCardBrush"] = Theme.Brush(Theme.BgCard);
-        Resources["ThemeTabActiveBrush"] = Theme.Brush(Theme.TabActiveBg);
-        Resources["ThemeTabHoverBrush"] = Theme.Brush(Theme.TabHoverBg);
-        Resources["ThemeInputBackgroundBrush"] = Theme.Brush(Theme.BgSecondary);
-        Resources["ThemeInputBorderBrush"] = Theme.Brush(Theme.BorderSubtle);
-        Resources["ThemeWindowBorderBrush"] = Theme.Brush(Theme.WindowBorder);
+        var settingsBg = Theme.IsDark ? MediaColor.FromRgb(31, 31, 31) : MediaColor.FromRgb(243, 243, 243);
+        var settingsCard = Theme.IsDark ? MediaColor.FromRgb(43, 43, 43) : MediaColor.FromRgb(255, 255, 255);
+        var settingsInput = Theme.IsDark ? MediaColor.FromRgb(36, 36, 36) : MediaColor.FromRgb(249, 249, 249);
+        Resources["ThemeCardBrush"] = Theme.Brush(settingsCard);
+        Resources["ThemeTabActiveBrush"] = Theme.Brush(Theme.IsDark ? MediaColor.FromArgb(26, 255, 255, 255) : MediaColor.FromArgb(18, 0, 0, 0));
+        Resources["ThemeTabHoverBrush"] = Theme.Brush(Theme.IsDark ? MediaColor.FromArgb(16, 255, 255, 255) : MediaColor.FromArgb(12, 0, 0, 0));
+        Resources["ThemeInputBackgroundBrush"] = Theme.Brush(settingsInput);
+        Resources["ThemeInputBorderBrush"] = Theme.Brush(Theme.IsDark ? MediaColor.FromArgb(28, 255, 255, 255) : MediaColor.FromArgb(22, 0, 0, 0));
+        Resources["ThemeWindowBorderBrush"] = Theme.Brush(Theme.IsDark ? MediaColor.FromArgb(30, 255, 255, 255) : MediaColor.FromArgb(22, 0, 0, 0));
         Resources["ThemeAccentBrush"] = Theme.Brush(Theme.Accent);
-        Resources["ThemeSeparatorBrush"] = Theme.Brush(Theme.Separator);
-        OuterBorder.Background = Theme.Brush(Theme.BgPrimary);
+        Resources["ThemeSeparatorBrush"] = Theme.Brush(Theme.IsDark ? MediaColor.FromArgb(20, 255, 255, 255) : MediaColor.FromArgb(18, 0, 0, 0));
+        OuterBorder.Background = Theme.Brush(settingsBg);
         OuterBorder.BorderBrush = Theme.Brush(Theme.WindowBorder);
-        TitleBarBorder.Background = Theme.Brush(Theme.TitleBar);
-        TitleText.Foreground = Theme.Brush(Theme.TextPrimary);
-        TitleLogo.Source = ThemedLogo.Wordmark(92, 17);
         Icon = ThemedLogo.Square(32);
         Foreground = Theme.Brush(Theme.TextPrimary);
 
         ApplyThemeToVisualTree(OuterBorder);
         UpdateSectionIcons();
-        RefreshToastButtonEditor();
+        RefreshToastButtonLayoutDesigner();
     }
 
     private void UpdateSectionIcons()
@@ -58,23 +60,23 @@ public partial class SettingsWindow
             switch (child)
             {
                 case System.Windows.Controls.TextBox textBox:
-                    textBox.Background = Theme.Brush(Theme.BgSecondary);
-                    textBox.Foreground = Theme.Brush(Theme.TextPrimary);
-                    textBox.BorderBrush = Theme.Brush(Theme.BorderSubtle);
-                    textBox.CaretBrush = Theme.Brush(Theme.TextPrimary);
+                    textBox.Background = (MediaBrush)Resources["ThemeInputBackgroundBrush"];
+                    textBox.Foreground = (MediaBrush)Resources["ThemeTextPrimaryBrush"];
+                    textBox.BorderBrush = (MediaBrush)Resources["ThemeInputBorderBrush"];
+                    textBox.CaretBrush = (MediaBrush)Resources["ThemeTextPrimaryBrush"];
                     break;
                 case System.Windows.Controls.ComboBox comboBox:
-                    comboBox.Background = Theme.Brush(Theme.BgSecondary);
-                    comboBox.Foreground = Theme.Brush(Theme.TextPrimary);
-                    comboBox.BorderBrush = Theme.Brush(Theme.BorderSubtle);
+                    comboBox.Background = (MediaBrush)Resources["ThemeInputBackgroundBrush"];
+                    comboBox.Foreground = (MediaBrush)Resources["ThemeTextPrimaryBrush"];
+                    comboBox.BorderBrush = (MediaBrush)Resources["ThemeInputBorderBrush"];
                     break;
                 case Button button when button.Style == null:
                     button.Background = Theme.Brush(Theme.AccentSubtle);
-                    button.Foreground = Theme.Brush(Theme.TextPrimary);
-                    button.BorderBrush = Theme.Brush(Theme.BorderSubtle);
+                    button.Foreground = (MediaBrush)Resources["ThemeTextPrimaryBrush"];
+                    button.BorderBrush = (MediaBrush)Resources["ThemeInputBorderBrush"];
                     break;
                 case CheckBox checkBox:
-                    checkBox.Foreground = Theme.Brush(Theme.TextPrimary);
+                    checkBox.Foreground = (MediaBrush)Resources["ThemeTextPrimaryBrush"];
                     break;
             }
 
@@ -85,13 +87,35 @@ public partial class SettingsWindow
     private void LoadSettings()
     {
         var s = _settingsService.Settings;
+        if (string.Equals(s.InterfaceLanguage, LocalizationService.DefaultLanguageCode, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(LocalizationService.ResolveLanguageCode(LocalizationService.AutoLanguageCode), LocalizationService.DefaultLanguageCode, StringComparison.OrdinalIgnoreCase))
+        {
+            s.InterfaceLanguage = LocalizationService.AutoLanguageCode;
+            _settingsService.Save();
+        }
+
         TryLoadSettingsSection("settings.load-ocr-languages", LoadOcrLanguageOptions);
 
-        DefaultCaptureModeCombo.SelectedIndex = s.DefaultCaptureMode == OddSnap.Models.CaptureMode.Freeform ? 1 : 0;
+        PopulateInterfaceLanguageOptions();
+        SelectInterfaceLanguage(s.InterfaceLanguage);
+        DefaultCaptureModeCombo.SelectedIndex = s.DefaultCaptureMode switch
+        {
+            CaptureMode.Center => 1,
+            CaptureMode.Freeform => 2,
+            _ => 0
+        };
+        CenterAspectRatioCombo.SelectedIndex = Enum.IsDefined(typeof(CenterSelectionAspectRatio), s.CenterSelectionAspectRatio)
+            ? (int)s.CenterSelectionAspectRatio
+            : 0;
         var afterCapture = Enum.IsDefined(typeof(AfterCaptureAction), s.AfterCapture)
             ? s.AfterCapture
             : AfterCaptureAction.PreviewAndCopy;
-        AfterCaptureCombo.SelectedIndex = (int)afterCapture;
+        AfterCaptureCombo.SelectedIndex = afterCapture switch
+        {
+            AfterCaptureAction.CopyToClipboard => 0,
+            AfterCaptureAction.PreviewOnly => 2,
+            _ => 1
+        };
         SaveToFileCheck.IsChecked = s.SaveToFile;
         CaptureFormatCombo.SelectedIndex = (int)s.CaptureImageFormat;
         JpegQualityCombo.SelectedIndex = s.JpegQuality switch
@@ -142,7 +166,7 @@ public partial class SettingsWindow
         SoundPackCombo.SelectedIndex = (int)s.SoundPack;
         RecordingFormatCombo.SelectedIndex = (int)s.RecordingFormat;
         RecordingQualityCombo.SelectedIndex = (int)s.RecordingQuality;
-        RecordingFpsCombo.SelectedIndex = s.RecordingFps switch { 15 => 0, 24 => 1, 30 => 2, 60 => 3, _ => 2 };
+        SelectRecordingFps(s.RecordingFormat == RecordingFormat.GIF ? s.GifFps : s.RecordingFps);
         RecordShowCursorCheck.IsChecked = s.ShowCursor;
         RecordMicCheck.IsChecked = s.RecordMicrophone;
         RecordDesktopAudioCheck.IsChecked = s.RecordDesktopAudio;
@@ -155,8 +179,10 @@ public partial class SettingsWindow
         double fadeDur = s.ToastFadeOutSeconds;
         int fadeDurIdx = fadeDur switch { 1.0 => 0, 2.0 => 1, 3.0 => 2, 5.0 => 3, _ => 2 };
         ToastFadeDurationCombo.SelectedIndex = fadeDurIdx;
-        ToastFadeDurationRow.Visibility = s.ToastFadeOutEnabled ? Visibility.Visible : Visibility.Collapsed;
-        LoadToastButtonEditor();
+        var fadeDurationVisibility = s.ToastFadeOutEnabled ? Visibility.Visible : Visibility.Collapsed;
+        ToastFadeDurationSeparator.Visibility = fadeDurationVisibility;
+        ToastFadeDurationRow.Visibility = fadeDurationVisibility;
+        LoadToastButtonLayoutDesigner();
 
         SelectUploadDestByTag((int)s.ImageUploadDestination);
         AutoUploadScreenshotsCheck.IsChecked = s.AutoUploadScreenshots;
@@ -176,6 +202,8 @@ public partial class SettingsWindow
         {
             TryLoadSettingsSection("settings.schedule-history-tab-load", () => ScheduleHistoryTabLoad());
         }
+
+        ApplyLocalization();
     }
 
     private static void TryLoadSettingsSection(string logKey, Action action)
@@ -196,11 +224,79 @@ public partial class SettingsWindow
     private void PopulateToolToggles() =>
         ToolListBuilder.Build(ToolTogglePanel, _settingsService, this, () => HotkeyChanged?.Invoke());
 
+    private void PopulateInterfaceLanguageOptions()
+    {
+        InterfaceLanguageCombo.Items.Clear();
+        InterfaceLanguageCombo.Items.Add(new ComboBoxItem
+        {
+            Content = "Auto (system language)",
+            Tag = LocalizationService.AutoLanguageCode,
+            ToolTip = "Uses Windows language when OddSnap has translations for it.",
+        });
+
+        foreach (var language in LocalizationService.Languages)
+        {
+            bool available = LocalizationService.HasInterfaceTranslations(language.Code);
+            var label = string.Equals(language.EnglishName, language.NativeName, StringComparison.OrdinalIgnoreCase)
+                ? language.EnglishName
+                : $"{language.EnglishName} - {language.NativeName}";
+            InterfaceLanguageCombo.Items.Add(new ComboBoxItem
+            {
+                Content = available ? label : $"{label} (not translated yet)",
+                Tag = language.Code,
+                IsEnabled = available,
+                ToolTip = available
+                    ? null
+                    : "This language is recognized, but OddSnap does not have app translations for it yet.",
+            });
+        }
+    }
+
     private void ShowToolNumberBadgesCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
         _settingsService.Settings.ShowToolNumberBadges = ShowToolNumberBadgesCheck.IsChecked == true;
         _settingsService.Save();
+    }
+
+    private void SelectInterfaceLanguage(string languageCode)
+    {
+        var normalized = LocalizationService.NormalizeLanguageSetting(languageCode);
+        foreach (var item in InterfaceLanguageCombo.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                InterfaceLanguageCombo.SelectedItem = item;
+                return;
+            }
+        }
+
+        InterfaceLanguageCombo.SelectedIndex = 0;
+    }
+
+    private void InterfaceLanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        var selected = InterfaceLanguageCombo.SelectedItem as ComboBoxItem;
+        var languageCode = selected?.Tag?.ToString() ?? LocalizationService.AutoLanguageCode;
+        if (!string.Equals(languageCode, LocalizationService.AutoLanguageCode, StringComparison.OrdinalIgnoreCase) &&
+            !LocalizationService.HasInterfaceTranslations(languageCode))
+        {
+            ToastWindow.Show("Language not available", "OddSnap does not have translations for that language yet.");
+            SelectInterfaceLanguage(_settingsService.Settings.InterfaceLanguage);
+            return;
+        }
+
+        _settingsService.Settings.InterfaceLanguage = LocalizationService.NormalizeLanguageSetting(languageCode);
+        _settingsService.Save();
+        ApplyLocalization();
+        LocalizationChanged?.Invoke();
+    }
+
+    private void ApplyLocalization()
+    {
+        LocalizationService.ApplyCurrentCulture(_settingsService.Settings.InterfaceLanguage);
+        LocalizationService.ApplyTo(this, _settingsService.Settings.InterfaceLanguage);
     }
 
     private void TabChanged(object sender, RoutedEventArgs e)
@@ -219,6 +315,7 @@ public partial class SettingsWindow
         HistoryPanel.Visibility = HistoryTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         UploadsPanel.Visibility = UploadsTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         AboutPanel.Visibility = AboutTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        PageTitleText.Text = GetSelectedSettingsPageTitle();
 
         if (HistoryTab.IsChecked != true || HistoryCategoryCombo.SelectedIndex != 0)
             CancelImageSearchWork();
@@ -230,6 +327,19 @@ public partial class SettingsWindow
         if (OcrTab.IsChecked == true)
             LoadOcrTab();
         UpdateHistoryMonitorState();
+    }
+
+    private string GetSelectedSettingsPageTitle()
+    {
+        if (ToastTab.IsChecked == true) return "Toast";
+        if (HotkeysTab.IsChecked == true) return "Tools";
+        if (CaptureTab.IsChecked == true) return "Capture";
+        if (RecordingTab.IsChecked == true) return "Recording";
+        if (OcrTab.IsChecked == true) return "OCR";
+        if (HistoryTab.IsChecked == true) return "History";
+        if (UploadsTab.IsChecked == true) return "Uploads";
+        if (AboutTab.IsChecked == true) return "About";
+        return "General";
     }
 
     private void HistoryCategoryCombo_Changed(object sender, SelectionChangedEventArgs e)

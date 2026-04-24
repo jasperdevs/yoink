@@ -10,9 +10,6 @@ using System.Linq;
 using OddSnap.Helpers;
 using OddSnap.Models;
 
-// Unified dash/border constants for consistency across all selection borders
-// Every dashed border in the app uses these same values.
-
 namespace OddSnap.Capture;
 
 public sealed partial class RegionOverlayForm
@@ -44,7 +41,7 @@ public sealed partial class RegionOverlayForm
 
         bool isOcr = _mode == CaptureMode.Ocr;
         bool isScan = _mode == CaptureMode.Scan;
-        bool isSelectionMode = _mode is CaptureMode.Rectangle or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker or CaptureMode.Upscale;
+        bool isSelectionMode = _mode is CaptureMode.Rectangle or CaptureMode.Center or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker or CaptureMode.Upscale;
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -59,8 +56,7 @@ public sealed partial class RegionOverlayForm
             if (bounds.Width > 0 && bounds.Height > 0)
             {
                 var selRect = Rectangle.Inflate(bounds, 4, 4);
-                var selPen = _selectDashPen ??= new Pen(Color.FromArgb(200, 255, 255, 255), 2.0f) { DashStyle = DashStyle.Dash, DashPattern = new[] { 4f, 3f } };
-                g.DrawRectangle(selPen, selRect);
+                SelectionFrameRenderer.DrawRectangle(g, selRect, fill: false);
 
                 var corners = new[] {
                     new PointF(selRect.X, selRect.Y),
@@ -82,8 +78,7 @@ public sealed partial class RegionOverlayForm
             var drawRect = ClampRectToClient(_autoDetectRect);
             if (drawRect.Width > 0 && drawRect.Height > 0)
             {
-                g.DrawRectangle(ShadowPen(30), drawRect.X + 1, drawRect.Y + 1, drawRect.Width, drawRect.Height);
-                g.DrawRectangle(DashedPen(180), drawRect);
+                SelectionFrameRenderer.DrawRectangle(g, drawRect);
             }
             _lastAutoDetectRect = _autoDetectRect;
         }
@@ -95,25 +90,39 @@ public sealed partial class RegionOverlayForm
         // Selection borders (on top of everything)
         switch (_mode)
         {
-            case CaptureMode.Rectangle when _hasSelection:
-            case CaptureMode.Ocr when _hasSelection:
-            case CaptureMode.Scan when _hasSelection:
-            case CaptureMode.Sticker when _hasSelection:
-            case CaptureMode.Upscale when _hasSelection:
-                // Subtle outer shadow
-                {
-                    var sr = _selectionRect;
-                    sr.Inflate(1, 1);
-                    g.DrawRectangle(ShadowPen(40), sr);
-                }
-                // Static dashed border
-                g.DrawRectangle(DashedPen(255), _selectionRect);
-                DrawLabel(g, _selectionRect, isOcr, isScan);
+            case CaptureMode.Rectangle when _isSelecting && _hasSelection:
+            case CaptureMode.Center when _isSelecting && _hasSelection:
+            case CaptureMode.Ocr when _isSelecting && _hasSelection:
+            case CaptureMode.Scan when _isSelecting && _hasSelection:
+            case CaptureMode.Sticker when _isSelecting && _hasSelection:
+            case CaptureMode.Upscale when _isSelecting && _hasSelection:
+            case CaptureMode.Rectangle when _hasSelection && !_isSelecting:
+            case CaptureMode.Center when _hasSelection && !_isSelecting:
+            case CaptureMode.Ocr when _hasSelection && !_isSelecting:
+            case CaptureMode.Scan when _hasSelection && !_isSelecting:
+            case CaptureMode.Sticker when _hasSelection && !_isSelecting:
+            case CaptureMode.Upscale when _hasSelection && !_isSelecting:
+                SelectionFrameRenderer.DrawRectangle(g, _selectionRect);
+                SelectionSizeReadout.Draw(
+                    g,
+                    GetReadoutCursorPoint(),
+                    _selectionRect,
+                    _readoutFont,
+                    ClientRectangle);
                 _lastSelectionRect = _selectionRect;
                 break;
 
             case CaptureMode.Freeform when _freeformPoints.Count >= 2:
                 DrawFreeformSelectionPreview(g, _freeformPoints);
+                if (ShouldFillFreeformPreview(_freeformPoints))
+                {
+                    SelectionSizeReadout.Draw(
+                        g,
+                        GetReadoutCursorPoint(),
+                        GetFreeformBounds(_freeformPoints),
+                        _readoutFont,
+                        ClientRectangle);
+                }
                 break;
         }
 
@@ -134,110 +143,89 @@ public sealed partial class RegionOverlayForm
         return new Rectangle(x, y, Math.Max(0, right - x), Math.Max(0, bottom - y));
     }
 
-    // Cached GDI objects for hot-path rendering (avoid allocation per frame).
-    private static Pen? _cachedDash180, _cachedDash255, _cachedDash120, _cachedDash220;
-    private static Pen? _cachedShadow30, _cachedShadow40;
-    private static Pen? _selectDashPen;
-
-    // Monochrome white accent for selection borders
-    private static readonly Color SelectionAccent = Color.FromArgb(255, 255, 255, 255);
-
-    /// <summary>Cached selection pen — dashed white stroke.</summary>
-    private static Pen DashedPen(int alpha, float width = 2.0f)
-    {
-        // Fast path: return cached instance for the common alpha values used every frame.
-        ref Pen? slot = ref _cachedDash180; // dummy init
-        if (width == 2.0f)
-        {
-            switch (alpha)
-            {
-                case 120: slot = ref _cachedDash120; break;
-                case 180: slot = ref _cachedDash180; break;
-                case 220: slot = ref _cachedDash220; break;
-                case 255: slot = ref _cachedDash255; break;
-                default: slot = ref _cachedDash180; goto create;
-            }
-            if (slot != null) return slot;
-        }
-        else goto create;
-
-        create:
-        var pen = new Pen(Color.FromArgb(alpha, SelectionAccent.R, SelectionAccent.G, SelectionAccent.B), width)
-        {
-            DashStyle = DashStyle.Dash,
-            DashPattern = new[] { 4f, 3f },
-            LineJoin = LineJoin.Miter
-        };
-        if (width == 2.0f && (alpha is 120 or 180 or 220 or 255))
-            slot = pen;
-        return pen;
-    }
-
-    private static Pen ShadowPen(int alpha)
-    {
-        ref Pen? slot = ref alpha == 30 ? ref _cachedShadow30 : ref _cachedShadow40;
-        return slot ??= new Pen(Color.FromArgb(alpha, 0, 0, 0), 4f);
-    }
-
     private static void DrawFreeformSelectionPreview(Graphics g, List<Point> pts)
     {
         if (pts.Count < 2)
             return;
 
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var shadowPen = new Pen(Color.FromArgb(30, 0, 0, 0), 4f) { LineJoin = LineJoin.Round };
-        using var outlinePen = new Pen(Color.FromArgb(255, SelectionAccent.R, SelectionAccent.G, SelectionAccent.B), 2.0f)
-        {
-            DashStyle = DashStyle.Dash,
-            DashPattern = new[] { 4f, 3f },
-            LineJoin = LineJoin.Round
-        };
-        var path = pts.ToArray();
-        g.DrawLines(shadowPen, path);
-        g.DrawLines(outlinePen, path);
-        g.SmoothingMode = SmoothingMode.Default;
+        bool fillPreview = ShouldFillFreeformPreview(pts);
+        SelectionFrameRenderer.DrawPath(g, pts, closed: fillPreview, fill: fillPreview);
     }
 
-    private void DrawLabel(Graphics g, Rectangle rect, bool isOcr, bool isScan = false)
+    private Rectangle GetFreeformRepaintBounds(IReadOnlyList<Point> points)
     {
-        string text = GetSelectionLabelText(rect, isOcr, isScan);
-        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        var font = UiChrome.ChromeFont(10f);
-        var lr = GetLabelBounds(rect, isOcr, isScan, text, font, out float lx, out float ly);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var p = RRect(lr, 8))
+        if (points.Count < 2)
+            return Rectangle.Empty;
+
+        var bounds = GetFreeformBounds(points);
+        var dirty = InflateForRepaint(bounds, 26);
+
+        if (ShouldFillFreeformPreview(points))
         {
-            using var lblBg = new SolidBrush(UiChrome.SurfacePill);
-            g.FillPath(lblBg, p);
-            using var border = new Pen(UiChrome.SurfaceBorderSubtle, 1.4f);
-            g.DrawPath(border, p);
+            var cursor = points[^1];
+            var readoutBounds = SelectionSizeReadout.GetBounds(
+                cursor,
+                bounds,
+                _readoutFont,
+                ClientRectangle);
+            if (!readoutBounds.IsEmpty)
+                dirty = Rectangle.Union(dirty, InflateForRepaint(readoutBounds, 10));
         }
-        g.SmoothingMode = SmoothingMode.Default;
-        using var fg = new SolidBrush(UiChrome.SurfaceTextPrimary);
-        g.DrawString(text, font, fg, lx, ly);
-        g.TextRenderingHint = TextRenderingHint.SystemDefault;
+
+        return dirty;
     }
 
-    private static string GetSelectionLabelText(Rectangle rect, bool isOcr, bool isScan)
-        => isOcr ? $"OCR  {rect.Width} x {rect.Height}"
-        : isScan ? $"SCAN  {rect.Width} x {rect.Height}"
-        : $"{rect.Width} x {rect.Height}";
-
-    private RectangleF GetLabelBounds(Rectangle rect, bool isOcr, bool isScan)
+    private void InvalidateSelectionChrome(Rectangle oldSelection, Point oldCursor, Rectangle newSelection, Point newCursor)
     {
-        string text = GetSelectionLabelText(rect, isOcr, isScan);
-        var font = UiChrome.ChromeFont(10f);
-        return GetLabelBounds(rect, isOcr, isScan, text, font, out _, out _);
+        InvalidateSelectionChromePart(oldSelection, oldCursor);
+        InvalidateSelectionChromePart(newSelection, newCursor);
     }
 
-    private RectangleF GetLabelBounds(Rectangle rect, bool isOcr, bool isScan, string text, Font font, out float lx, out float ly)
+    private void InvalidateSelectionChromePart(Rectangle selection, Point cursor)
     {
-        var sz = TextRenderer.MeasureText(text, font, Size.Empty,
-            TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-        lx = rect.X;
-        ly = rect.Bottom + 8;
-        if (ly + sz.Height > ClientSize.Height) ly = rect.Y - sz.Height - 8;
-        return new RectangleF(lx - 8, ly - 3, sz.Width + 16, sz.Height + 6);
+        if (selection.Width <= 2 || selection.Height <= 2)
+            return;
+
+        var selectionDirty = selection;
+        selectionDirty.Inflate(16, 16);
+        Invalidate(selectionDirty);
+
+        var readoutBounds = SelectionSizeReadout.GetBounds(
+            cursor,
+            selection,
+            _readoutFont,
+            ClientRectangle);
+        if (!readoutBounds.IsEmpty)
+            Invalidate(InflateForRepaint(readoutBounds, 10));
+    }
+
+    private static bool ShouldFillFreeformPreview(IReadOnlyList<Point> points)
+    {
+        if (points.Count < 4)
+            return false;
+
+        var bounds = GetFreeformBounds(points);
+        return bounds.Width >= 14 && bounds.Height >= 14;
+    }
+
+    private static Rectangle GetFreeformBounds(IReadOnlyList<Point> points)
+    {
+        if (points.Count == 0)
+            return Rectangle.Empty;
+
+        int left = points[0].X;
+        int top = points[0].Y;
+        int right = points[0].X;
+        int bottom = points[0].Y;
+        for (int i = 1; i < points.Count; i++)
+        {
+            left = Math.Min(left, points[i].X);
+            top = Math.Min(top, points[i].Y);
+            right = Math.Max(right, points[i].X);
+            bottom = Math.Max(bottom, points[i].Y);
+        }
+
+        return Rectangle.FromLTRB(left, top, right, bottom);
     }
 
     private static void PaintShadow(Graphics g, RectangleF rect, float radius, int alpha = 52, float yOffset = 1f)

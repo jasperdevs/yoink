@@ -79,8 +79,14 @@ public sealed class EmojiRenderer : IDisposable
         var result = new Bitmap((int)w, (int)h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
         var bits = result.LockBits(new Rectangle(0, 0, (int)w, (int)h),
             ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-        Marshal.Copy(pixels, 0, bits.Scan0, pixels.Length);
-        result.UnlockBits(bits);
+        try
+        {
+            Marshal.Copy(pixels, 0, bits.Scan0, pixels.Length);
+        }
+        finally
+        {
+            result.UnlockBits(bits);
+        }
         return result;
     }
 

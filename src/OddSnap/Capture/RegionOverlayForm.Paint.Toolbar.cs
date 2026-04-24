@@ -43,12 +43,12 @@ public sealed partial class RegionOverlayForm
         }
 
         // Check if active mode is a flyout tool (to highlight the "more" button)
-        bool flyoutToolActive = _flyoutOpen || _flyoutTools.Any(t => t.Mode == _mode);
+        bool flyoutToolActive = _flyoutOpen || _flyoutTools.Any(t => string.Equals(t.Id, _activeToolId, StringComparison.OrdinalIgnoreCase));
 
         for (int i = 0; i < BtnCount; i++)
         {
             var btn = _toolbarButtons[i];
-            bool active = _toolbarModes[i] is { } m && _mode == m;
+            bool active = _toolbarModes[i] is { } && string.Equals(_toolbarToolIds[i], _activeToolId, StringComparison.OrdinalIgnoreCase);
             if (i == _moreButtonIndex) active = flyoutToolActive;
             bool hover = _hoveredButton == i;
 

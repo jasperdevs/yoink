@@ -70,4 +70,5 @@ public sealed class HistoryServiceTests
                 Path.Combine(HistoryService.StickerDir, "sticker.png"),
                 stickerDirs: [HistoryService.StickerDir]));
     }
+
 }

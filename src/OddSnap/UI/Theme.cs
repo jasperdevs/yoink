@@ -62,17 +62,24 @@ public static class Theme
 
     public static void ApplyTo(System.Windows.ResourceDictionary resources)
     {
-        resources["ChromeButtonBackground"] = Brush(AccentSubtle);
+        resources["ChromeButtonBackground"] = Brush(BgSecondary);
         resources["ChromeButtonForeground"] = Brush(TextPrimary);
         resources["ChromeButtonBorderBrush"] = Brush(BorderSubtle);
-        resources["ChromeButtonHoverBrush"] = Brush(AccentHover);
+        resources["ChromeButtonHoverBrush"] = Brush(BgHover);
         resources["ChromeButtonPressedBrush"] = Brush(SelectionBg);
+        resources["ChromeDangerButtonBackground"] = Brush(IsDark ? CA(196, 43, 28, 42) : CA(196, 43, 28, 24));
+        resources["ChromeDangerButtonBorderBrush"] = Brush(IsDark ? CA(196, 43, 28, 92) : CA(196, 43, 28, 72));
         resources["ThemeTextPrimaryBrush"] = Brush(TextPrimary);
         resources["ThemeTextSecondaryBrush"] = Brush(TextSecondary);
+        resources["ThemeMutedBrush"] = Brush(TextMuted);
+        resources["ThemeCardBrush"] = Brush(BgCard);
         resources["ThemeInputBackgroundBrush"] = Brush(BgSecondary);
         resources["ThemeInputBorderBrush"] = Brush(BorderSubtle);
         resources["ThemeTabHoverBrush"] = Brush(TabHoverBg);
         resources["ThemeTabActiveBrush"] = Brush(TabActiveBg);
+        resources["ThemeWindowBorderBrush"] = Brush(WindowBorder);
+        resources["ThemeSeparatorBrush"] = Brush(Separator);
+        resources["ThemeAccentBrush"] = Brush(Accent);
     }
 
     public static void Refresh()

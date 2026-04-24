@@ -312,10 +312,19 @@ public static class ScreenCapture
             _region = region;
             _includeCursor = includeCursor;
             _bitmap = new Bitmap(region.Width, region.Height, PixelFormat.Format32bppArgb);
-            _graphics = Graphics.FromImage(_bitmap);
-            _hdcScreen = User32.GetDC(IntPtr.Zero);
-            if (_hdcScreen == IntPtr.Zero)
-                throw new InvalidOperationException("Screen capture failed (GetDC returned null).");
+            try
+            {
+                _graphics = Graphics.FromImage(_bitmap);
+                _hdcScreen = User32.GetDC(IntPtr.Zero);
+                if (_hdcScreen == IntPtr.Zero)
+                    throw new InvalidOperationException("Screen capture failed (GetDC returned null).");
+            }
+            catch
+            {
+                _graphics?.Dispose();
+                _bitmap.Dispose();
+                throw;
+            }
         }
 
         public int BufferByteCount => _region.Width * _region.Height * 4;

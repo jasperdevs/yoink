@@ -364,6 +364,14 @@ public static partial class UploadService
             }
         }
 
+        if (dest == UploadDestination.S3Compatible &&
+            settings.S3Endpoint.Contains("://", StringComparison.Ordinal) &&
+            (!Uri.TryCreate(settings.S3Endpoint, UriKind.Absolute, out var s3Uri) ||
+             s3Uri.Scheme != Uri.UriSchemeHttps))
+        {
+            return "S3 uploads require an HTTPS endpoint.";
+        }
+
         return null;
     }
 

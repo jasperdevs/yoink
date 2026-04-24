@@ -23,15 +23,10 @@ public static class AppDiagnostics
         RegexOptions.Compiled);
 
     private static readonly object Gate = new();
-    private static readonly string LogDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "OddSnap",
-        "logs");
-
     private const int MaxLogFilesToKeep = 30;
     private const long MaxLogFileSizeBytes = 5 * 1024 * 1024;
 
-    public static string CurrentLogPath => Path.Combine(LogDirectory, $"oddsnap-{DateTime.Now:yyyyMMdd}.log");
+    public static string CurrentLogPath => Path.Combine(AppStoragePaths.LogDirectory, $"oddsnap-{DateTime.Now:yyyyMMdd}.log");
 
     public static void LogInfo(string context, string message)
         => Write("INFO", context, message, exception: null);
@@ -60,7 +55,7 @@ public static class AppDiagnostics
         {
             lock (Gate)
             {
-                Directory.CreateDirectory(LogDirectory);
+                Directory.CreateDirectory(AppStoragePaths.LogDirectory);
                 var builder = new StringBuilder();
                 builder.Append('[')
                     .Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"))
@@ -103,7 +98,7 @@ public static class AppDiagnostics
     {
         try
         {
-            var logFiles = Directory.GetFiles(LogDirectory, "oddsnap-*.log")
+            var logFiles = Directory.GetFiles(AppStoragePaths.LogDirectory, "oddsnap-*.log")
                 .OrderByDescending(f => f)
                 .Skip(MaxLogFilesToKeep);
 

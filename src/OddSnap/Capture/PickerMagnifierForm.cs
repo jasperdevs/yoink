@@ -9,11 +9,13 @@ namespace OddSnap.Capture;
 
 public sealed class PickerMagnifierForm : Form
 {
-    private const int CircleDiameter = 140;
+    public const int LensSize = 110;
+    public const int Pad = 5;
+    public const int TotalW = LensSize + Pad * 2;
+
     private const int InfoGap = 10;
     private const int InfoH = 42;
-    private const int Pad = 6;
-    private const int TotalW = CircleDiameter + Pad * 2;
+    private const int LensRadius = 14;
 
     private Bitmap? _surface;
     private Graphics? _surfaceGraphics;
@@ -117,51 +119,46 @@ public sealed class PickerMagnifierForm : Form
         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
 
-        int cx = Pad + CircleDiameter / 2;
-        int cy = Pad + CircleDiameter / 2;
-        var circleRect = new Rectangle(Pad, Pad, CircleDiameter, CircleDiameter);
+        int cx = Pad + LensSize / 2;
+        int cy = Pad + LensSize / 2;
+        var lensRect = new Rectangle(Pad, Pad, LensSize, LensSize);
 
-        // Shadow behind circle
-        var shadowRect = circleRect;
-        shadowRect.Inflate(2, 2);
+        var shadowRect = lensRect;
+        shadowRect.Inflate(1, 1);
         var shadowPasses = new (int dx, int dy, int a)[]
         {
-            (4, 5, 14),
-            (2, 3, 24),
-            (1, 2, 38),
-            (0, 2, 55),
+            (2, 3, 16),
+            (1, 2, 30),
+            (0, 1, 44),
         };
         foreach (var (dx, dy, a) in shadowPasses)
         {
             var sr = shadowRect;
             sr.Offset(dx, dy);
             using var brush = new SolidBrush(Color.FromArgb(a, 0, 0, 0));
-            g.FillEllipse(brush, sr);
+            using var shadowPath = RoundedRect(sr, LensRadius + 2);
+            g.FillPath(brush, shadowPath);
         }
 
-        // Dark background circle
-        g.FillEllipse(_bgBrush, circleRect);
+        using var lensPath = RoundedRect(lensRect, LensRadius);
+        g.FillPath(_bgBrush, lensPath);
 
-        // Draw magnified pixels clipped to circle
         if (_magnifier != null)
         {
             var state = g.Save();
-            using var clipPath = new GraphicsPath();
-            clipPath.AddEllipse(circleRect);
-            g.SetClip(clipPath);
+            g.SetClip(lensPath);
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
-            g.DrawImage(_magnifier, circleRect);
+            g.DrawImage(_magnifier, lensRect);
             g.Restore(state);
         }
 
-        // Circle border rings
-        g.DrawEllipse(_outerRingPen, circleRect);
-        var innerRing = circleRect;
+        g.DrawPath(_outerRingPen, lensPath);
+        var innerRing = lensRect;
         innerRing.Inflate(-1, -1);
-        g.DrawEllipse(_ringPen, innerRing);
+        using (var innerPath = RoundedRect(innerRing, LensRadius - 1))
+            g.DrawPath(_ringPen, innerPath);
 
-        // Center crosshair dot
         int dotSize = 4;
         using var dotFill = new SolidBrush(UiChrome.SurfaceTextPrimary);
         g.FillRectangle(dotFill, cx - dotSize / 2, cy - dotSize / 2, dotSize, dotSize);
@@ -178,7 +175,7 @@ public sealed class PickerMagnifierForm : Form
             int pillW = (int)Math.Ceiling(Math.Max(hexSize.Width, rgbSize.Width)) + 20;
             int pillH = InfoH;
             int pillX = cx - pillW / 2;
-            int pillY = circleRect.Bottom + InfoGap;
+            int pillY = lensRect.Bottom + InfoGap;
             var pillRect = new RectangleF(pillX, pillY, pillW, pillH);
 
             using var pillPath = RoundedPill(pillRect, pillH / 2f);
@@ -229,6 +226,9 @@ public sealed class PickerMagnifierForm : Form
     }
 
     private static GraphicsPath RoundedPill(RectangleF r, float radius)
+        => RoundedRect(r, radius);
+
+    private static GraphicsPath RoundedRect(RectangleF r, float radius)
     {
         var path = new GraphicsPath();
         float d = radius * 2;
@@ -240,8 +240,8 @@ public sealed class PickerMagnifierForm : Form
         return path;
     }
 
-    private static int GetTotalHeight(bool showInfo)
-        => CircleDiameter + Pad * 2 + (showInfo ? InfoGap + InfoH : 0);
+    public static int GetTotalHeight(bool showInfo)
+        => LensSize + Pad * 2 + (showInfo ? InfoGap + InfoH : 0);
 
     protected override void Dispose(bool disposing)
     {

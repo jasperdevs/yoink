@@ -5,7 +5,16 @@ namespace OddSnap.Services;
 public static class OpenSourceTranslationRuntimeService
 {
     private const string PythonLauncherArg = "-3";
-    private const string RuntimeVersion = "m2m100-418m-ct2-v1";
+    private const string RuntimeVersion = "m2m100-418m-ct2-v2";
+    private static readonly string[] RuntimePackages =
+    [
+        "ctranslate2==4.7.1",
+        "transformers==5.5.4",
+        "sentencepiece==0.2.1",
+        "langid==1.1.6",
+        "huggingface_hub==1.10.2",
+        "numpy==2.4.4"
+    ];
     private static readonly TimeSpan ProbeCacheTtl = TimeSpan.FromMinutes(10);
     private static readonly string RootDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OddSnap", "translate-local");
@@ -26,11 +35,10 @@ public static class OpenSourceTranslationRuntimeService
             return;
 
         progress?.Report("Installing local translation dependencies...");
-        var install = await RunPythonAsync(new[]
-        {
-            PythonLauncherArg, "-m", "pip", "install", "--user", "--upgrade",
-            "ctranslate2", "transformers", "sentencepiece", "langid", "huggingface_hub", "numpy"
-        }, cancellationToken).ConfigureAwait(false);
+        var install = await RunPythonAsync(
+            new[] { PythonLauncherArg, "-m", "pip", "install", "--user", "--disable-pip-version-check" }
+                .Concat(RuntimePackages),
+            cancellationToken).ConfigureAwait(false);
 
         if (install.ExitCode != 0)
         {

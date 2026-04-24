@@ -20,6 +20,7 @@ public partial class SetupWizard : Window
     private static readonly (string id, string label, char icon)[] CaptureHotkeys =
     {
         ("rect",           "Screenshot",        '\uE257'),
+        ("center",         "Center capture",    '\uE257'),
         ("ocr",            "Text capture",      '\uE53C'),
         ("picker",         "Color picker",      '\uE13E'),
         ("sticker",        "Sticker",           ToolGlyphs.StickerGlyph),
@@ -39,6 +40,7 @@ public partial class SetupWizard : Window
 
         BuildHotkeyRows();
         LoadDefaults();
+        LocalizationService.ApplyTo(this, _settingsService.Settings.InterfaceLanguage);
     }
 
     private void BuildHotkeyRows()
@@ -82,17 +84,9 @@ public partial class SetupWizard : Window
 
             var hkBox = new TextBox
             {
-                IsReadOnly = true, FontSize = 12, FontWeight = FontWeights.Medium,
-                FontFamily = segoe, Padding = new Thickness(10, 7, 10, 7),
-                MinWidth = 130, TextAlignment = TextAlignment.Center,
-                Background = (System.Windows.Media.Brush)FindResource("WizInputBg"),
-                Foreground = (System.Windows.Media.Brush)FindResource("WizFg"),
-                BorderBrush = (System.Windows.Media.Brush)FindResource("WizBorder"),
-                BorderThickness = new Thickness(1),
-                Cursor = System.Windows.Input.Cursors.Hand,
+                MinWidth = 154,
             };
-            var template = (ControlTemplate?)TryFindResource("WizHotkeyBoxTemplate");
-            if (template != null) hkBox.Template = template;
+            hkBox.SetResourceReference(TextBox.StyleProperty, "HotkeyBox");
             var (mod, key) = s.GetToolHotkey(id);
             hkBox.Text = HotkeyFormatter.Format(mod, key);
             hkBox.Tag = id;
@@ -108,7 +102,7 @@ public partial class SetupWizard : Window
     private void WireHotkey(TextBox box, string toolId)
     {
         bool recording = false;
-        box.GotFocus += (_, _) => { recording = true; box.Text = "Press keys..."; };
+        box.GotFocus += (_, _) => { recording = true; box.Text = LocalizationService.Translate("Press keys..."); };
         box.LostFocus += (_, _) =>
         {
             recording = false;
@@ -212,6 +206,7 @@ public partial class SetupWizard : Window
                 Motion.To(i == page - 1 ? 0.7 : 0.2, 220, Motion.SmoothOut));
         }
         BackBtn.Visibility = page > 1 ? Visibility.Visible : Visibility.Collapsed;
+        SkipBtn.Visibility = page == TotalPages ? Visibility.Collapsed : Visibility.Visible;
         NextBtn.Content = page == TotalPages ? "Get Started" : "Next";
     }
 
@@ -293,6 +288,15 @@ public partial class SetupWizard : Window
         _settingsService.Save();
         Tag = "OpenSettings";
         DialogResult = true;
+        Close();
+    }
+
+    private void Skip_Click(object sender, RoutedEventArgs e)
+    {
+        SaveCurrentPage();
+        _settingsService.Settings.HasCompletedSetup = true;
+        _settingsService.Save();
+        DialogResult = false;
         Close();
     }
 

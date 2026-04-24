@@ -23,6 +23,8 @@ public sealed partial class RegionOverlayForm
     private PickerMagnifierForm? _pickerForm;
     private Point _pendingCapturePickerPoint;
     private bool _capturePickerUpdateQueued;
+    private int _captureMagnifierPlacementIndex;
+    private int _captureMagnifierDragQuadrant;
     private readonly System.Diagnostics.Stopwatch _capturePickerStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
     private void OnPickerTick(object? sender, EventArgs e)
@@ -52,7 +54,7 @@ public sealed partial class RegionOverlayForm
             didWork = true;
         }
 
-        if (!didWork && !_pickerUpdateQueued && !_emojiWarmupPending)
+        if (!didWork && !_pickerUpdateQueued && !_capturePickerUpdateQueued && !_emojiWarmupPending)
             _pickerTimer.Stop();
     }
 
@@ -123,7 +125,10 @@ public sealed partial class RegionOverlayForm
         _pendingCapturePickerPoint = overlayPoint;
         _capturePickerUpdateQueued = true;
         bool isSelectingCapture = _isSelecting &&
-            (_mode is CaptureMode.Rectangle or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker or CaptureMode.Upscale or CaptureMode.Freeform);
+            (_mode is CaptureMode.Rectangle or CaptureMode.Center or CaptureMode.Ocr or CaptureMode.Scan or CaptureMode.Sticker or CaptureMode.Upscale or CaptureMode.Freeform);
+
+        if (isSelectingCapture)
+            ResetCaptureMagnifierPlacementOnDragReversal(overlayPoint);
 
         if (!_pickerBusy && (!isSelectingCapture || _capturePickerStopwatch.ElapsedMilliseconds >= UiChrome.FrameIntervalMs))
         {
@@ -153,12 +158,15 @@ public sealed partial class RegionOverlayForm
         if (magForm is null)
             return;
 
-        var (mx, my) = MagPos(_pickerCursorPos, showInfo: false);
+        var avoidRect = GetCaptureMagnifierAvoidBounds();
+        var (mx, my) = MagPos(_pickerCursorPos, showInfo: false, avoidRect);
         magForm.Left = mx + _virtualBounds.X - 4;
         magForm.Top = my + _virtualBounds.Y - 4;
         if (!magForm.Visible)
             magForm.Show(this);
         magForm.UpdateMagnifier(_magBitmap, _pickerCursorPos, _pickedColor, _hexStr, _rgbStr, showInfo: false);
+        Native.User32.SetWindowPos(magForm.Handle, Native.User32.HWND_TOPMOST, 0, 0, 0, 0,
+            Native.User32.SWP_NOMOVE | Native.User32.SWP_NOSIZE | Native.User32.SWP_NOACTIVATE | Native.User32.SWP_SHOWWINDOW);
         _lastRenderedCapturePickerPoint = overlayPoint;
         _capturePickerStopwatch.Restart();
     }
@@ -185,8 +193,64 @@ public sealed partial class RegionOverlayForm
         _capturePickerUpdateQueued = false;
         _lastRenderedCapturePickerPoint = Point.Empty;
         _lastMagnifierSamplePoint = new Point(-1, -1);
+        _captureMagnifierPlacementIndex = 0;
+        _captureMagnifierDragQuadrant = 0;
         _capturePickerStopwatch.Reset();
         _capturePickerStopwatch.Start();
+    }
+
+    private void ResetCaptureMagnifierDragPlacement()
+    {
+        _captureMagnifierPlacementIndex = 0;
+        _captureMagnifierDragQuadrant = 0;
+        _lastRenderedCapturePickerPoint = Point.Empty;
+    }
+
+    private void ResetCaptureMagnifierPlacementOnDragReversal(Point overlayPoint)
+    {
+        var quadrant = GetDragQuadrant(_selectionStart, overlayPoint);
+        if (quadrant == 0 || quadrant == _captureMagnifierDragQuadrant)
+            return;
+
+        _captureMagnifierPlacementIndex = 0;
+        _lastRenderedCapturePickerPoint = Point.Empty;
+        _captureMagnifierDragQuadrant = quadrant;
+    }
+
+    private static int GetDragQuadrant(Point start, Point current)
+    {
+        int dx = current.X - start.X;
+        int dy = current.Y - start.Y;
+        if (Math.Abs(dx) < 24 && Math.Abs(dy) < 24)
+            return 0;
+
+        int sx = dx < 0 ? -1 : 1;
+        int sy = dy < 0 ? -1 : 1;
+        return (sx < 0 ? 1 : 2) | (sy < 0 ? 4 : 8);
+    }
+
+    private Rectangle GetCaptureMagnifierAvoidBounds()
+    {
+        if (!_isSelecting)
+            return Rectangle.Empty;
+
+        Rectangle selectionBounds = Rectangle.Empty;
+        if (_selectionRect.Width > 0 && _selectionRect.Height > 0)
+            selectionBounds = _selectionRect;
+        else if (_mode == CaptureMode.Freeform && ShouldFillFreeformPreview(_freeformPoints))
+            selectionBounds = GetFreeformBounds(_freeformPoints);
+
+        if (selectionBounds.IsEmpty)
+            return Rectangle.Empty;
+
+        var readoutBounds = SelectionSizeReadout.GetBounds(
+            GetReadoutCursorPoint(),
+            selectionBounds,
+            _readoutFont,
+            ClientRectangle);
+        return readoutBounds.IsEmpty
+            ? selectionBounds
+            : Rectangle.Union(selectionBounds, InflateForRepaint(readoutBounds, 8));
     }
 
     private void BuildMagnifier()
@@ -251,8 +315,14 @@ public sealed partial class RegionOverlayForm
 
         var bitsLock = _magBitmap.LockBits(new Rectangle(0, 0, PW, PH),
             ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-        Marshal.Copy(_magPixels, 0, bitsLock.Scan0, _magPixels.Length);
-        _magBitmap.UnlockBits(bitsLock);
+        try
+        {
+            Marshal.Copy(_magPixels, 0, bitsLock.Scan0, _magPixels.Length);
+        }
+        finally
+        {
+            _magBitmap.UnlockBits(bitsLock);
+        }
     }
 
     // Overlay no longer paints the color picker or its crosshair.
@@ -271,16 +341,85 @@ public sealed partial class RegionOverlayForm
         return unchecked((int)0xFF000000) | (r << 16) | (gg << 8) | b;
     }
 
-    private (int, int) MagPos(Point c, bool showInfo = true)
+    private (int, int) MagPos(Point c, bool showInfo = true, Rectangle avoidRect = default)
     {
-        int formW = 152;
-        int formH = showInfo ? 196 : 152;
+        int formW = PickerMagnifierForm.TotalW;
+        int formH = PickerMagnifierForm.GetTotalHeight(showInfo);
         int margin = 12;
-        int px = c.X + MagOff, py = c.Y + MagOff;
-        if (px + formW > ClientSize.Width - margin) px = c.X - MagOff - formW;
-        if (py + formH > ClientSize.Height - margin) py = c.Y - MagOff - formH;
-        px = Math.Clamp(px, margin, Math.Max(margin, ClientSize.Width - formW - margin));
-        py = Math.Clamp(py, margin, Math.Max(margin, ClientSize.Height - formH - margin));
+        int preferredIndex = avoidRect.IsEmpty ? 0 : _captureMagnifierPlacementIndex;
+        var (px, py, index) = ResolveMagnifierPosition(c, ClientSize, formW, formH, margin, MagOff, avoidRect, preferredIndex);
+        if (!avoidRect.IsEmpty)
+            _captureMagnifierPlacementIndex = index;
         return (px, py);
     }
+
+    private static (int x, int y, int index) ResolveMagnifierPosition(
+        Point cursor,
+        Size clientSize,
+        int formW,
+        int formH,
+        int margin,
+        int offset,
+        Rectangle avoidRect,
+        int preferredIndex)
+    {
+        var candidates = new[]
+        {
+            new Point(cursor.X + offset, cursor.Y + offset),
+            new Point(cursor.X - offset - formW, cursor.Y + offset),
+            new Point(cursor.X + offset, cursor.Y - offset - formH),
+            new Point(cursor.X - offset - formW, cursor.Y - offset - formH),
+            avoidRect.IsEmpty ? Point.Empty : new Point(avoidRect.Right + offset, cursor.Y - formH / 2),
+            avoidRect.IsEmpty ? Point.Empty : new Point(avoidRect.Left - offset - formW, cursor.Y - formH / 2),
+            avoidRect.IsEmpty ? Point.Empty : new Point(cursor.X - formW / 2, avoidRect.Bottom + offset),
+            avoidRect.IsEmpty ? Point.Empty : new Point(cursor.X - formW / 2, avoidRect.Top - offset - formH)
+        };
+
+        if (TryResolveCandidate(preferredIndex, candidates, clientSize, formW, formH, margin, avoidRect, out var preferred))
+            return (preferred.X, preferred.Y, preferredIndex);
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            if (i == preferredIndex)
+                continue;
+
+            if (TryResolveCandidate(i, candidates, clientSize, formW, formH, margin, avoidRect, out var resolved))
+                return (resolved.X, resolved.Y, i);
+        }
+
+        var fallback = ClampMagnifier(candidates[0], clientSize, formW, formH, margin);
+        return (fallback.X, fallback.Y, 0);
+    }
+
+    private static bool TryResolveCandidate(
+        int index,
+        IReadOnlyList<Point> candidates,
+        Size clientSize,
+        int formW,
+        int formH,
+        int margin,
+        Rectangle avoidRect,
+        out Point resolved)
+    {
+        resolved = Point.Empty;
+        if ((uint)index >= (uint)candidates.Count)
+            return false;
+
+        var candidate = candidates[index];
+        if (candidate == Point.Empty)
+            return false;
+
+        var clamped = ClampMagnifier(candidate, clientSize, formW, formH, margin);
+        var rect = new Rectangle(clamped.X, clamped.Y, formW, formH);
+        if (!avoidRect.IsEmpty && rect.IntersectsWith(avoidRect))
+            return false;
+
+        resolved = clamped;
+        return true;
+    }
+
+    private static Point ClampMagnifier(Point point, Size clientSize, int formW, int formH, int margin)
+        => new(
+            Math.Clamp(point.X, margin, Math.Max(margin, clientSize.Width - formW - margin)),
+            Math.Clamp(point.Y, margin, Math.Max(margin, clientSize.Height - formH - margin)));
 }

@@ -9,6 +9,7 @@ public sealed class ToolDefTests
     public void CaptureAndAnnotationToolsStaySeparated()
     {
         Assert.True(ToolDef.IsCaptureTool(CaptureMode.Rectangle));
+        Assert.True(ToolDef.IsCaptureTool(CaptureMode.Center));
         Assert.True(ToolDef.IsCaptureTool(CaptureMode.Scan));
         Assert.False(ToolDef.IsCaptureTool(CaptureMode.Text));
         Assert.False(ToolDef.IsCaptureTool(CaptureMode.Draw));
@@ -18,7 +19,9 @@ public sealed class ToolDefTests
         Assert.True(ToolDef.IsAnnotationTool(CaptureMode.Select));
         Assert.True(ToolDef.IsAnnotationTool(CaptureMode.RectShape));
         Assert.True(ToolDef.IsAnnotationTool(CaptureMode.CircleShape));
+        Assert.True(ToolDef.IsAnnotationTool(CaptureMode.Magnifier));
         Assert.False(ToolDef.IsAnnotationTool(CaptureMode.Rectangle));
+        Assert.False(ToolDef.IsAnnotationTool(CaptureMode.Center));
         Assert.False(ToolDef.IsAnnotationTool(CaptureMode.Scan));
     }
 }

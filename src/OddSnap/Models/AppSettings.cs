@@ -82,6 +82,16 @@ public enum CaptureDockSide
     Right
 }
 
+public enum CenterSelectionAspectRatio
+{
+    Free,
+    Square,
+    Widescreen16x9,
+    Classic4x3,
+    Photo3x2,
+    Portrait9x16
+}
+
 [Flags]
 public enum ImageSearchSourceOptions
 {
@@ -117,7 +127,7 @@ public sealed class AppSettings
     public string OcrLanguageTag { get; set; } = "auto";
     public int OcrModelQuality { get; set; } // 0 = Fast (~1 MB), 1 = Standard (~4 MB)
     public string OcrDefaultTranslateFrom { get; set; } = "auto";
-    public string OcrDefaultTranslateTo { get; set; } = "en";
+    public string OcrDefaultTranslateTo { get; set; } = "auto";
     public string? GoogleTranslateApiKey { get; set; }
     public bool TranslationRuntimeInstalled { get; set; }
     public int TranslationModel { get; set; } = 2; // 0 = Argos, 1 = Google, 2 = Open-source local
@@ -134,6 +144,8 @@ public sealed class AppSettings
     public uint StickerHotkeyKey { get; set; }
     public uint UpscaleHotkeyModifiers { get; set; }
     public uint UpscaleHotkeyKey { get; set; }
+    public uint CenterHotkeyModifiers { get; set; }
+    public uint CenterHotkeyKey { get; set; }
     public uint FullscreenHotkeyModifiers { get; set; }
     public uint FullscreenHotkeyKey { get; set; }
     public uint ActiveWindowHotkeyModifiers { get; set; }
@@ -171,6 +183,7 @@ public sealed class AppSettings
     public bool SaveHistory { get; set; } = true;
     public bool MuteSounds { get; set; }
     public bool DisableAnimations { get; set; }
+    public string InterfaceLanguage { get; set; } = "auto";
     public bool ShowCrosshairGuides { get; set; } // off by default
     public bool ShowCursor { get; set; }
     public bool ShowCaptureMagnifier { get; set; } = true;
@@ -181,6 +194,7 @@ public sealed class AppSettings
     public bool HasCompletedSetup { get; set; }
     public ToastPosition ToastPosition { get; set; } = ToastPosition.Right;
     public CaptureMode DefaultCaptureMode { get; set; } = CaptureMode.Rectangle;
+    public CenterSelectionAspectRatio CenterSelectionAspectRatio { get; set; } = CenterSelectionAspectRatio.Free;
     public bool ShowToolNumberBadges { get; set; } = true;
     public HistoryRetentionPeriod HistoryRetention { get; set; } = HistoryRetentionPeriod.Never;
     public ImageSearchSourceOptions ImageSearchSources { get; set; } = ImageSearchSourceOptions.All;
@@ -253,6 +267,7 @@ public sealed class AppSettings
         "scan" => (ScanHotkeyModifiers, ScanHotkeyKey),
         "sticker" => (StickerHotkeyModifiers, StickerHotkeyKey),
         "upscale" => (UpscaleHotkeyModifiers, UpscaleHotkeyKey),
+        "center" => (CenterHotkeyModifiers, CenterHotkeyKey),
         "_fullscreen" => (FullscreenHotkeyModifiers, FullscreenHotkeyKey),
         "_activeWindow" => (ActiveWindowHotkeyModifiers, ActiveWindowHotkeyKey),
         "_scrollCapture" => (ScrollCaptureHotkeyModifiers, ScrollCaptureHotkeyKey),
@@ -287,6 +302,7 @@ public sealed class AppSettings
             case "scan": ScanHotkeyModifiers = mod; ScanHotkeyKey = key; break;
             case "sticker": StickerHotkeyModifiers = mod; StickerHotkeyKey = key; break;
             case "upscale": UpscaleHotkeyModifiers = mod; UpscaleHotkeyKey = key; break;
+            case "center": CenterHotkeyModifiers = mod; CenterHotkeyKey = key; break;
             // ruler handled by generic path (annotation tool with default key 9)
             case "_fullscreen": FullscreenHotkeyModifiers = mod; FullscreenHotkeyKey = key; break;
             case "_activeWindow": ActiveWindowHotkeyModifiers = mod; ActiveWindowHotkeyKey = key; break;
@@ -329,6 +345,7 @@ public sealed record ToolDef(string Id, string Label, char Icon, CaptureMode? Mo
     public static readonly ToolDef[] AllTools =
     {
         new("rect",        "Rectangle Select", '\uE257', CaptureMode.Rectangle, 0), // scan-line
+        new("center",      "Center Select",    '\uE257', CaptureMode.Center,    0),
         new("free",        "Freeform Select",  '\uE1CE', CaptureMode.Freeform,  0), // lasso-select
         new("ocr",         "OCR",          '\uE53C', CaptureMode.Ocr,         0), // scan-text
         new("sticker",     "Sticker",      ToolGlyphs.StickerGlyph, CaptureMode.Sticker,     0), // sticker
@@ -345,6 +362,7 @@ public sealed record ToolDef(string Id, string Label, char Icon, CaptureMode? Mo
         new("draw",        "Draw",         '\uE1F8', CaptureMode.Draw,        1), // pencil
         new("line",        "Line",         '\uE11F', CaptureMode.Line,        1), // minus
         new("ruler",       "Ruler",        '\uE14E', CaptureMode.Ruler,       1), // ruler
+        new("magnifier",   "Magnifier",    '\uE721', CaptureMode.Magnifier,   1),
         new("rectShape",   "Rectangle",    '\uE16A', CaptureMode.RectShape,   1), // square
         new("circleShape", "Circle",       '\uE07A', CaptureMode.CircleShape, 1), // circle
         new("emoji",       "Emoji",        '\uE167', CaptureMode.Emoji,       1), // smile
@@ -359,9 +377,6 @@ public sealed record ToolDef(string Id, string Label, char Icon, CaptureMode? Mo
 
     public static List<string> DefaultEnabledIds() =>
         AllTools.Select(t => t.Id).ToList();
-
-    public static HashSet<string> DefaultToolbarDisabledIds() =>
-        new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>All Group 1 (annotation) tool IDs — these go in the flyout panel.</summary>
     public static HashSet<string> FlyoutToolIds() =>

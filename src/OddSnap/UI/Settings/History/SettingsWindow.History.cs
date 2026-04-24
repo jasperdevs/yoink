@@ -494,7 +494,7 @@ public partial class SettingsWindow
                 return;
             }
             if (!File.Exists(vm.Entry.FilePath)) return;
-            using var bmp = new Bitmap(vm.Entry.FilePath);
+            using var bmp = BitmapPerf.LoadDetached(vm.Entry.FilePath);
             Services.ClipboardService.CopyToClipboard(bmp);
             ToastWindow.Show("Copied", $"{vm.Dimensions} screenshot copied");
         });

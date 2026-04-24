@@ -2,7 +2,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Shell;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using OddSnap.Services;
@@ -26,18 +25,11 @@ public partial class OcrResultWindow : Window
     {
         _settingsService = settingsService;
         InitializeComponent();
-
-        WindowChrome.SetWindowChrome(this, new WindowChrome
-        {
-            CaptionHeight = 0,
-            CornerRadius = new CornerRadius(12),
-            GlassFrameThickness = new Thickness(0),
-            ResizeBorderThickness = new Thickness(8),
-            UseAeroCaptionButtons = false
-        });
+        OddSnapWindowChrome.Apply(this);
 
         Theme.Refresh();
         ApplyTheme();
+        LocalizationService.ApplyCurrentCulture(settingsService.Settings.InterfaceLanguage);
 
         OcrTextBox.Text = ocrText;
         OcrTextBox.TextChanged += (_, _) => UpdateCharCount();
@@ -50,6 +42,7 @@ public partial class OcrResultWindow : Window
 
         PopulateLanguageCombos();
         SelectTranslationModelCombo(settingsService.Settings.TranslationModel);
+        LocalizationService.ApplyTo(this, settingsService.Settings.InterfaceLanguage);
 
         Loaded += (_, _) =>
         {
@@ -86,9 +79,6 @@ public partial class OcrResultWindow : Window
         Resources["ThemeWindowBorderBrush"] = Theme.Brush(Theme.WindowBorder);
         Resources["ThemeAccentBrush"] = Theme.Brush(Theme.Accent);
         Resources["ThemeSeparatorBrush"] = Theme.Brush(Theme.Separator);
-        var titleIcon = System.Drawing.Color.FromArgb(210, Theme.TextSecondary.R, Theme.TextSecondary.G, Theme.TextSecondary.B);
-        MinimizeTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("minimize", titleIcon, 18);
-        CloseTitleIcon.Source = Helpers.StreamlineIcons.RenderWpf("close", titleIcon, 18);
         Icon = ThemedLogo.Square(32);
     }
 
@@ -115,12 +105,10 @@ public partial class OcrResultWindow : Window
             _fromLanguageItems.Add(fromItem);
             FromLanguageCombo.Items.Add(fromItem);
 
-            if (code != "auto")
-            {
-                var toItem = new ComboBoxItem { Content = name, Tag = code };
-                _toLanguageItems.Add(toItem);
-                ToLanguageCombo.Items.Add(toItem);
-            }
+            var toName = code == "auto" ? "Auto (interface/system language)" : name;
+            var toItem = new ComboBoxItem { Content = toName, Tag = code };
+            _toLanguageItems.Add(toItem);
+            ToLanguageCombo.Items.Add(toItem);
         }
 
         var settings = _settingsService.Settings;
@@ -142,28 +130,7 @@ public partial class OcrResultWindow : Window
         CharCountText.Text = $"{text.Length} characters";
     }
 
-    private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton == MouseButton.Left) DragMove();
-    }
-
-    private void CloseBtn_Click(object sender, MouseButtonEventArgs e)
-    {
-        CloseWindow();
-    }
-
-    private void MinimizeBtn_Click(object sender, MouseButtonEventArgs e) => WindowState = WindowState.Minimized;
-
-    private void TitleBtn_Enter(object sender, MouseEventArgs e)
-    {
-        if (sender is not Border b) return;
-        b.Background = Theme.Brush(ReferenceEquals(b, CloseTitleBtn) ? Theme.DangerHover : Theme.AccentHover);
-    }
-
-    private void TitleBtn_Leave(object sender, MouseEventArgs e)
-    {
-        if (sender is Border b) b.Background = System.Windows.Media.Brushes.Transparent;
-    }
+    private void TitleBar_CloseRequested(object? sender, EventArgs e) => CloseWindow();
 
     private void CopyBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -213,8 +180,21 @@ public partial class OcrResultWindow : Window
         base.OnClosed(e);
     }
 
-    private void FromLanguageCombo_Changed(object sender, SelectionChangedEventArgs e) { }
-    private void ToLanguageCombo_Changed(object sender, SelectionChangedEventArgs e) { }
+    private void FromLanguageCombo_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        if (FromLanguageCombo.SelectedItem is not ComboBoxItem item) return;
+        _settingsService.Settings.OcrDefaultTranslateFrom = TranslationService.ResolveSourceLanguage(item.Tag as string);
+        _settingsService.Save();
+    }
+
+    private void ToLanguageCombo_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        if (ToLanguageCombo.SelectedItem is not ComboBoxItem item) return;
+        _settingsService.Settings.OcrDefaultTranslateTo = item.Tag as string ?? "auto";
+        _settingsService.Save();
+    }
 
     private void ModelCombo_Changed(object sender, SelectionChangedEventArgs e)
     {
@@ -379,8 +359,10 @@ public partial class OcrResultWindow : Window
         var toItem = ToLanguageCombo.SelectedItem as ComboBoxItem;
         if (fromItem == null || toItem == null) return;
 
-        var fromCode = fromItem.Tag as string ?? "auto";
-        var toCode = toItem.Tag as string ?? "en";
+        var fromCode = TranslationService.ResolveSourceLanguage(fromItem.Tag as string);
+        var toCode = TranslationService.ResolveTargetLanguage(
+            toItem.Tag as string,
+            _settingsService.Settings.InterfaceLanguage);
 
         _translateCts?.Cancel();
         _translateCts?.Dispose();

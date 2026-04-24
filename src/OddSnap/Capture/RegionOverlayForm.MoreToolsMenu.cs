@@ -157,10 +157,10 @@ public sealed partial class RegionOverlayForm
             if (tool.Mode is not { } mode)
                 continue;
 
-            bool active = _mode == mode;
+            bool active = string.Equals(_activeToolId, tool.Id, StringComparison.OrdinalIgnoreCase);
             var (mod, key) = settings?.GetToolHotkey(tool.Id) ?? (0u, 0u);
             var item = WindowsMenuRenderer.Item(
-                tool.Label,
+                LocalizationService.Translate(tool.Label),
                 key == 0 ? null : HotkeyFormatter.Format(mod, key),
                 tool.Id,
                 active);
@@ -168,7 +168,7 @@ public sealed partial class RegionOverlayForm
             item.Click += (_, _) =>
             {
                 _flyoutOpen = false;
-                SetMode(mode);
+                SetTool(tool);
             };
             menu.Items.Add(item);
         }

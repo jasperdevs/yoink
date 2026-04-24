@@ -62,40 +62,53 @@ public partial class SettingsWindow
 
         img.Loaded += (_, _) => RefreshCardThumbnail(vm);
 
-        var copyBtn = new Border
+        var actionMenuBtn = new Border
         {
-            Width = 28,
-            Height = 28,
-            CornerRadius = new CornerRadius(6),
+            Width = 40,
+            Height = 40,
+            CornerRadius = new CornerRadius(8),
             Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(180, 0, 0, 0)),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 6, 6, 0),
+            Margin = new Thickness(0, 8, 8, 0),
             Cursor = Cursors.Hand,
             Opacity = 0,
             IsHitTestVisible = true,
-            ToolTip = "Copy to clipboard",
-            Child = new System.Windows.Shapes.Path
+            ToolTip = "Actions",
+            Child = new TextBlock
             {
-                Data = System.Windows.Media.Geometry.Parse("M16,1H4C2.9,1,2,1.9,2,3v10h2V3h12V1z M19,5H8C6.9,5,6,5.9,6,7v10c0,1.1,0.9,2,2,2h11c1.1,0,2-0.9,2-2V7C21,5.9,20.1,5,19,5z M19,17H8V7h11V17z"),
-                Fill = Brushes.White,
-                Stretch = Stretch.Uniform,
-                Width = 13,
-                Height = 13,
+                Text = "⋯",
+                Foreground = Brushes.White,
+                FontSize = 20,
+                FontWeight = FontWeights.SemiBold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             }
         };
-        copyBtn.PreviewMouseLeftButtonUp += (_, e) =>
+
+        var actionMenu = CreateCardActionMenu();
+        actionMenu.Items.Add(CreateCardActionMenuItem("Copy", () =>
+        {
+            suppressOpenAction = true;
+            copyAction();
+        }));
+        if (IsDraggableFile(vm.Entry.FilePath))
+        {
+            actionMenu.Items.Add(CreateCardActionMenuItem("Show in folder", () =>
+            {
+                suppressOpenAction = true;
+                ShowFileInFolder(vm.Entry.FilePath);
+            }));
+        }
+
+        actionMenuBtn.ContextMenu = actionMenu;
+        actionMenuBtn.PreviewMouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
             suppressOpenAction = true;
-            copyAction();
+            actionMenu.PlacementTarget = actionMenuBtn;
+            actionMenu.IsOpen = true;
         };
-
-        Border? fileLocationBtn = null;
-        if (IsDraggableFile(vm.Entry.FilePath))
-            fileLocationBtn = CreateFileLocationButton(vm.Entry.FilePath, () => suppressOpenAction = true);
 
         var selectionBadge = CreateSelectionBadge(vm.IsSelected);
 
@@ -107,13 +120,11 @@ public partial class SettingsWindow
         var imgContainer = new Grid();
         imgContainer.Children.Add(img);
         imgContainer.Children.Add(selectionBadge);
-        if (fileLocationBtn != null)
-            imgContainer.Children.Add(fileLocationBtn);
-        imgContainer.Children.Add(copyBtn);
+        imgContainer.Children.Add(actionMenuBtn);
         Grid.SetRow(imgContainer, 0);
         root.Children.Add(imgContainer);
 
-        var info = new StackPanel { Margin = new Thickness(10, 6, 10, 8) };
+        var info = new StackPanel { Margin = new Thickness(12, 8, 12, 12) };
         Grid.SetRow(info, 1);
         root.Children.Add(info);
 
@@ -130,8 +141,6 @@ public partial class SettingsWindow
             Cursor = Cursors.Hand,
             Child = root,
             Tag = vm,
-            RenderTransform = new ScaleTransform(1, 1),
-            RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
         };
 
         card.SizeChanged += (s, _) =>
@@ -139,36 +148,18 @@ public partial class SettingsWindow
             var b = (Border)s!;
             imageRow.Height = new GridLength(GetHistoryCardImageHeight(b.ActualWidth));
             b.Clip = new System.Windows.Media.RectangleGeometry(
-                new System.Windows.Rect(0, 0, b.ActualWidth, b.ActualHeight), 10, 10);
+                new System.Windows.Rect(0, 0, b.ActualWidth, b.ActualHeight), 8, 8);
         };
 
         card.MouseEnter += (s, _) =>
         {
-            var b = (Border)s!;
-            var st = (ScaleTransform)b.RenderTransform;
-            st.BeginAnimation(ScaleTransform.ScaleXProperty,
-                Motion.To(1.03, 150, Motion.SmoothOut));
-            st.BeginAnimation(ScaleTransform.ScaleYProperty,
-                Motion.To(1.03, 150, Motion.SmoothOut));
-            copyBtn.BeginAnimation(OpacityProperty,
+            actionMenuBtn.BeginAnimation(OpacityProperty,
                 Motion.To(1, 150, Motion.SmoothOut));
-            if (fileLocationBtn != null)
-                fileLocationBtn.BeginAnimation(OpacityProperty,
-                    Motion.To(1, 150, Motion.SmoothOut));
         };
         card.MouseLeave += (s, _) =>
         {
-            var b = (Border)s!;
-            var st = (ScaleTransform)b.RenderTransform;
-            st.BeginAnimation(ScaleTransform.ScaleXProperty,
-                Motion.To(1, 150, Motion.SmoothOut));
-            st.BeginAnimation(ScaleTransform.ScaleYProperty,
-                Motion.To(1, 150, Motion.SmoothOut));
-            copyBtn.BeginAnimation(OpacityProperty,
+            actionMenuBtn.BeginAnimation(OpacityProperty,
                 Motion.To(0, 150, Motion.SmoothOut));
-            if (fileLocationBtn != null)
-                fileLocationBtn.BeginAnimation(OpacityProperty,
-                    Motion.To(0, 150, Motion.SmoothOut));
         };
 
         card.MouseLeftButtonUp += (s, e) =>
@@ -225,7 +216,26 @@ public partial class SettingsWindow
         vm.SelectionBadge = selectionBadge;
         UpdateCardSelection(vm);
 
-        return new MediaCardShell(card, imgContainer, info, copyBtn, img, selectionBadge);
+        return new MediaCardShell(card, imgContainer, info, actionMenuBtn, img, selectionBadge);
+    }
+
+    private ContextMenu CreateCardActionMenu()
+    {
+        var menu = new ContextMenu();
+        menu.SetResourceReference(ContextMenu.StyleProperty, "HistoryActionsMenuStyle");
+        return menu;
+    }
+
+    private MenuItem CreateCardActionMenuItem(string label, Action action)
+    {
+        var item = new MenuItem { Header = label };
+        item.SetResourceReference(MenuItem.StyleProperty, "HistoryActionsMenuItem");
+        item.Click += (_, e) =>
+        {
+            e.Handled = true;
+            action();
+        };
+        return item;
     }
 
     private static Border CreateSelectionBadge(bool isSelected)
@@ -263,50 +273,17 @@ public partial class SettingsWindow
         return badge;
     }
 
-    private Border CreateFileLocationButton(string filePath, Action markConsumed)
+    private static void ShowFileInFolder(string filePath)
     {
-        var btn = new Border
+        if (File.Exists(filePath))
         {
-            Width = 30,
-            Height = 30,
-            CornerRadius = new CornerRadius(6),
-            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(160, 0, 0, 0)),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(6, 6, 0, 0),
-            Cursor = Cursors.Hand,
-            Opacity = 0,
-            IsHitTestVisible = true,
-            ToolTip = "Show in folder",
-            Child = new Image
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                Source = ToolIcons.RenderFolderWpf(System.Drawing.Color.FromArgb(245, 250, 250, 250), 18),
-                Width = 18,
-                Height = 18,
-                Stretch = Stretch.Uniform,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            }
-        };
-        btn.PreviewMouseLeftButtonUp += (s, e) =>
-        {
-            e.Handled = true;
-            markConsumed();
-            if (File.Exists(filePath))
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{filePath}\"",
-                    UseShellExecute = true
-                });
-            }
-        };
-        btn.MouseEnter += (s, _) => ((Border)s!).BeginAnimation(OpacityProperty,
-            Motion.To(1, 130, Motion.SmoothOut));
-        btn.MouseLeave += (s, _) => ((Border)s!).BeginAnimation(OpacityProperty,
-            Motion.To(0, 130, Motion.SmoothOut));
-        return btn;
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{filePath}\"",
+                UseShellExecute = true
+            });
+        }
     }
 
     private static void OpenFileWithDefaultApp(string filePath)
@@ -330,4 +307,5 @@ public partial class SettingsWindow
             }
         });
     }
+
 }

@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -53,7 +52,7 @@ public static class OcrService
 
                 // Convert GDI Bitmap to SoftwareBitmap via in-memory PNG
                 using var ms = new MemoryStream();
-                bitmap.Save(ms, ImageFormat.Png);
+                CaptureOutputService.WritePng(bitmap, ms);
                 ms.Position = 0;
 
                 using var stream = ms.AsRandomAccessStream();
@@ -205,7 +204,19 @@ public static class OcrService
             catch { }
         }
 
-        // Auto: use user profile languages, fall back to any available
+        // Auto: prefer the active app/system UI language when installed, then user profile languages.
+        try
+        {
+            var uiLanguage = LocalizationService.ResolveContentLanguageCode();
+            if (!string.IsNullOrWhiteSpace(uiLanguage))
+            {
+                var lang = new Windows.Globalization.Language(uiLanguage);
+                var engine = OcrEngine.TryCreateFromLanguage(lang);
+                if (engine != null) return engine;
+            }
+        }
+        catch { }
+
         var userEngine = OcrEngine.TryCreateFromUserProfileLanguages();
         if (userEngine != null) return userEngine;
 

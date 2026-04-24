@@ -42,15 +42,6 @@
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
-        <ControlTemplate x:Key="WizHotkeyBoxTemplate" TargetType="TextBox">
-            <Border Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="6" Padding="{TemplateBinding Padding}">
-                <ScrollViewer x:Name="PART_ContentHost"/>
-            </Border>
-        </ControlTemplate>
-
         <Style x:Key="WizRow" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource WizCardBg}"/>
             <Setter Property="CornerRadius" Value="8"/>
@@ -72,6 +63,17 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
+
+        <Button Content="X"
+                Width="32" Height="32" MinWidth="32"
+                Padding="0"
+                Margin="0,10,10,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Panel.ZIndex="10"
+                FontSize="16"
+                Style="{StaticResource WizBtnSecondary}"
+                Click="Skip_Click"/>
 
         <Grid x:Name="Page1" Grid.Row="0" Margin="36,28,36,0">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
@@ -191,6 +193,8 @@
                             Background="{DynamicResource WizFg}" Opacity="0.2"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="SkipBtn" Content="Skip setup" Style="{StaticResource WizBtnSecondary}"
+                            Click="Skip_Click" Margin="0,0,8,0"/>
                     <Button x:Name="BackBtn" Content="Back" Style="{StaticResource WizBtnSecondary}"
                             Click="Back_Click" Visibility="Collapsed" Margin="0,0,8,0"/>
                     <Button x:Name="NextBtn" Content="Next" Style="{StaticResource WizBtnPrimary}"

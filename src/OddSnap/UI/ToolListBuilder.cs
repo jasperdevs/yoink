@@ -20,9 +20,9 @@ public static class ToolListBuilder
 {
     public static readonly (string id, string label, char icon)[] ExtraTools =
     {
-        ("_fullscreen",    "Fullscreen capture",  '\0'),
-        ("_activeWindow",  "Active window",       '\0'),
-        ("_scrollCapture", "Scroll capture",      '\0'),
+        ("_fullscreen",    "Fullscreen capture",  ToolGlyphs.FullscreenGlyph),
+        ("_activeWindow",  "Active window",       ToolGlyphs.ActiveWindowGlyph),
+        ("_scrollCapture", "Scroll capture",      ToolGlyphs.ScrollCaptureGlyph),
         ("_record",        "Record",              ToolGlyphs.RecordGlyph),
     };
 
@@ -33,9 +33,8 @@ public static class ToolListBuilder
         panel.Children.Clear();
         var s = settingsService.Settings;
         var enabled = s.EnabledTools ?? ToolDef.DefaultEnabledIds();
-        var defaultDisabled = ToolDef.DefaultToolbarDisabledIds();
         // Icon color for rendering Fluent glyphs to bitmaps
-        var iconColor = Theme.IsDark ? System.Drawing.Color.FromArgb(160, 255, 255, 255) : System.Drawing.Color.FromArgb(170, 0, 0, 0);
+        var iconColor = Theme.IsDark ? System.Drawing.Color.FromArgb(225, 255, 255, 255) : System.Drawing.Color.FromArgb(210, 0, 0, 0);
         var segoe = new System.Windows.Media.FontFamily(UiChrome.PreferredFamilyName);
 
         void AddHeader(string text)
@@ -43,11 +42,11 @@ public static class ToolListBuilder
             panel.Children.Add(new TextBlock
             {
                 Text = text,
-                FontSize = 10.5,
+                FontSize = 13.5,
                 FontWeight = FontWeights.SemiBold,
                 FontFamily = segoe,
-                Opacity = 0.4,
-                Margin = new Thickness(0, 10, 0, 6),
+                Opacity = 0.92,
+                Margin = new Thickness(2, 14, 0, 7),
             });
         }
 
@@ -56,8 +55,9 @@ public static class ToolListBuilder
             var card = new Border
             {
                 CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(14, 9, 14, 9),
-                Margin = new Thickness(0, 0, 0, 3),
+                Padding = new Thickness(16, 12, 16, 12),
+                Margin = new Thickness(0, 0, 0, 8),
+                MinHeight = 64,
                 BorderThickness = new Thickness(1),
             };
             card.SetResourceReference(Border.BackgroundProperty, "ThemeCardBrush");
@@ -71,16 +71,30 @@ public static class ToolListBuilder
 
             if (icon != '\0')
             {
-                // Render via WinForms PrivateFontCollection — works for ALL codepoints
+                var iconFrame = new Border
+                {
+                    Width = 32,
+                    Height = 32,
+                    CornerRadius = new CornerRadius(8),
+                    BorderThickness = new Thickness(1),
+                    Margin = new Thickness(0, 0, 12, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                iconFrame.SetResourceReference(Border.BackgroundProperty, "ThemeTabActiveBrush");
+                iconFrame.SetResourceReference(Border.BorderBrushProperty, "ThemeInputBorderBrush");
+
                 var img = new System.Windows.Controls.Image
                 {
-                    Source = ToolIcons.RenderToolIconWpf(toolId, icon, iconColor, 20),
-                    Width = 18, Height = 18,
+                    Source = ToolIcons.RenderToolIconWpf(toolId, icon, iconColor, 16),
+                    Width = 16,
+                    Height = 16,
+                    Opacity = 1,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 10, 0),
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
                 };
                 System.Windows.Media.RenderOptions.SetBitmapScalingMode(img, System.Windows.Media.BitmapScalingMode.HighQuality);
-                left.Children.Add(img);
+                iconFrame.Child = img;
+                left.Children.Add(iconFrame);
             }
 
             if (hasToolbarToggle)
@@ -90,7 +104,7 @@ public static class ToolListBuilder
                     IsChecked = enabled.Contains(toolId),
                     Tag = toolId,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 8, 0),
+                    Margin = new Thickness(0, 0, 7, 0),
                     Cursor = Cursors.Hand,
                 };
                 cb.Checked += (_, _) => SaveEnabledTools(panel, settingsService);
@@ -98,13 +112,15 @@ public static class ToolListBuilder
                 left.Children.Add(cb);
             }
 
-            left.Children.Add(new TextBlock
+            var labelBlock = new TextBlock
             {
                 Text = label,
-                FontSize = 13,
+                FontSize = 12.5,
                 FontFamily = segoe,
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            labelBlock.SetResourceReference(TextBlock.ForegroundProperty, "ThemeTextPrimaryBrush");
+            left.Children.Add(labelBlock);
 
             Grid.SetColumn(left, 0);
             grid.Children.Add(left);
@@ -115,9 +131,9 @@ public static class ToolListBuilder
 
                 var hkBox = new TextBox();
                 hkBox.SetResourceReference(TextBox.StyleProperty, "HotkeyBox");
-                WireHotkeyBox(hkBox, toolId, settingsService, hotkeyChanged, () => Build(panel, settingsService, owner, hotkeyChanged));
+                WireHotkeyBox(hkBox, toolId, settingsService, owner, hotkeyChanged);
 
-                var clearBtn = new Button { Content = "X" };
+                var clearBtn = new Button { Content = "×" };
                 clearBtn.SetResourceReference(Button.StyleProperty, "ClearBtn");
                 var capturedBox = hkBox;
                 var capturedId = toolId;
@@ -151,6 +167,8 @@ public static class ToolListBuilder
         AddHeader("Annotation tools");
         foreach (var t in ToolDef.AllTools.Where(t => t.Group == 1))
             AddToolRow(t.Id, t.Label, t.Icon, true, true);
+
+        LocalizationService.ApplyTo(panel, settingsService.Settings.InterfaceLanguage);
     }
 
     private static void SaveEnabledTools(StackPanel panel, SettingsService svc)
@@ -172,61 +190,177 @@ public static class ToolListBuilder
         svc.Save();
     }
 
-    private static void WireHotkeyBox(TextBox box, string toolId, SettingsService svc, Action? hotkeyChanged, Action rebuild)
+    private sealed record HotkeyConflict(string ToolId, string Label, bool IsAiRedirect);
+
+    private static void WireHotkeyBox(TextBox box, string toolId, SettingsService svc, FrameworkElement owner, Action? hotkeyChanged)
     {
         var (mod0, key0) = svc.Settings.GetToolHotkey(toolId);
         box.Text = HotkeyFormatter.Format(mod0, key0);
 
-        box.GotFocus += (_, _) =>
+        void StartRecording()
         {
             RecordingFlags[box] = true;
-            box.Text = "Press keys...";
+            box.Text = LocalizationService.Translate("Press keys...");
+        }
+
+        void RestoreHotkeyText()
+        {
+            var (m, k) = svc.Settings.GetToolHotkey(toolId);
+            box.Text = HotkeyFormatter.Format(m, k);
+        }
+
+        void StopRecording()
+        {
+            RecordingFlags[box] = false;
+            Keyboard.ClearFocus();
+        }
+
+        box.PreviewMouseDown += (_, e) =>
+        {
+            if (!box.IsKeyboardFocusWithin)
+            {
+                e.Handled = true;
+                box.Focus();
+            }
+
+            StartRecording();
+        };
+        box.GotFocus += (_, _) =>
+        {
+            StartRecording();
         };
         box.LostFocus += (_, _) =>
         {
             RecordingFlags[box] = false;
-            var (m, k) = svc.Settings.GetToolHotkey(toolId);
-            box.Text = HotkeyFormatter.Format(m, k);
+            RestoreHotkeyText();
         };
         box.Unloaded += (_, _) => RecordingFlags.Remove(box);
         void AcceptKey(Key rawKey)
         {
             if (!RecordingFlags.GetValueOrDefault(box)) return;
-            if (rawKey is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
-                or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.Escape)
+            if (rawKey == Key.Escape)
+            {
+                RestoreHotkeyText();
+                StopRecording();
+                return;
+            }
+
+            if (IsModifierOnly(rawKey))
                 return;
 
             uint mod = HotkeyFormatter.GetActiveModifiers();
             uint vk = (uint)KeyInterop.VirtualKeyFromKey(rawKey);
-            if (vk == 0 || IsUnsafeModifierlessHotkey(mod, vk)) return;
+            if (vk == 0) return;
+            if (IsUnsafeModifierlessHotkey(mod, vk))
+            {
+                ToastWindow.ShowError(
+                    "Hotkey needs a modifier",
+                    "Use Ctrl, Alt, Shift, or Win with this key. Print Screen can be used by itself.");
+                RestoreHotkeyText();
+                StopRecording();
+                return;
+            }
+
+            var conflict = FindHotkeyConflict(svc.Settings, toolId, mod, vk);
+            if (conflict != null)
+            {
+                var combo = HotkeyFormatter.Format(mod, vk);
+                if (!ThemedConfirmDialog.Confirm(
+                        Window.GetWindow(owner),
+                        "Hotkey conflict",
+                        $"{combo} is already used by \"{conflict.Label}\".\n\nReplace it?",
+                        "Replace",
+                        "Cancel",
+                        danger: false))
+                {
+                    RestoreHotkeyText();
+                    StopRecording();
+                    return;
+                }
+
+                ClearHotkeyConflict(svc.Settings, conflict);
+            }
 
             svc.Settings.SetToolHotkey(toolId, mod, vk);
             svc.Save();
             box.Text = HotkeyFormatter.Format(mod, vk);
-            RecordingFlags[box] = false;
-            Keyboard.ClearFocus();
+            StopRecording();
             hotkeyChanged?.Invoke();
         }
-
-        static bool IsUnsafeModifierlessHotkey(uint mod, uint vk) =>
-            mod == 0 && vk != Native.User32.VK_SNAPSHOT;
 
         box.PreviewKeyDown += (_, e) =>
         {
             if (!RecordingFlags.GetValueOrDefault(box)) return;
             e.Handled = true;
-            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            var key = NormalizeHotkeyKey(e);
             AcceptKey(key);
         };
         box.PreviewKeyUp += (_, e) =>
         {
             if (!RecordingFlags.GetValueOrDefault(box)) return;
-            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            var key = NormalizeHotkeyKey(e);
             if (key is Key.Snapshot or Key.Pause or Key.Cancel)
             {
                 e.Handled = true;
                 AcceptKey(key);
             }
         };
+    }
+
+    private static Key NormalizeHotkeyKey(System.Windows.Input.KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.ImeProcessed)
+            key = e.ImeProcessedKey;
+        if (key == Key.DeadCharProcessed)
+            key = e.DeadCharProcessedKey;
+        return key;
+    }
+
+    private static bool IsModifierOnly(Key key) =>
+        key is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl
+            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin;
+
+    private static bool IsUnsafeModifierlessHotkey(uint mod, uint vk) =>
+        mod == 0 && vk != Native.User32.VK_SNAPSHOT;
+
+    private static HotkeyConflict? FindHotkeyConflict(AppSettings settings, string currentToolId, uint mod, uint key)
+    {
+        foreach (var tool in ToolDef.AllTools)
+        {
+            if (string.Equals(tool.Id, currentToolId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var (existingMod, existingKey) = settings.GetToolHotkey(tool.Id);
+            if (existingMod == mod && existingKey == key)
+                return new HotkeyConflict(tool.Id, tool.Label, IsAiRedirect: false);
+        }
+
+        foreach (var (id, label, _) in ExtraTools)
+        {
+            if (string.Equals(id, currentToolId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var (existingMod, existingKey) = settings.GetToolHotkey(id);
+            if (existingMod == mod && existingKey == key)
+                return new HotkeyConflict(id, label, IsAiRedirect: false);
+        }
+
+        if (settings.AiRedirectHotkeyModifiers == mod && settings.AiRedirectHotkeyKey == key)
+            return new HotkeyConflict("", "AI Redirect", IsAiRedirect: true);
+
+        return null;
+    }
+
+    private static void ClearHotkeyConflict(AppSettings settings, HotkeyConflict conflict)
+    {
+        if (conflict.IsAiRedirect)
+        {
+            settings.AiRedirectHotkeyModifiers = 0;
+            settings.AiRedirectHotkeyKey = 0;
+            return;
+        }
+
+        settings.SetToolHotkey(conflict.ToolId, 0, 0);
     }
 }

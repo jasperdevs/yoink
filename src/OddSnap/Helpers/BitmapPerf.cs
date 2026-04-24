@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using DrawingPixelFormat = System.Drawing.Imaging.PixelFormat;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -8,6 +9,13 @@ namespace OddSnap.Helpers;
 
 internal static class BitmapPerf
 {
+    public static Bitmap LoadDetached(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var source = new Bitmap(stream);
+        return new Bitmap(source);
+    }
+
     public static Bitmap Clone32bppArgb(Bitmap source)
     {
         if (source.PixelFormat == DrawingPixelFormat.Format32bppArgb)

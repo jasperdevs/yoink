@@ -176,12 +176,10 @@ public partial class SettingsWindow
             _translateFromItems.Add(fromItem);
             TranslateFromCombo.Items.Add(fromItem);
 
-            if (code != "auto")
-            {
-                var toItem = new ComboBoxItem { Content = name, Tag = code };
-                _translateToItems.Add(toItem);
-                TranslateToCombo.Items.Add(toItem);
-            }
+            var toName = code == "auto" ? "Auto (interface/system language)" : name;
+            var toItem = new ComboBoxItem { Content = toName, Tag = code };
+            _translateToItems.Add(toItem);
+            TranslateToCombo.Items.Add(toItem);
         }
 
         SelectComboByTag(TranslateFromCombo, _settingsService.Settings.OcrDefaultTranslateFrom);
@@ -200,7 +198,7 @@ public partial class SettingsWindow
     {
         if (!IsLoaded) return;
         if (TranslateFromCombo.SelectedItem is not ComboBoxItem item) return;
-        _settingsService.Settings.OcrDefaultTranslateFrom = item.Tag as string ?? "auto";
+        _settingsService.Settings.OcrDefaultTranslateFrom = TranslationService.ResolveSourceLanguage(item.Tag as string);
         _settingsService.Save();
         UpdateTranslationModelUi();
     }
@@ -209,7 +207,7 @@ public partial class SettingsWindow
     {
         if (!IsLoaded) return;
         if (TranslateToCombo.SelectedItem is not ComboBoxItem item) return;
-        _settingsService.Settings.OcrDefaultTranslateTo = item.Tag as string ?? "en";
+        _settingsService.Settings.OcrDefaultTranslateTo = item.Tag as string ?? "auto";
         _settingsService.Save();
     }
 

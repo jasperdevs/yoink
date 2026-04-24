@@ -166,7 +166,9 @@ public partial class SettingsWindow
     {
         if (!IsLoaded) return;
         _settingsService.Settings.ToastFadeOutEnabled = ToastFadeOutCheck.IsChecked == true;
-        ToastFadeDurationRow.Visibility = _settingsService.Settings.ToastFadeOutEnabled ? Visibility.Visible : Visibility.Collapsed;
+        var visibility = _settingsService.Settings.ToastFadeOutEnabled ? Visibility.Visible : Visibility.Collapsed;
+        ToastFadeDurationSeparator.Visibility = visibility;
+        ToastFadeDurationRow.Visibility = visibility;
         _settingsService.Save();
         ToastWindow.SetFadeOutBehavior(_settingsService.Settings.ToastFadeOutEnabled, _settingsService.Settings.ToastFadeOutSeconds);
     }
