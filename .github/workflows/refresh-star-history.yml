@@ -27,8 +27,7 @@ jobs:
           $updated = [regex]::Replace(
             $content,
             "v=\d{8}(?:-\d+)?",
-            "v=$token",
-            1
+            "v=$token"
           )
 
           if ($updated -eq $content) {
@@ -47,15 +46,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md
-          git commit -m "Refresh the README star history cache token" -m "The star chart embed is cache-sensitive, so the README token is rotated on a daily schedule to keep the chart fresh without manual edits.
+          cat > /tmp/star-history-commit-message.txt <<'EOF'
+          Refresh the README star history cache token
 
-Constraint: The chart provider response is cached aggressively
-Rejected: Leave the token static | chart image can stay stale
-Rejected: Trigger this from release/build workflows | unrelated churn in higher-risk jobs
-Confidence: high
-Scope-risk: narrow
-Reversibility: clean
-Directive: Keep this workflow limited to the README star chart token unless the provider changes its cache behavior
-Tested: Scheduled/workflow-dispatch automation logic reviewed
-Not-tested: End-to-end run on GitHub Actions"
+          The star chart embed is cache-sensitive, so the README token is rotated on a daily schedule to keep the chart fresh without manual edits.
+          EOF
+          git commit -F /tmp/star-history-commit-message.txt
           git push
