@@ -28,6 +28,7 @@ public sealed class PickerMagnifierForm : Form
     private Size _lastSurfaceSize = Size.Empty;
     private bool _lastShowInfo = true;
     private Bitmap? _lastMagnifier;
+    private Point _lastCursor = Point.Empty;
     private string _lastHex = "";
     private string _lastRgb = "";
     private int _lastPickedArgb;
@@ -92,6 +93,7 @@ public sealed class PickerMagnifierForm : Form
         if (_lastSurfaceSize == targetSize &&
             _lastShowInfo == showInfo &&
             ReferenceEquals(_lastMagnifier, magnifier) &&
+            _lastCursor == cursor &&
             _lastPickedArgb == picked.ToArgb() &&
             string.Equals(_lastHex, hex, StringComparison.Ordinal) &&
             string.Equals(_lastRgb, rgb, StringComparison.Ordinal))
@@ -110,6 +112,7 @@ public sealed class PickerMagnifierForm : Form
         _lastSurfaceSize = targetSize;
         _lastShowInfo = showInfo;
         _lastMagnifier = magnifier;
+        _lastCursor = cursor;
         _lastPickedArgb = picked.ToArgb();
         _lastHex = hex;
         _lastRgb = rgb;
