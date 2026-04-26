@@ -255,12 +255,13 @@ public partial class SettingsWindow
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             IsHitTestVisible = false,
-            Child = new TextBlock
+            Child = new System.Windows.Shapes.Path
             {
-                Text = "\uE768",
-                FontFamily = new System.Windows.Media.FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-                FontSize = 15,
-                Foreground = System.Windows.Media.Brushes.White,
+                Data = System.Windows.Media.Geometry.Parse("M8,5 L8,19 L19,12 Z"),
+                Fill = System.Windows.Media.Brushes.White,
+                Stretch = System.Windows.Media.Stretch.Uniform,
+                Width = 14, Height = 14,
+                Margin = new Thickness(2, 0, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             }

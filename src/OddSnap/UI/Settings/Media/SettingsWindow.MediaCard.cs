@@ -240,14 +240,15 @@ public partial class SettingsWindow
 
     private static Border CreateSelectionBadge(bool isSelected)
     {
-        var checkGlyph = new TextBlock
+        var checkPath = new System.Windows.Shapes.Path
         {
-            Text = "\uE73E",
-            FontFamily = new System.Windows.Media.FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-            FontSize = 16,
-            Foreground = Brushes.White,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
+            Data = System.Windows.Media.Geometry.Parse("M6,14 L11,19 L22,8"),
+            Stroke = Brushes.White,
+            StrokeThickness = 2.6,
+            StrokeStartLineCap = System.Windows.Media.PenLineCap.Round,
+            StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+            Stretch = Stretch.Uniform,
+            Margin = new Thickness(8),
             Visibility = isSelected ? Visibility.Visible : Visibility.Hidden
         };
 
@@ -264,8 +265,8 @@ public partial class SettingsWindow
             IsHitTestVisible = false,
             Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed,
             Opacity = isSelected ? 1 : 0.45,
-            Child = checkGlyph,
-            Tag = checkGlyph
+            Child = checkPath,
+            Tag = checkPath
         };
         Grid.SetRowSpan(badge, 2);
         System.Windows.Controls.Panel.SetZIndex(badge, 20);
