@@ -117,8 +117,8 @@ jobs:
           $archLabel = $rid -replace '^win-', ''
           $setup = Get-ChildItem $outDir -Filter '*-Setup.exe' | Select-Object -First 1
           $portable = Get-ChildItem $outDir -Filter '*-Portable.zip' | Select-Object -First 1
-          Move-Item -LiteralPath $setup.FullName -Destination (Join-Path $outDir "OddSnap-Setup-$archLabel.exe") -Force
-          Move-Item -LiteralPath $portable.FullName -Destination (Join-Path $outDir "OddSnap-Portable-$archLabel.zip") -Force
+          Move-Item -LiteralPath $setup.FullName -Destination (Join-Path $outDir "0-OddSnap-Setup-$archLabel.exe") -Force
+          Move-Item -LiteralPath $portable.FullName -Destination (Join-Path $outDir "0-OddSnap-Portable-$archLabel.zip") -Force
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -165,9 +165,9 @@ jobs:
           $tag = "v$version"
           $baseUrl = "https://github.com/${{ github.repository }}/releases/download/$tag"
 
-          $x64Setup = Get-ChildItem 'dist' -Filter 'OddSnap-Setup-x64.exe' | Select-Object -First 1
-          $x86Setup = Get-ChildItem 'dist' -Filter 'OddSnap-Setup-x86.exe' | Select-Object -First 1
-          $arm64Setup = Get-ChildItem 'dist' -Filter 'OddSnap-Setup-arm64.exe' | Select-Object -First 1
+          $x64Setup = Get-ChildItem 'dist' -Filter '0-OddSnap-Setup-x64.exe' | Select-Object -First 1
+          $x86Setup = Get-ChildItem 'dist' -Filter '0-OddSnap-Setup-x86.exe' | Select-Object -First 1
+          $arm64Setup = Get-ChildItem 'dist' -Filter '0-OddSnap-Setup-arm64.exe' | Select-Object -First 1
 
           if ($null -eq $x64Setup -or $null -eq $x86Setup -or $null -eq $arm64Setup) {
             throw "Expected Velopack setup executables for x64/x86/arm64 were not found in dist."
@@ -192,10 +192,10 @@ jobs:
           $downloadNotes = @'
           ## Downloads
 
-          Most people should download **OddSnap-Setup-x64.exe**.
+          Most people should download **0-OddSnap-Setup-x64.exe**.
 
-          - **OddSnap-Setup-x64.exe** - Windows installer for most PCs
-          - **OddSnap-Portable-x64.zip** - portable copy for most PCs
+          - **0-OddSnap-Setup-x64.exe** - Windows installer for most PCs
+          - **0-OddSnap-Portable-x64.zip** - portable copy for most PCs
           - **arm64** - Windows on ARM
           - **x86** - older 32-bit Windows
 
@@ -213,8 +213,8 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: OddSnap v${{ steps.version.outputs.version }}
           files: |
-            dist/OddSnap-Setup-*.exe
-            dist/OddSnap-Portable-*.zip
+            dist/0-OddSnap-Setup-*.exe
+            dist/0-OddSnap-Portable-*.zip
             dist/*-full.nupkg
             dist/RELEASES-*
             dist/releases.*.json

@@ -118,8 +118,8 @@ jobs:
           $archLabel = "${{ matrix.arch }}"
           $setup = Get-ChildItem $outDir -Filter '*-Setup.exe' | Select-Object -First 1
           $portable = Get-ChildItem $outDir -Filter '*-Portable.zip' | Select-Object -First 1
-          Move-Item -LiteralPath $setup.FullName -Destination (Join-Path $outDir "OddSnap-Setup-$archLabel.exe") -Force
-          Move-Item -LiteralPath $portable.FullName -Destination (Join-Path $outDir "OddSnap-Portable-$archLabel.zip") -Force
+          Move-Item -LiteralPath $setup.FullName -Destination (Join-Path $outDir "0-OddSnap-Setup-$archLabel.exe") -Force
+          Move-Item -LiteralPath $portable.FullName -Destination (Join-Path $outDir "0-OddSnap-Portable-$archLabel.zip") -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
