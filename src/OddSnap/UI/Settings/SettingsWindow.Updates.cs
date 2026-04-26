@@ -93,7 +93,7 @@ public partial class SettingsWindow
 
         if (!CanInstallUpdate())
         {
-            OpenExternalUrl(_latestUpdate.ReleaseUrl);
+            OpenExternalUrl(_latestUpdate.DownloadUrl ?? _latestUpdate.ReleaseUrl);
             return;
         }
 
@@ -127,9 +127,10 @@ public partial class SettingsWindow
         catch (Exception ex)
         {
             UpdateStatusText.Text = "Update failed";
-            UpdateDetailText.Text = "Open the GitHub release and install the latest setup manually.";
+            UpdateDetailText.Text = "Opening the latest setup download so you can install it manually.";
             SetLoadingTextShimmer(UpdateStatusText, false, 1.0, 1.0);
             ToastWindow.ShowError("Update failed", ex.Message);
+            OpenExternalUrl(_latestUpdate.DownloadUrl ?? _latestUpdate.ReleaseUrl);
         }
         finally
         {
@@ -148,6 +149,9 @@ public partial class SettingsWindow
     private static UpdateManager CreateVelopackUpdateManager()
     {
         var source = new GithubSource("https://github.com/jasperdevs/odd-snap", accessToken: null, prerelease: false);
-        return new UpdateManager(source);
+        return new UpdateManager(source, new UpdateOptions
+        {
+            ExplicitChannel = UpdateService.GetRuntimeChannel()
+        });
     }
 }

@@ -48,6 +48,14 @@ public static class UpdateService
         return v.Revision > 0 ? $"v{v}" : $"v{v.Major}.{v.Minor}.{v.Build}";
     }
 
+    public static string GetRuntimeChannel() => RuntimeInformation.ProcessArchitecture switch
+    {
+        Architecture.X64 => "win-x64",
+        Architecture.X86 => "win-x86",
+        Architecture.Arm64 => "win-arm64",
+        _ => "win-x64"
+    };
+
     public static async Task<UpdateCheckResult> CheckForUpdatesAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
         if (!forceRefresh)
@@ -162,13 +170,7 @@ public static class UpdateService
         if (assets is not { Count: > 0 })
             return null;
 
-        string arch = RuntimeInformation.ProcessArchitecture switch
-        {
-            Architecture.X64 => "win-x64",
-            Architecture.X86 => "win-x86",
-            Architecture.Arm64 => "win-arm64",
-            _ => "win-x64"
-        };
+        var arch = GetRuntimeChannel();
 
         static bool IsZip(string name) => name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
         static bool IsInstaller(string name) =>
@@ -179,13 +181,13 @@ public static class UpdateService
             name.EndsWith(".appinstaller", StringComparison.OrdinalIgnoreCase);
 
         return assets.FirstOrDefault(asset =>
-                   IsZip(asset.Name) &&
-                   asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
-               ?? assets.FirstOrDefault(asset => IsZip(asset.Name))
-               ?? assets.FirstOrDefault(asset =>
                    IsInstaller(asset.Name) &&
                    asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
-               ?? assets.FirstOrDefault(asset => IsInstaller(asset.Name));
+               ?? assets.FirstOrDefault(asset =>
+                   IsZip(asset.Name) &&
+                   asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase))
+               ?? assets.FirstOrDefault(asset => IsInstaller(asset.Name))
+               ?? assets.FirstOrDefault(asset => IsZip(asset.Name));
     }
 
     private sealed class GitHubRelease
